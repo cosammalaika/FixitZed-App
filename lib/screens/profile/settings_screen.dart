@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/app_theme.dart';
+import '../../core/settings.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,13 +15,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const _kPush = 'settings_push_notifications';
   static const _kEmail = 'settings_email_notifications';
   static const _kDark = 'settings_dark_mode';
-  static const _kBiometric = 'settings_biometric_login';
   static const _kLanguage = 'settings_language';
 
   bool pushOn = true;
   bool emailOn = true;
   bool darkOn = false;
-  bool biometricOn = false;
   String language = 'English';
   bool _loading = true;
 
@@ -35,7 +35,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       pushOn = prefs.getBool(_kPush) ?? true;
       emailOn = prefs.getBool(_kEmail) ?? true;
       darkOn = prefs.getBool(_kDark) ?? false;
-      biometricOn = prefs.getBool(_kBiometric) ?? false;
       language = prefs.getString(_kLanguage) ?? 'English';
       _loading = false;
     });
@@ -52,22 +51,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _sectionTitle(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Text(text, style: GoogleFonts.urbanist(fontWeight: FontWeight.w800, fontSize: 14, color: Colors.black54)),
-      );
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+    child: Text(
+      text,
+      style: GoogleFonts.urbanist(
+        fontWeight: FontWeight.w800,
+        fontSize: 14,
+        color: Colors.black54,
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     const brand = Color(0xFFF1592A);
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
-        title: Text('Settings', style: GoogleFonts.urbanist(color: Colors.black, fontWeight: FontWeight.w700)),
+        title: Text(
+          'Settings',
+          style: GoogleFonts.urbanist(
+            color: Theme.of(context).colorScheme.onBackground,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         centerTitle: true,
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -75,8 +87,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _sectionTitle('General'),
                 ListTile(
                   title: Text('Language', style: GoogleFonts.urbanist()),
-                  subtitle: Text(language, style: GoogleFonts.urbanist(color: Colors.black54)),
-                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.black26),
+                  subtitle: Text(
+                    language,
+                    style: GoogleFonts.urbanist(color: Colors.black54),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.black26,
+                  ),
                   onTap: () async {
                     final choice = await showModalBottomSheet<String>(
                       context: context,
@@ -106,10 +124,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (v) {
                     setState(() => pushOn = v);
                     _saveBool(_kPush, v);
+                    AppSettings.setPushEnabled(v);
                   },
                   activeColor: brand,
-                  title: Text('Push Notifications', style: GoogleFonts.urbanist()),
-                  subtitle: Text('Receive in-app updates and alerts', style: GoogleFonts.urbanist(color: Colors.black54)),
+                  title: Text(
+                    'Push Notifications',
+                    style: GoogleFonts.urbanist(),
+                  ),
+                  subtitle: Text(
+                    'Receive in-app updates and alerts',
+                    style: GoogleFonts.urbanist(color: Colors.black54),
+                  ),
                 ),
                 SwitchListTile(
                   value: emailOn,
@@ -118,8 +143,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _saveBool(_kEmail, v);
                   },
                   activeColor: brand,
-                  title: Text('Email Notifications', style: GoogleFonts.urbanist()),
-                  subtitle: Text('Get booking and promo emails', style: GoogleFonts.urbanist(color: Colors.black54)),
+                  title: Text(
+                    'Email Notifications',
+                    style: GoogleFonts.urbanist(),
+                  ),
+                  subtitle: Text(
+                    'Get booking and promo emails',
+                    style: GoogleFonts.urbanist(color: Colors.black54),
+                  ),
                 ),
 
                 _sectionTitle('Appearance'),
@@ -128,39 +159,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (v) {
                     setState(() => darkOn = v);
                     _saveBool(_kDark, v);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Theme preference saved')), // hook into app theme if needed
-                    );
+                    AppTheme.setDark(v);
                   },
                   activeColor: brand,
                   title: Text('Dark Mode', style: GoogleFonts.urbanist()),
-                  subtitle: Text('Reduce eye strain at night', style: GoogleFonts.urbanist(color: Colors.black54)),
+                  subtitle: Text(
+                    'Reduce eye strain at night',
+                    style: GoogleFonts.urbanist(
+                      color: Theme.of(context).hintColor,
+                    ),
+                  ),
                 ),
-
-                _sectionTitle('Security'),
-                SwitchListTile(
-                  value: biometricOn,
-                  onChanged: (v) {
-                    setState(() => biometricOn = v);
-                    _saveBool(_kBiometric, v);
-                  },
-                  activeColor: brand,
-                  title: Text('Biometric Login', style: GoogleFonts.urbanist()),
-                  subtitle: Text('Use fingerprint or face to sign in', style: GoogleFonts.urbanist(color: Colors.black54)),
-                ),
-                ListTile(
-                  title: Text('Change Password', style: GoogleFonts.urbanist()),
-                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.black26),
-                  onTap: () {
-                    // Route to password update screen if available
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password update coming soon')));
-                  },
-                ),
-
                 const SizedBox(height: 12),
               ],
             ),
     );
   }
 }
-

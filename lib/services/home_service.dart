@@ -57,6 +57,18 @@ class HomeService {
     return [];
   }
 
+  Future<List<dynamic>> fetchFixers() async {
+    try {
+      final res = await http.get(_uri('fixers'), headers: _headers());
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data is List) return data;
+        if (data is Map && data['data'] is List) return data['data'] as List;
+      }
+    } catch (_) {}
+    return [];
+  }
+
   /// Best-effort: if your API exposes a list endpoint e.g. GET /coupons
   /// or returns a featured coupon from /coupons?active=1, we try both.
   Future<Map<String, dynamic>?> fetchFeaturedCoupon() async {

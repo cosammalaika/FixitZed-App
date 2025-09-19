@@ -8,14 +8,13 @@ class MyBookingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-        title: Text('My Booking', style: GoogleFonts.urbanist(color: Colors.black, fontWeight: FontWeight.w700)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onBackground),
+        title: Text('My Booking', style: GoogleFonts.urbanist(color: Theme.of(context).colorScheme.onBackground, fontWeight: FontWeight.w700)),
         centerTitle: true,
       ),
       body: const Center(child: Text('Your bookings list here')),
     );
   }
 }
-

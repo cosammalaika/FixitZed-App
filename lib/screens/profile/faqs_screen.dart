@@ -31,13 +31,13 @@ class FaqsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onBackground),
         centerTitle: true,
-        title: Text('FAQs', style: GoogleFonts.urbanist(color: Colors.black, fontWeight: FontWeight.w700)),
+        title: Text('FAQs', style: GoogleFonts.urbanist(color: Theme.of(context).colorScheme.onBackground, fontWeight: FontWeight.w700)),
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         itemCount: faqs.length,
@@ -58,7 +58,7 @@ class FaqsScreen extends StatelessWidget {
                 children: [
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(item['a']!, style: GoogleFonts.urbanist(color: Colors.black54, height: 1.25)),
+                    child: Text(item['a']!, style: GoogleFonts.urbanist(color: Theme.of(context).hintColor, height: 1.25)),
                   )
                 ],
               ),
@@ -69,4 +69,3 @@ class FaqsScreen extends StatelessWidget {
     );
   }
 }
-

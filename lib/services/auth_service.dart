@@ -40,6 +40,18 @@ class AuthService {
     );
   }
 
+  Future<http.Response> _putJson(
+    String path,
+    Map<String, dynamic> body, {
+    String? token,
+  }) {
+    return http.put(
+      _uri(path),
+      headers: _headers(token: token),
+      body: jsonEncode(body),
+    );
+  }
+
   Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
@@ -63,12 +75,25 @@ class AuthService {
         'password': password,
       });
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body) as Map<String, dynamic>;
-        final token = (data['token'] ?? '') as String;
-        if (token.isEmpty) return false;
-        await _saveToken(token);
-        return true;
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = jsonDecode(res.body);
+        String? token;
+        if (data is Map<String, dynamic>) {
+          // Common token shapes across Laravel stacks
+          token = (data['token'] ?? data['access_token'])?.toString();
+          if ((token == null || token.isEmpty) && data['data'] is Map) {
+            final d = data['data'] as Map;
+            token = (d['token'] ?? d['access_token'])?.toString();
+          }
+          if ((token == null || token.isEmpty) && data['authorisation'] is Map) {
+            final a = data['authorisation'] as Map;
+            token = (a['token'] ?? a['access_token'])?.toString();
+          }
+        }
+        if (token != null && token.isNotEmpty) {
+          await _saveToken(token);
+          return true;
+        }
       }
       return false;
     } catch (_) {
@@ -157,6 +182,42 @@ class AuthService {
       // Fallback: some backends use /profile
       final res2 = await _patchJson('profile', body, token: token);
       return res2.statusCode >= 200 && res2.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Changes the authenticated user's password. Tries common API shapes.
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final token = await _getToken();
+      final commonBody = <String, dynamic>{
+        'current_password': currentPassword,
+        'password': newPassword,
+        'password_confirmation': newPassword,
+      };
+
+      // Try typical endpoints (Laravel/Sanctum/Jetstream-style)
+      final attempts = <Future<http.Response>>[
+        _postJson('password', commonBody, token: token),
+        _postJson('change-password', commonBody, token: token),
+        _patchJson('me/password', commonBody, token: token),
+        _putJson('me/password', commonBody, token: token),
+        _patchJson('profile/password', commonBody, token: token),
+      ];
+
+      for (final fut in attempts) {
+        try {
+          final res = await fut;
+          if (res.statusCode >= 200 && res.statusCode < 300) return true;
+        } catch (_) {
+          // ignore and try next
+        }
+      }
+      return false;
     } catch (_) {
       return false;
     }

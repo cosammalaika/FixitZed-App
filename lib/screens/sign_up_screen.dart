@@ -1,6 +1,7 @@
 import 'package:fixitzed_app/screens/sign_in_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 
@@ -19,7 +20,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   final firstNameCtrl = TextEditingController();
   final lastNameCtrl = TextEditingController();
-  final usernameCtrl = TextEditingController(); 
+  final usernameCtrl = TextEditingController();
   final emailCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
   final addressCtrl = TextEditingController();
@@ -92,10 +93,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: Colors.grey.shade100,
+      fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.18),
+      labelStyle: TextStyle(color: Theme.of(context).hintColor),
+      hintStyle: TextStyle(color: Theme.of(context).hintColor),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+      ),
+      focusedBorder: const OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: Color(0xFFF1592A), width: 1.2),
       ),
       suffixIcon: suffix,
     );
@@ -117,213 +128,356 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, _) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
-                autovalidateMode:
-                    _submitted ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: Image.asset(
-                        "assets/images/logo-sm.png",
-                        height: 60,
-                      ),
+    final brand = const Color(0xFFF1592A);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: SafeArea(
+          top: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                children: [
+                  Container(
+                    height: constraints.maxHeight * 0.36,
+                    decoration: BoxDecoration(color: Colors.grey.shade900),
+                  ),
+                  Positioned(
+                    top: 12,
+                    right: 16,
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      height: 150,
+                      fit: BoxFit.contain,
                     ),
-                    const SizedBox(height: 30),
-
-                    Text(
-                      "Create Account",
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.urbanist(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-
-                    _row2(
-                      context,
-                      TextFormField(
-                        controller: firstNameCtrl,
-                        textInputAction: TextInputAction.next,
-                        decoration: _dec("First Name"),
-                        validator: (v) => v == null || v.trim().isEmpty
-                            ? 'First name is required'
-                            : null,
-                      ),
-                      TextFormField(
-                        controller: lastNameCtrl,
-                        textInputAction: TextInputAction.next,
-                        decoration: _dec("Last Name"),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    _row2(
-                      context,
-                      TextFormField(
-                        controller: usernameCtrl,
-                        textInputAction: TextInputAction.next,
-                        decoration: _dec("Username (optional)"),
-                      ),
-                      TextFormField(
-                        controller: emailCtrl,
-                        textInputAction: TextInputAction.next,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: _dec("Email"),
-                        validator: (v) {
-                          final s = (v ?? '').trim();
-                          if (s.isEmpty) return 'Email is required';
-                          final ok = RegExp(
-                            r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$',
-                          ).hasMatch(s);
-                          return ok ? null : 'Enter a valid email';
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    _row2(
-                      context,
-                      TextFormField(
-                        controller: phoneCtrl,
-                        textInputAction: TextInputAction.next,
-                        keyboardType: TextInputType.phone,
-                        decoration: _dec("Contact Number"),
-                        validator: (v) => (v ?? '').trim().isEmpty
-                            ? 'Contact number is required'
-                            : null,
-                      ),
-                      TextFormField(
-                        controller: addressCtrl,
-                        textInputAction: TextInputAction.next,
-                        decoration: _dec("Address (optional)"),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    _row2(
-                      context,
-                      TextFormField(
-                        controller: passCtrl,
-                        obscureText: !_pwVisible,
-                        textInputAction: TextInputAction.next,
-                        decoration: _dec(
-                          "Password",
-                          suffix: IconButton(
-                            icon: Icon(
-                              _pwVisible
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: _loading
-                                ? null
-                                : () =>
-                                      setState(() => _pwVisible = !_pwVisible),
-                          ),
-                        ),
-                        validator: (v) {
-                          final s = v ?? '';
-                          if (s.isEmpty) return 'Password is required';
-                          if (s.length < 8) return 'Minimum 8 characters';
-                          return null;
-                        },
-                      ),
-                      TextFormField(
-                        controller: confirmPassCtrl,
-                        obscureText: !_cpwVisible,
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => handleSignUp(),
-                        decoration: _dec(
-                          "Confirm Password",
-                          suffix: IconButton(
-                            icon: Icon(
-                              _cpwVisible
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: _loading
-                                ? null
-                                : () => setState(
-                                    () => _cpwVisible = !_cpwVisible,
-                                  ),
-                          ),
-                        ),
-                        validator: (v) => v != passCtrl.text
-                            ? 'Passwords do not match'
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-
-                    ElevatedButton(
-                      onPressed: _loading ? null : handleSignUp,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: _loading
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(
-                              "Sign Up",
-                              style: GoogleFonts.urbanist(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  ),
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "Already have an account? ",
-                          style: GoogleFonts.urbanist(),
+                        SizedBox(
+                          height: 10 + MediaQuery.of(context).padding.top,
                         ),
-                        GestureDetector(
-                          onTap: _loading
-                              ? null
-                              : () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const SignInScreen(),
+                        Text(
+                          'Create your account',
+                          style: GoogleFonts.urbanist(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Container(
+                          margin: const EdgeInsets.only(top: 15),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).cardColor,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Form(
+                            key: _formKey,
+                            autovalidateMode: _submitted
+                                ? AutovalidateMode.onUserInteraction
+                                : AutovalidateMode.disabled,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Inputs
+                                _row2(
+                                  context,
+                                  TextFormField(
+                                    controller: firstNameCtrl,
+                                    textInputAction: TextInputAction.next,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                      fontSize: 14,
                                     ),
-                                  );
-                                },
-                          child: Text(
-                            "Sign In",
-                            style: GoogleFonts.urbanist(
-                              color: orange,
-                              fontWeight: FontWeight.w600,
+                                    cursorColor: brand,
+                                    decoration: _dec('First Name'),
+                                    validator: (v) =>
+                                        v == null || v.trim().isEmpty
+                                        ? 'First name is required'
+                                        : null,
+                                  ),
+                                  TextFormField(
+                                    controller: lastNameCtrl,
+                                    textInputAction: TextInputAction.next,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                      fontSize: 14,
+                                    ),
+                                    cursorColor: brand,
+                                    decoration: _dec('Last Name'),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: emailCtrl,
+                                  textInputAction: TextInputAction.next,
+                                  keyboardType: TextInputType.emailAddress,
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                    fontSize: 14,
+                                  ),
+                                  cursorColor: brand,
+                                  decoration: _dec('Email Address'),
+                                  validator: (v) {
+                                    final s = (v ?? '').trim();
+                                    if (s.isEmpty) return 'Email is required';
+                                    final ok = RegExp(
+                                      r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$',
+                                    ).hasMatch(s);
+                                    return ok ? null : 'Enter a valid email';
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: passCtrl,
+                                  obscureText: !_pwVisible,
+                                  textInputAction: TextInputAction.next,
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                    fontSize: 14,
+                                  ),
+                                  cursorColor: brand,
+                                  decoration: _dec(
+                                    'Password',
+                                    suffix: IconButton(
+                                      icon: Icon(
+                                        _pwVisible
+                                            ? Icons.visibility
+                                            : Icons.visibility_off,
+                                      ),
+                                      onPressed: _loading
+                                          ? null
+                                          : () => setState(
+                                              () => _pwVisible = !_pwVisible,
+                                            ),
+                                    ),
+                                  ),
+                                  validator: (v) {
+                                    final s = v ?? '';
+                                    if (s.isEmpty)
+                                      return 'Password is required';
+                                    if (s.length < 8)
+                                      return 'Minimum 8 characters';
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: confirmPassCtrl,
+                                  obscureText: !_cpwVisible,
+                                  textInputAction: TextInputAction.next,
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                    fontSize: 14,
+                                  ),
+                                  cursorColor: brand,
+                                  decoration: _dec(
+                                    'Confirm Password',
+                                    suffix: IconButton(
+                                      icon: Icon(
+                                        _cpwVisible
+                                            ? Icons.visibility
+                                            : Icons.visibility_off,
+                                      ),
+                                      onPressed: _loading
+                                          ? null
+                                          : () => setState(
+                                              () => _cpwVisible = !_cpwVisible,
+                                            ),
+                                    ),
+                                  ),
+                                  validator: (v) => v != passCtrl.text
+                                      ? 'Passwords do not match'
+                                      : null,
+                                ),
+                                const SizedBox(height: 12),
+                                _row2(
+                                  context,
+                                  TextFormField(
+                                    controller: phoneCtrl,
+                                    textInputAction: TextInputAction.next,
+                                    keyboardType: TextInputType.phone,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                      fontSize: 14,
+                                    ),
+                                    cursorColor: brand,
+                                    decoration: _dec('Contact Number'),
+                                    validator: (v) => (v ?? '').trim().isEmpty
+                                        ? 'Contact number is required'
+                                        : null,
+                                  ),
+                                  TextFormField(
+                                    controller: addressCtrl,
+                                    textInputAction: TextInputAction.next,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                      fontSize: 14,
+                                    ),
+                                    cursorColor: brand,
+                                    decoration: _dec('Address (optional)'),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                // Remember + forgot row
+                                Row(
+                                  children: [
+                                    Checkbox(value: false, onChanged: (_) {}),
+                                    Text(
+                                      'Remember me',
+                                      style: GoogleFonts.urbanist(),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      'Forgot Password ?',
+                                      style: GoogleFonts.urbanist(
+                                        color: brand,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                // CTA
+                                ElevatedButton(
+                                  onPressed: _loading ? null : handleSignUp,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: brand,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                  ),
+                                  child: _loading
+                                      ? const SizedBox(
+                                          height: 22,
+                                          width: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Text('Sign Up'),
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Divider(
+                                        color: Theme.of(context).dividerColor,
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      child: Text(
+                                        'Or login with',
+                                        style: GoogleFonts.urbanist(
+                                          color: Theme.of(context).hintColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Divider(
+                                        color: Theme.of(context).dividerColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: const [
+                                    CircleAvatar(
+                                      backgroundColor: Colors.white,
+                                      child: Icon(
+                                        Icons.facebook,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                    SizedBox(width: 16),
+                                    CircleAvatar(
+                                      backgroundColor: Colors.white,
+                                      child: Icon(
+                                        Icons.g_mobiledata,
+                                        color: Colors.red,
+                                        size: 28,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Already have an account ? ',
+                                      style: GoogleFonts.urbanist(
+                                        color: Theme.of(context).hintColor,
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: _loading
+                                          ? null
+                                          : () => Navigator.pushReplacement(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const SignInScreen(),
+                                              ),
+                                            ),
+                                      child: Text(
+                                        'Login',
+                                        style: GoogleFonts.urbanist(
+                                          color: brand,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            );
-          },
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

@@ -9,7 +9,7 @@ class BecomeFixerScreen extends StatelessWidget {
     const brand = Color(0xFFF1592A);
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         title: Text('Become a Fixer', style: GoogleFonts.urbanist(color: Colors.black, fontWeight: FontWeight.w700)),
@@ -42,4 +42,3 @@ class BecomeFixerScreen extends StatelessWidget {
     );
   }
 }
-

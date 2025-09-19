@@ -141,7 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: Colors.black26),
+            Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor),
           ],
         ),
       ),
@@ -151,9 +151,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: Navigator.of(context).canPop()
             ? IconButton(
@@ -207,7 +207,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             Text(
                               email,
                               style: GoogleFonts.urbanist(
-                                color: Colors.black45,
+                                color: Theme.of(context).hintColor,
                               ),
                             ),
                           ],
@@ -216,7 +216,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Divider(color: Colors.black12, height: 24),
+                  Divider(color: Theme.of(context).dividerColor, height: 24),
 
                   _menuItem(
                     Icons.edit_rounded,

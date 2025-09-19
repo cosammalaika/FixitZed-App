@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -39,7 +40,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final mq = MediaQuery.of(context);
     final targetWidthPx = (mq.size.width * mq.devicePixelRatio).round();
     for (var item in onboardingData) {
-      final provider = ResizeImage(AssetImage(item["image"]!), width: targetWidthPx);
+      final provider = ResizeImage(
+        AssetImage(item["image"]!),
+        width: targetWidthPx,
+      );
       precacheImage(provider, context);
     }
   }
@@ -57,149 +61,162 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: PageView.builder(
-        controller: _controller,
-        itemCount: onboardingData.length,
-        onPageChanged: (index) {
-          setState(() => currentPage = index);
-        },
-        itemBuilder: (context, index) {
-          final item = onboardingData[index];
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Top image + fade + logo
-              Stack(
-                children: [
-                  ShaderMask(
-                    shaderCallback: (Rect bounds) {
-                      return const LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [Colors.transparent, Colors.white],
-                        stops: [0.1, 0.9], // small fade near bottom
-                      ).createShader(bounds);
-                    },
-                    blendMode: BlendMode.dstIn,
-                  child: Builder(builder: (context) {
-                    final mq = MediaQuery.of(context);
-                    final targetWidthPx = (mq.size.width * mq.devicePixelRatio).round();
-                    return Image(
-                      image: ResizeImage(AssetImage(item["image"]!), width: targetWidthPx),
-                      height: mq.size.height * 0.55,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.low,
-                      gaplessPlayback: true,
-                    );
-                  }),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light, // Android: white icons
+        statusBarBrightness: Brightness.dark, // iOS: white icons
+      ),
+      child: Scaffold(
+        backgroundColor: Color(0xFF212121),
+        body: PageView.builder(
+          controller: _controller,
+          itemCount: onboardingData.length,
+          onPageChanged: (index) {
+            setState(() => currentPage = index);
+          },
+          itemBuilder: (context, index) {
+            final item = onboardingData[index];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Top image + fade + logo
+                Stack(
+                  children: [
+                    ShaderMask(
+                      shaderCallback: (Rect bounds) {
+                        return const LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [Colors.transparent, Color(0xFF212121)],
+                          stops: [0.1, 0.9], // small fade near bottom
+                        ).createShader(bounds);
+                      },
+                      blendMode: BlendMode.dstIn,
+                      child: Builder(
+                        builder: (context) {
+                          final mq = MediaQuery.of(context);
+                          final targetWidthPx =
+                              (mq.size.width * mq.devicePixelRatio).round();
+                          return Image(
+                            image: ResizeImage(
+                              AssetImage(item["image"]!),
+                              width: targetWidthPx,
+                            ),
+                            height: mq.size.height * 0.55,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.low,
+                            gaplessPlayback: true,
+                          );
+                        },
+                      ),
+                    ),
+                    Positioned(
+                      top: 20, // move down from status bar
+                      right: 20,
+                      child: Image.asset(
+                        "assets/images/logo.png", // ✅ your logo here
+                        height: 180,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ],
                 ),
-                  Positioned(
-                    top: 20, // move down from status bar
-                    right: 20,
-                    child: Image.asset(
-                      "assets/images/logo.png", // ✅ your logo here
-                      height: 180,
-                      fit: BoxFit.contain,
+
+                // Text + Controls
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      children: [
+                        const Spacer(flex: 1),
+
+                        Column(
+                          children: [
+                            Text(
+                              item["title"]!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFFFFFFF),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              item["body"]!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Color(0xFFFFFFFF),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const Spacer(flex: 2),
+
+                        // Dots + Button
+                        Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                onboardingData.length,
+                                (dotIndex) => AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  width: currentPage == dotIndex ? 20 : 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: currentPage == dotIndex
+                                        ? const Color(0xFFF1592A)
+                                        : const Color(0xFFDEDEDE),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: nextPage,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFF1592A),
+                                  foregroundColor: Color(0xFFFFFFFF),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                ),
+                                child: Text(
+                                  index == onboardingData.length - 1
+                                      ? "Get Started"
+                                      : "Next",
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-
-              // Text + Controls
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    children: [
-                      const Spacer(flex: 1),
-
-                      Column(
-                        children: [
-                          Text(
-                            item["title"]!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            item["body"]!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const Spacer(flex: 2),
-
-                      // Dots + Button
-                      Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(
-                              onboardingData.length,
-                              (dotIndex) => AnimatedContainer(
-                                duration: const Duration(milliseconds: 300),
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                width: currentPage == dotIndex ? 20 : 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: currentPage == dotIndex
-                                      ? const Color(0xFFF1592A)
-                                      : Colors.grey.shade400,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: nextPage,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFF1592A),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                              ),
-                              child: Text(
-                                index == onboardingData.length - 1
-                                    ? "Get Started"
-                                    : "Next",
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
-                    ],
-                  ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/home_service.dart';
 import '../core/api.dart';
 import 'profile_screen.dart';
 import '../services/notification_service.dart';
+import '../services/favorites_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -28,11 +31,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _coupon; // first/featured
   List<Map<String, dynamic>> _coupons = const [];
   bool _hasUnread = false;
+  Timer? _carouselTimer;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    // Ensure white status bar icons on main screen
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+    );
   }
 
   Future<void> _loadData() async {
@@ -116,13 +127,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
           break;
         }
       }
-      _hasUnread = anyUnread || notifs.isNotEmpty;
+      // Show badge only when there are truly unread notifications
+      _hasUnread = anyUnread;
       _loading = false;
+    });
+    _startAutoCarousel();
+  }
+
+  void _startAutoCarousel() {
+    _carouselTimer?.cancel();
+    final count = _coupons.isEmpty ? 3 : _coupons.length;
+    if (count <= 1) return;
+    _carouselTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      final next = (_page + 1) % count;
+      _pageCtrl.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+      setState(() => _page = next);
     });
   }
 
   @override
   void dispose() {
+    _carouselTimer?.cancel();
     _pageCtrl.dispose();
     super.dispose();
   }
@@ -201,16 +231,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _search() {
+    final theme = Theme.of(context);
     return TextField(
+      style: TextStyle(color: theme.colorScheme.onSurface),
+      cursorColor: const Color(0xFFF1592A),
       decoration: InputDecoration(
         hintText: 'Search...',
+        hintStyle: TextStyle(color: theme.hintColor),
         filled: true,
-        fillColor: Colors.grey.shade100,
-        prefixIcon: const Icon(Icons.search),
-        suffixIcon: const Icon(Icons.tune_rounded),
-        border: OutlineInputBorder(
-          borderSide: BorderSide.none,
+        fillColor: theme.cardColor,
+        prefixIcon: Icon(Icons.search, color: theme.hintColor),
+        suffixIcon: Icon(Icons.tune_rounded, color: theme.hintColor),
+        enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: theme.dividerColor),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+          borderSide: BorderSide(color: Color(0xFFF1592A), width: 1.2),
         ),
       ),
     );
@@ -298,7 +336,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onPageChanged: (i) => setState(() => _page = i),
             children: () {
               if (_coupons.isEmpty) {
-                return [_offerCard(const Color(0xFFF1592A))];
+                return [
+                  _offerCard(const Color(0xFFF1592A)),
+                  _offerCard(const Color(0xFFFA7A50)),
+                  _offerCard(const Color(0xFFE65100)),
+                ];
               }
               final palette = [
                 const Color(0xFFF1592A),
@@ -316,7 +358,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate((_coupons.isEmpty ? 1 : _coupons.length), (
+          children: List.generate((_coupons.isEmpty ? 3 : _coupons.length), (
             i,
           ) {
             final active = i == _page;
@@ -390,7 +432,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _popularCard(String title, String asset) {
+  Widget _popularCard(String id, String title, String asset) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
@@ -401,15 +443,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: asset.isNotEmpty
-                ? Image(
-                    image: asset.startsWith('http')
-                        ? NetworkImage(asset) as ImageProvider
-                        : AssetImage(asset),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                  )
-                : Container(color: Colors.grey.shade300),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: asset.isNotEmpty
+                      ? Image(
+                          image: asset.startsWith('http')
+                              ? NetworkImage(asset) as ImageProvider
+                              : AssetImage(asset),
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        )
+                      : Container(color: Colors.grey.shade300),
+                ),
+                Positioned(right: 8, top: 8, child: _favoriteButton(id)),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(12.0),
@@ -420,6 +469,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _favoriteButton(String keyId) {
+    // keyId used as a stable key for demo; ideally use service id
+    return FutureBuilder<bool>(
+      future: FavoritesService.isFavorite(keyId),
+      builder: (ctx, snap) {
+        final liked = snap.data == true;
+        return InkWell(
+          onTap: () async {
+            await FavoritesService.toggle(keyId);
+            if (!mounted) return;
+            setState(() {});
+          },
+          child: CircleAvatar(
+            radius: 16,
+            backgroundColor: Colors.white,
+            child: Icon(
+              liked ? Icons.favorite : Icons.favorite_border,
+              color: liked ? Colors.red : Colors.grey,
+              size: 18,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -438,11 +513,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-            Text(
-              'View All',
-              style: GoogleFonts.urbanist(
-                color: Color(0xFFF1592A),
-                fontWeight: FontWeight.w600,
+            GestureDetector(
+              onTap: () => Navigator.of(context).pushNamed('/services'),
+              child: Text(
+                'View All',
+                style: GoogleFonts.urbanist(
+                  color: const Color(0xFFF1592A),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -454,26 +532,143 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: () {
               if (_services.isEmpty) {
                 return [
-                  Expanded(child: _popularCard('House Cleaning', '')),
+                  Expanded(
+                    child: _popularCard('demo-house', 'House Cleaning', ''),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: _popularCard('Handyman', '')),
+                  Expanded(
+                    child: _popularCard('demo-handyman', 'Handyman', ''),
+                  ),
                 ];
               }
               final items = <Widget>[];
               for (var i = 0; i < 2 && i < _services.length; i++) {
                 final s = _services[i] as Map;
+                final id = (s['id'] ?? s['uuid'] ?? '$i').toString();
                 final title = (s['name'] ?? s['title'] ?? 'Service').toString();
                 final img = (s['image'] ?? s['image_url'] ?? '').toString();
                 if (items.isNotEmpty) items.add(const SizedBox(width: 12));
-                items.add(Expanded(child: _popularCard(title, img)));
+                items.add(Expanded(child: _popularCard(id, title, img)));
               }
               if (items.length == 1) {
                 items
                   ..add(const SizedBox(width: 12))
-                  ..add(Expanded(child: _popularCard('More Services', '')));
+                  ..add(
+                    Expanded(
+                      child: _popularCard('demo-more', 'More Services', ''),
+                    ),
+                  );
               }
               return items;
             }(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _topFixers() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Top Fixers Rated',
+                style: GoogleFonts.urbanist(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: () => Navigator.of(context).pushNamed('/fixers'),
+              child: Text(
+                'View All',
+                style: GoogleFonts.urbanist(
+                  color: const Color(0xFFF1592A),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 72,
+          child: FutureBuilder<List<dynamic>>(
+            future: _svc.fetchFixers(),
+            builder: (ctx, snap) {
+              final items = (snap.data ?? const []);
+              if (items.isEmpty) {
+                return const Center(child: Text('No fixers yet'));
+              }
+              return ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: items.length.clamp(0, 10),
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (ctx, i) {
+                  final f = items[i] as Map;
+                  final name =
+                      (f['name'] ?? f['full_name'] ?? f['username'] ?? 'Fixer')
+                          .toString();
+                  final avatar =
+                      (f['avatar'] ?? f['photo'] ?? f['image_url'] ?? '')
+                          .toString();
+                  final ratingRaw =
+                      f['rating'] ?? f['avg_rating'] ?? f['average_rating'];
+                  final rating = ratingRaw == null
+                      ? null
+                      : double.tryParse(ratingRaw.toString());
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        backgroundImage: avatar.isNotEmpty
+                            ? NetworkImage(avatar)
+                            : null,
+                        child: avatar.isEmpty ? const Icon(Icons.person) : null,
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(name, style: GoogleFonts.urbanist()),
+                          if (rating != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    color: Colors.amber,
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    rating.toStringAsFixed(1),
+                                    style: GoogleFonts.urbanist(fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
         ),
       ],
@@ -580,31 +775,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      bottomNavigationBar: _bottomNav(),
-      body: SafeArea(
-        child: _tabIndex == 4
-            ? const ProfileScreen()
-            : (_loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _greeting(),
-                          const SizedBox(height: 16),
-                          _search(),
-                          const SizedBox(height: 20),
-                          _offersCarousel(),
-                          const SizedBox(height: 20),
-                          _categories(),
-                          const SizedBox(height: 20),
-                          _popular(),
-                        ],
-                      ),
-                    )),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarIconBrightness: Brightness.dark, // Android
+        statusBarBrightness: Brightness.light, // iOS
+      ),
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        bottomNavigationBar: _bottomNav(),
+        body: Builder(
+          builder: (context) {
+            final topPad = MediaQuery.of(context).padding.top;
+            return Stack(
+              children: [
+                // Dark strip behind status bar so white icons are visible
+                SafeArea(
+                  child: _tabIndex == 4
+                      ? const ProfileScreen()
+                      : (_loading
+                            ? const Center(child: CircularProgressIndicator())
+                            : SingleChildScrollView(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  16,
+                                  20,
+                                  24,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _greeting(),
+                                    const SizedBox(height: 16),
+                                    _search(),
+                                    const SizedBox(height: 20),
+                                    _offersCarousel(),
+                                    const SizedBox(height: 20),
+                                    _categories(),
+                                    const SizedBox(height: 20),
+                                    _popular(),
+                                    const SizedBox(height: 20),
+                                    _topFixers(),
+                                  ],
+                                ),
+                              )),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
