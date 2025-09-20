@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../core/api.dart';
+import '../core/fixer_utils.dart';
 import '../services/home_service.dart';
 
 class FixersListScreen extends StatefulWidget {
@@ -21,12 +24,51 @@ class _FixersListScreenState extends State<FixersListScreen> {
   }
 
   Future<void> _load() async {
-    final data = await _svc.fetchFixers();
+    final data = await _svc.fetchAllFixers();
     if (!mounted) return;
     setState(() {
       _fixers = data;
       _loading = false;
     });
+  }
+
+  String _skillsOf(Map f) {
+    // Try several common shapes: string, list of strings, list of maps with name/title
+    final candidates = [
+      f['skills'],
+      f['skill_names'],
+      f['expertise'],
+      f['tags'],
+      f['categories'],
+      f['services'],
+    ];
+    for (final c in candidates) {
+      if (c == null) continue;
+      if (c is String) {
+        final s = c.trim();
+        if (s.isNotEmpty) return s;
+      } else if (c is List) {
+        // Convert list elements to names
+        final names = <String>[];
+        for (final e in c) {
+          if (e == null) continue;
+          if (e is String) {
+            final s = e.trim();
+            if (s.isNotEmpty) names.add(s);
+          } else if (e is Map) {
+            final n = (e['name'] ?? e['title'] ?? e['service_name'] ?? '')
+                .toString()
+                .trim();
+            if (n.isNotEmpty) names.add(n);
+          }
+        }
+        if (names.isNotEmpty) {
+          // Show up to 3 for compact display
+          return names.take(3).join(', ');
+        }
+      }
+    }
+    return '';
   }
 
   @override
@@ -35,8 +77,16 @@ class _FixersListScreenState extends State<FixersListScreen> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onBackground),
-        title: Text('Fixers', style: GoogleFonts.urbanist(color: Theme.of(context).colorScheme.onBackground, fontWeight: FontWeight.w700)),
+        iconTheme: IconThemeData(
+          color: Theme.of(context).colorScheme.onBackground,
+        ),
+        title: Text(
+          'Fixers',
+          style: GoogleFonts.urbanist(
+            color: Theme.of(context).colorScheme.onBackground,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         centerTitle: true,
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -47,22 +97,39 @@ class _FixersListScreenState extends State<FixersListScreen> {
               itemCount: _fixers.length,
               itemBuilder: (ctx, i) {
                 final f = _fixers[i] as Map;
-                final name = (f['name'] ?? f['full_name'] ?? f['username'] ?? 'Fixer').toString();
-                final avatar = (f['avatar'] ?? f['photo'] ?? f['image_url'] ?? '').toString();
-                final skills = (f['skills'] ?? f['services'] ?? '').toString();
-                final ratingRaw = f['rating'] ?? f['avg_rating'] ?? f['average_rating'];
-                final rating = ratingRaw == null ? null : double.tryParse(ratingRaw.toString());
+                final name = fixerDisplayName(f);
+                final avatarRaw =
+                    (f['avatar'] ??
+                            f['photo'] ??
+                            f['image_url'] ??
+                            f['profile_photo_path'] ??
+                            f['profile_image'])
+                        ?.toString();
+                final avatar = Api.resolveImageUrl(avatarRaw);
+                final skills = _skillsOf(f);
+                final ratingRaw =
+                    f['rating'] ?? f['avg_rating'] ?? f['average_rating'];
+                final rating = ratingRaw == null
+                    ? null
+                    : double.tryParse(ratingRaw.toString());
                 return Container(
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF3F5F7),
+                    color: const Color(0xFFF8EEE8),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      CircleAvatar(radius: 26, backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null, child: avatar.isEmpty ? const Icon(Icons.person) : null),
+                      CircleAvatar(
+                        backgroundColor: Color(0xFFF1592A),
+                        radius: 26,
+                        backgroundImage: avatar.isNotEmpty
+                            ? NetworkImage(avatar)
+                            : null,
+                        child: avatar.isEmpty ? const Icon(Icons.person) : null,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -70,24 +137,53 @@ class _FixersListScreenState extends State<FixersListScreen> {
                           children: [
                             Row(
                               children: [
-                                Expanded(child: Text(name, style: GoogleFonts.urbanist(fontWeight: FontWeight.w700))),
+                                Expanded(
+                                  child: Text(
+                                    name,
+                                    style: GoogleFonts.urbanist(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
                                 if (rating != null)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(color: Colors.amber.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
+                                        const Icon(
+                                          Icons.star_rounded,
+                                          color: Colors.amber,
+                                          size: 14,
+                                        ),
                                         const SizedBox(width: 2),
-                                        Text(rating.toStringAsFixed(1), style: GoogleFonts.urbanist(fontSize: 12)),
+                                        Text(
+                                          rating.toStringAsFixed(1),
+                                          style: GoogleFonts.urbanist(
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
                               ],
                             ),
                             if (skills.isNotEmpty)
-                              Text(skills, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.urbanist(color: Colors.black54)),
+                              Text(
+                                skills,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.urbanist(
+                                  color: Colors.black54,
+                                ),
+                              ),
                           ],
                         ),
                       ),
