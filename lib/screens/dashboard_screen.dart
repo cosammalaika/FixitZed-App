@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/home_service.dart';
@@ -133,7 +134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _carouselTimer?.cancel();
     final count = _coupons.isEmpty ? 3 : _coupons.length;
     if (count <= 1) return;
-    _carouselTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _carouselTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       if (!mounted) return;
       final next = (_page + 1) % count;
       _pageCtrl.animateToPage(
@@ -291,7 +292,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _categories() => CategoriesBlock(categories: _categoryList);
 
   Widget _favoriteButton(String keyId) {
-    // keyId used as a stable key for demo; ideally use service id
     return FutureBuilder<bool>(
       future: FavoritesService.isFavorite(keyId),
       builder: (ctx, snap) {
@@ -332,33 +332,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      bottomNavigationBar: _bottomNav(),
-      body: SafeArea(
-        child: _tabIndex == 4
-            ? const ProfileScreen()
-            : (_loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _greeting(),
-                          const SizedBox(height: 16),
-                          _search(),
-                          const SizedBox(height: 20),
-                          _offersCarousel(),
-                          const SizedBox(height: 20),
-                          _categories(),
-                          const SizedBox(height: 20),
-                          _popular(),
-                          const SizedBox(height: 20),
-                          _topFixers(),
-                        ],
-                      ),
-                    )),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark, // Android: white icons
+        statusBarBrightness: Brightness.dark, // iOS: white icons
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        bottomNavigationBar: _bottomNav(),
+        body: SafeArea(
+          child: _tabIndex == 4
+              ? const ProfileScreen()
+              : (_loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _greeting(),
+                            const SizedBox(height: 16),
+                            _search(),
+                            const SizedBox(height: 20),
+                            _offersCarousel(),
+                            const SizedBox(height: 20),
+                            _categories(),
+                            const SizedBox(height: 20),
+                            _popular(),
+                            const SizedBox(height: 20),
+                            _topFixers(),
+                          ],
+                        ),
+                      )),
+        ),
       ),
     );
   }

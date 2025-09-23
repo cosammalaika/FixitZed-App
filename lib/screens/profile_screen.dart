@@ -118,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F5F7),
+          color: const Color(0xFFF8EEE8),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -141,7 +141,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: Theme.of(context).hintColor,
+            ),
           ],
         ),
       ),
