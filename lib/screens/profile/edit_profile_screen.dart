@@ -15,6 +15,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _firstCtrl = TextEditingController();
   final _lastCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  String _initialEmail = '';
   bool _loading = true;
   bool _saving = false;
 
@@ -49,6 +50,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _firstCtrl.text = first;
     _lastCtrl.text = last;
     _emailCtrl.text = (raw['email'] ?? '').toString();
+    _initialEmail = _emailCtrl.text.trim();
     if (mounted) setState(() => _loading = false);
   }
 
@@ -66,10 +68,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _saving = true);
+    final first = _firstCtrl.text.trim();
+    final last = _lastCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
+    final includeEmail = email != _initialEmail;
+
     final ok = await AuthService().updateProfile(
-      firstName: _firstCtrl.text.trim(),
-      lastName: _lastCtrl.text.trim(),
-      email: _emailCtrl.text.trim(),
+      firstName: first,
+      lastName: last,
+      email: includeEmail ? email : null,
     );
     if (!mounted) return;
     setState(() => _saving = false);

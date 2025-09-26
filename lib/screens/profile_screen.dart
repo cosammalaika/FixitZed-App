@@ -224,7 +224,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _menuItem(
                     Icons.edit_rounded,
                     'Edit Profile',
-                    onTap: () => Navigator.pushNamed(context, '/profile/edit'),
+                    onTap: () async {
+                      final res = await Navigator.pushNamed(
+                        context,
+                        '/profile/edit',
+                      );
+                      if (res == true) {
+                        // Reload profile to reflect saved changes
+                        await _load();
+                      }
+                    },
                   ),
                   // _menuItem(
                   //   Icons.location_on_rounded,

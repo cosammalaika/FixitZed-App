@@ -280,26 +280,32 @@ class TopFixersStrip extends StatelessWidget {
               itemBuilder: (ctx, i) {
                 final f = items[i] as Map;
                 final name = fixerDisplayName(f);
-                final avatarRaw =
-                    (f['avatar'] ??
-                            f['photo'] ??
-                            f['image_url'] ??
-                            f['profile_photo_path'] ??
-                            f['profile_image'])
-                        ?.toString();
-                final avatar = Api.resolveImageUrl(avatarRaw);
+                final avatar = fixerAvatarUrl(f);
+                final double? rating = fixerRating(f);
                 final services = (f['services'] ?? []) as List;
 
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Avatar
-                    CircleAvatar(
-                      backgroundColor: Color(0xFFF1592A),
-                      radius: 28,
-                      backgroundImage: avatar.isNotEmpty
-                          ? NetworkImage(avatar)
-                          : const AssetImage('assets/images/logo-sm.png'),
+                    // Avatar with robust fallback
+                    ClipOval(
+                      child: SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: avatar.isNotEmpty
+                            ? Image.network(
+                                avatar,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Image.asset(
+                                  'assets/images/logo-sm.png',
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Image.asset(
+                                'assets/images/logo-sm.png',
+                                fit: BoxFit.cover,
+                              ),
+                      ),
                     ),
                     const SizedBox(width: 12),
 
@@ -308,12 +314,46 @@ class TopFixersStrip extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            name,
-                            style: GoogleFonts.urbanist(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  style: GoogleFonts.urbanist(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              if (rating != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.star_rounded,
+                                        color: Colors.amber,
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        rating.toStringAsFixed(1),
+                                        style: GoogleFonts.urbanist(
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 6),
                           Wrap(

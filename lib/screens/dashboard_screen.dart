@@ -58,8 +58,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       if (me != null) {
         final raw = (me['user'] is Map) ? me['user'] as Map : me;
-        final name = raw['name'] ?? raw['full_name'] ?? raw['username'];
-        if (name is String && name.trim().isNotEmpty) _greetName = name.trim();
+        final first = (raw['first_name'] ?? '').toString().trim();
+        final last = (raw['last_name'] ?? '').toString().trim();
+        final combined = [first, last].where((s) => s.isNotEmpty).join(' ');
+        if (combined.isNotEmpty) {
+          _greetName = combined;
+        } else {
+          final name = raw['name'] ?? raw['full_name'] ?? raw['username'];
+          if (name is String && name.trim().isNotEmpty) _greetName = name.trim();
+        }
 
         final city = (raw['city'] ?? '').toString().trim();
         final country = (raw['country'] ?? '').toString().trim();

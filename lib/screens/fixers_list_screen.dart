@@ -98,20 +98,9 @@ class _FixersListScreenState extends State<FixersListScreen> {
               itemBuilder: (ctx, i) {
                 final f = _fixers[i] as Map;
                 final name = fixerDisplayName(f);
-                final avatarRaw =
-                    (f['avatar'] ??
-                            f['photo'] ??
-                            f['image_url'] ??
-                            f['profile_photo_path'] ??
-                            f['profile_image'])
-                        ?.toString();
-                final avatar = Api.resolveImageUrl(avatarRaw);
+                final avatar = fixerAvatarUrl(f);
                 final skills = _skillsOf(f);
-                final ratingRaw =
-                    f['rating'] ?? f['avg_rating'] ?? f['average_rating'];
-                final rating = ratingRaw == null
-                    ? null
-                    : double.tryParse(ratingRaw.toString());
+                final rating = fixerRating(f);
                 return Container(
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   padding: const EdgeInsets.all(14),
@@ -122,13 +111,24 @@ class _FixersListScreenState extends State<FixersListScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      CircleAvatar(
-                        backgroundColor: Color(0xFFF1592A),
-                        radius: 26,
-                        backgroundImage: avatar.isNotEmpty
-                            ? NetworkImage(avatar)
-                            : null,
-                        child: avatar.isEmpty ? const Icon(Icons.person) : null,
+                      ClipOval(
+                        child: SizedBox(
+                          width: 52,
+                          height: 52,
+                          child: avatar.isNotEmpty
+                              ? Image.network(
+                                  avatar,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: const Color(0xFFF1592A),
+                                    child: const Icon(Icons.person, color: Colors.white),
+                                  ),
+                                )
+                              : Container(
+                                  color: const Color(0xFFF1592A),
+                                  child: const Icon(Icons.person, color: Colors.white),
+                                ),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(

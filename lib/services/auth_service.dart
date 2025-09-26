@@ -162,7 +162,7 @@ class AuthService {
   }
 
   /// Updates the authenticated user's profile.
-  /// Tries PATCH /me with the provided fields; returns true on 2xx.
+  /// Be tolerant of different API shapes (endpoints, methods, field names).
   Future<bool> updateProfile({
     String? firstName,
     String? lastName,
@@ -170,18 +170,68 @@ class AuthService {
   }) async {
     try {
       final token = await _getToken();
+      if (token == null || token.isEmpty) return false;
+
+      final trimmedFirst = firstName?.trim();
+      final trimmedLast = lastName?.trim();
+      final trimmedEmail = email?.trim();
+
+      // Build a body that covers common naming conventions.
       final body = <String, dynamic>{};
-      if (firstName != null) body['first_name'] = firstName;
-      if (lastName != null) body['last_name'] = lastName;
-      if (email != null) body['email'] = email;
+      if (trimmedFirst != null && trimmedFirst.isNotEmpty) {
+        body['first_name'] = trimmedFirst;
+        body['firstName'] = trimmedFirst; // some APIs use camelCase
+      }
+      if (trimmedLast != null && trimmedLast.isNotEmpty) {
+        body['last_name'] = trimmedLast;
+        body['lastName'] = trimmedLast; // camelCase variant
+      }
+      if (trimmedEmail != null && trimmedEmail.isNotEmpty) {
+        body['email'] = trimmedEmail;
+      }
+      final fullName = [trimmedFirst, trimmedLast]
+          .where((s) => s != null && s!.isNotEmpty)
+          .map((s) => s!)
+          .join(' ')
+          .trim();
+      if (fullName.isNotEmpty) {
+        body['name'] = fullName; // Laravel Jetstream style
+        body['full_name'] = fullName;
+      }
       if (body.isEmpty) return false;
 
-      final res = await _patchJson('me', body, token: token);
-      if (res.statusCode >= 200 && res.statusCode < 300) return true;
-
-      // Fallback: some backends use /profile
-      final res2 = await _patchJson('profile', body, token: token);
-      return res2.statusCode >= 200 && res2.statusCode < 300;
+      // Try a series of common endpoints/methods used by Laravel/Node backends.
+      final endpoints = <String>[
+        'me',
+        'profile',
+        'user',
+        'users/me',
+        'user/profile-information', // Jetstream
+        'profile/update',
+        'users/profile',
+      ];
+      for (final path in endpoints) {
+        // Try PATCH, then PUT, then POST
+        try {
+          final resPatch = await _patchJson(path, body, token: token);
+          if (resPatch.statusCode >= 200 && resPatch.statusCode < 300) {
+            return true;
+          }
+        } catch (_) {}
+        try {
+          final resPut = await _putJson(path, body, token: token);
+          if (resPut.statusCode >= 200 && resPut.statusCode < 300) {
+            return true;
+          }
+        } catch (_) {}
+        try {
+          final resPost = await _postJson(path, body, token: token);
+          if (resPost.statusCode >= 200 && resPost.statusCode < 300) {
+            return true;
+          }
+        } catch (_) {}
+      }
+      return false;
     } catch (_) {
       return false;
     }
