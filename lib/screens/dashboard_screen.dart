@@ -180,13 +180,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ) async {
     final id = (request['id'] as num?)?.toInt();
     if (id == null) return;
-    final paid = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    final paid = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PaymentScreen(requestId: id),
+        fullscreenDialog: true,
       ),
-      builder: (ctx) => PaymentSheet(requestId: id),
     );
     if (paid == true && mounted) {
       _billPromptShown = false;

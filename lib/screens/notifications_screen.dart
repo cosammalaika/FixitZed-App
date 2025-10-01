@@ -160,13 +160,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final isPayment = _isPaymentNotification(notification);
 
     if (requestId != null && isPayment) {
-      final paid = await showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      final paid = await Navigator.of(context, rootNavigator: true).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => PaymentScreen(requestId: requestId),
+          fullscreenDialog: true,
         ),
-        builder: (ctx) => PaymentSheet(requestId: requestId),
       );
       if (paid == true && mounted) {
         _load();

@@ -149,11 +149,11 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                               ? ElevatedButton(
                                   onPressed: () async {
                                     if (rid == null) return;
-                                    final paid = await showModalBottomSheet<bool>(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-                                      builder: (ctx) => PaymentSheet(requestId: rid),
+                                    final paid = await Navigator.of(context, rootNavigator: true).push<bool>(
+                                      MaterialPageRoute(
+                                        builder: (_) => PaymentScreen(requestId: rid),
+                                        fullscreenDialog: true,
+                                      ),
                                     );
                                     if (paid == true) _load();
                                   },

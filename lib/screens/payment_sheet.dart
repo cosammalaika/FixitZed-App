@@ -10,15 +10,15 @@ import 'dart:convert';
 import '../core/api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class PaymentSheet extends StatefulWidget {
+class PaymentScreen extends StatefulWidget {
   final int requestId;
-  const PaymentSheet({super.key, required this.requestId});
+  const PaymentScreen({super.key, required this.requestId});
 
   @override
-  State<PaymentSheet> createState() => _PaymentSheetState();
+  State<PaymentScreen> createState() => _PaymentScreenState();
 }
 
-class _PaymentSheetState extends State<PaymentSheet> {
+class _PaymentScreenState extends State<PaymentScreen> {
   bool _loading = true;
   bool _submitting = false;
   double? _amount;
@@ -65,10 +65,15 @@ class _PaymentSheetState extends State<PaymentSheet> {
       }
 
       final storedDiscount = _toDouble(payment?['discount_amount']);
-      if (storedDiscount != null && storedDiscount > 0 && _originalAmount != null) {
+      if (storedDiscount != null &&
+          storedDiscount > 0 &&
+          _originalAmount != null) {
         _couponDiscount = storedDiscount.clamp(0, _originalAmount!);
         if (_amount == null) {
-          _amount = (_originalAmount! - _couponDiscount).clamp(0, _originalAmount!);
+          _amount = (_originalAmount! - _couponDiscount).clamp(
+            0,
+            _originalAmount!,
+          );
         }
       } else if (_originalAmount != null && _amount != null) {
         final delta = _originalAmount! - _amount!;
@@ -78,7 +83,8 @@ class _PaymentSheetState extends State<PaymentSheet> {
       }
 
       final existingMethod = (payment?['payment_method'] ?? '').toString();
-      if (existingMethod.isNotEmpty && _methods.any((m) => (m['code'] ?? '').toString() == existingMethod)) {
+      if (existingMethod.isNotEmpty &&
+          _methods.any((m) => (m['code'] ?? '').toString() == existingMethod)) {
         _method = existingMethod;
       } else if (_methods.isNotEmpty) {
         _method = (_methods.first['code'] ?? 'cash').toString();
@@ -90,12 +96,17 @@ class _PaymentSheetState extends State<PaymentSheet> {
           ? Map<String, dynamic>.from(payment!['service_request'] as Map)
           : null;
 
-      final coupon = (payment?['coupon'] is Map) ? Map<String, dynamic>.from(payment!['coupon'] as Map) : null;
+      final coupon = (payment?['coupon'] is Map)
+          ? Map<String, dynamic>.from(payment!['coupon'] as Map)
+          : null;
       if (coupon != null) {
         _couponCode = coupon['code']?.toString();
         if (_couponCode != null && _couponCode!.isNotEmpty) {
           _couponCtrl.text = _couponCode!;
-          _couponInfo = {'data': coupon, 'message': coupon['title'] ?? 'Coupon applied'};
+          _couponInfo = {
+            'data': coupon,
+            'message': coupon['title'] ?? 'Coupon applied',
+          };
         }
       } else {
         _couponCode = null;
@@ -108,11 +119,25 @@ class _PaymentSheetState extends State<PaymentSheet> {
       _baseAmount = _amount;
 
       _loyaltyBalance = (loyalty?['points'] as num?)?.toInt() ?? 0;
-      _pointValue = (loyalty?['point_value'] as num?)?.toDouble() ?? 1;
-      if (_pointValue <= 0) _pointValue = 1;
-      _loyaltyThreshold = (loyalty?['threshold'] as num?)?.toInt() ?? 0;
-      final eligible = (loyalty?['eligible'] as bool?) ?? (_loyaltyThreshold <= 0 || _loyaltyBalance >= _loyaltyThreshold);
-      _useLoyalty = eligible && _loyaltyBalance > 0;
+
+      final rawPointValue = (loyalty?['point_value'] ??
+              loyalty?['point_rate'] ??
+              loyalty?['point_value_rate'])
+          as num?;
+      _pointValue = rawPointValue?.toDouble() ?? 0.01;
+      if (_pointValue <= 0) _pointValue = 0.01;
+
+      final rawThreshold = (loyalty?['threshold'] ??
+              loyalty?['minimum_redeem_points'] ??
+              loyalty?['min_points'])
+          as num?;
+      _loyaltyThreshold = rawThreshold?.toInt() ?? 50;
+      if (_loyaltyThreshold < 0) _loyaltyThreshold = 0;
+
+      final meetsThreshold =
+          _loyaltyThreshold <= 0 || _loyaltyBalance >= _loyaltyThreshold;
+      final eligible = (loyalty?['eligible'] as bool?) ?? meetsThreshold;
+      _useLoyalty = eligible && meetsThreshold && _loyaltyBalance > 0;
 
       _loading = false;
     });
@@ -150,157 +175,242 @@ class _PaymentSheetState extends State<PaymentSheet> {
   @override
   Widget build(BuildContext context) {
     final brand = const Color(0xFFF1592A);
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-          top: 12,
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFF8F3),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
+          'Complete Payment',
+          style: GoogleFonts.urbanist(
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+          ),
         ),
-        child: _loading
-            ? const SizedBox(
-                height: 200,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 44,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.payment_rounded,
-                        color: Color(0xFFF1592A),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Complete Payment',
-                        style: GoogleFonts.urbanist(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Amount',
-                    style: GoogleFonts.urbanist(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _amount == null ? '-' : _amount!.toStringAsFixed(2),
-                      style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _couponSection(),
-                  const SizedBox(height: 16),
-                  _loyaltySection(),
-                  if ((_originalAmount ?? _baseAmount ?? _amount) != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 14.0),
-                      child: _priceSummary(),
-                    ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Select Payment Method',
-                    style: GoogleFonts.urbanist(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  ...(_methods.isNotEmpty
-                      ? _methods.map(
-                          (m) => _methodTile(
-                            label: (m['name'] ?? m['code'] ?? 'Method')
-                                .toString(),
-                            value: (m['code'] ?? 'cash').toString(),
-                            leading: Icons.payments_rounded,
-                          ),
-                        )
-                      : [
-                          _methodTile(
-                            label: 'Cash',
-                            value: 'cash',
-                            leading: Icons.payments_rounded,
-                          ),
-                        ]),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: (_amount == null || _submitting)
-                          ? null
-                      : () async {
-                              setState(() => _submitting = true);
-                              final result = await PaymentService().pay(
-                                requestId: widget.requestId,
-                                amount: _amount!,
-                                originalAmount: _originalAmount,
-                                method: _method,
-                                couponCode: _couponCode,
-                                loyaltyPoints: _useLoyalty ? _loyaltyToUse : 0,
-                              );
-                              if (!mounted) return;
-                              setState(() => _submitting = false);
-                              if (!result.success) {
-                                _showSnack(
-                                  message: result.message ?? 'Payment failed. Please try again.',
-                                  success: false,
-                                );
-                                return;
-                              }
-
-                              if (result.data != null) {
-                                final balance = (result.data!['loyalty_points_balance'] as num?)?.toInt();
-                                if (balance != null) {
-                                  setState(() {
-                                    _loyaltyBalance = balance;
-                                  });
-                                }
-                              }
-
-                              _showSnack(
-                                message: result.message ?? 'Payment successful',
-                                success: true,
-                              );
-
-                              await _promptRating();
-                              if (!mounted) return;
-                              Navigator.of(context).pop(true);
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: brand,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(_submitting ? 'Processing…' : 'Pay Now'),
-                    ),
-                  ),
-                ],
-              ),
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
       ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(16, 20, 16, bottomInset + 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(22),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFF1592A), Color(0xFFFFA26C)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: brand.withOpacity(0.18),
+                              blurRadius: 28,
+                              offset: const Offset(0, 18),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.receipt_long_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Review your bill',
+                                    style: GoogleFonts.urbanist(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Apply coupons or loyalty points, then settle the payment securely.',
+                                    style: GoogleFonts.urbanist(
+                                      color: Colors.white.withOpacity(0.92),
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 24,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Amount due',
+                              style: GoogleFonts.urbanist(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF2EA),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Text(
+                                _amount == null
+                                    ? '—'
+                                    : 'K${_amount!.toStringAsFixed(2)}',
+                                style: GoogleFonts.urbanist(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 22),
+                            _couponSection(),
+                            const SizedBox(height: 20),
+                            _loyaltySection(),
+                            if ((_originalAmount ?? _baseAmount ?? _amount) !=
+                                null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 22),
+                                child: _priceSummary(),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Select payment method',
+                        style: GoogleFonts.urbanist(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...(_methods.isNotEmpty
+                          ? _methods.map(
+                              (m) => _methodTile(
+                                label:
+                                    (m['name'] ?? m['code'] ?? 'Method').toString(),
+                                value: (m['code'] ?? 'cash').toString(),
+                                leading: Icons.payments_rounded,
+                              ),
+                            )
+                          : [
+                              _methodTile(
+                                label: 'Cash',
+                                value: 'cash',
+                                leading: Icons.payments_rounded,
+                              ),
+                            ]),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: (_amount == null || _submitting)
+                              ? null
+                              : () async {
+                                  setState(() => _submitting = true);
+                                  final result = await PaymentService().pay(
+                                    requestId: widget.requestId,
+                                    amount: _amount!,
+                                    originalAmount: _originalAmount,
+                                    method: _method,
+                                    couponCode: _couponCode,
+                                    loyaltyPoints:
+                                        _useLoyalty ? _loyaltyToUse : 0,
+                                  );
+                                  if (!mounted) return;
+                                  setState(() => _submitting = false);
+                                  if (!result.success) {
+                                    _showSnack(
+                                      message: result.message ??
+                                          'Payment failed. Please try again.',
+                                      success: false,
+                                    );
+                                    return;
+                                  }
+
+                                  if (result.data != null) {
+                                    final balance =
+                                        (result.data!['loyalty_points_balance']
+                                                as num?)
+                                            ?.toInt();
+                                    if (balance != null) {
+                                      setState(() {
+                                        _loyaltyBalance = balance;
+                                      });
+                                    }
+                                  }
+
+                                  _showSnack(
+                                    message: result.message ??
+                                        'Payment successful',
+                                    success: true,
+                                  );
+
+                                  await _promptRating();
+                                  if (!mounted) return;
+                                  Navigator.of(context).pop(true);
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: brand,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child:
+                              Text(_submitting ? 'Processing…' : 'Pay now'),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
@@ -310,36 +420,65 @@ class _PaymentSheetState extends State<PaymentSheet> {
     required IconData leading,
   }) {
     final selected = _method == value;
+    const brand = Color(0xFFF1592A);
+    const accent = Color(0xFFFFA26C);
     return InkWell(
       onTap: () => setState(() => _method = value),
-      child: Container(
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeInOut,
         margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F5F7),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? const Color(0xFFF1592A) : Colors.transparent,
-            width: 1.2,
-          ),
+          gradient: selected
+              ? const LinearGradient(
+                  colors: [brand, accent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: selected ? null : const Color(0xFFF3F5F7),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: brand.withOpacity(0.22),
+                    blurRadius: 20,
+                    offset: const Offset(0, 12),
+                  ),
+                ]
+              : [],
         ),
         child: Row(
           children: [
-            Icon(leading, color: const Color(0xFFF1592A)),
-            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: selected
+                    ? Colors.white.withOpacity(0.18)
+                    : const Color(0xFFE8EDF1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(leading, color: selected ? Colors.white : brand),
+            ),
+            const SizedBox(width: 14),
             Expanded(
               child: Text(
                 label,
-                style: GoogleFonts.urbanist(fontWeight: FontWeight.w600),
+                style: GoogleFonts.urbanist(
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : Colors.black87,
+                ),
               ),
             ),
             Container(
-              width: 22,
-              height: 22,
+              width: 24,
+              height: 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: selected ? const Color(0xFFF1592A) : Colors.black26,
+                  color: selected ? Colors.white : Colors.black26,
                   width: 2,
                 ),
               ),
@@ -347,7 +486,7 @@ class _PaymentSheetState extends State<PaymentSheet> {
                   ? Container(
                       margin: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color: Color(0xFFF1592A),
+                        color: Colors.white,
                         shape: BoxShape.circle,
                       ),
                     )
@@ -362,7 +501,8 @@ class _PaymentSheetState extends State<PaymentSheet> {
   String? get _serviceId {
     final sr = _serviceRequest;
     if (sr == null) return null;
-    final raw = sr['service_id'] ??
+    final raw =
+        sr['service_id'] ??
         (sr['service'] is Map ? (sr['service'] as Map)['id'] : null);
     if (raw == null) return null;
     return raw.toString();
@@ -376,7 +516,10 @@ class _PaymentSheetState extends State<PaymentSheet> {
     }
     final serviceId = _serviceId;
     if (serviceId == null) {
-      _showSnack(message: 'Service details are unavailable for this booking', success: false);
+      _showSnack(
+        message: 'Service details are unavailable for this booking',
+        success: false,
+      );
       return;
     }
     if ((_originalAmount ?? _amount) == null) {
@@ -452,7 +595,9 @@ class _PaymentSheetState extends State<PaymentSheet> {
 
   Map<String, dynamic> _normalizeCoupon(Map info) {
     final out = <String, dynamic>{};
-    final data = (info['data'] is Map) ? Map<String, dynamic>.from(info['data']) : info;
+    final data = (info['data'] is Map)
+        ? Map<String, dynamic>.from(info['data'])
+        : info;
     for (final key in ['total', 'final_total', 'finalAmount', 'final_amount']) {
       if (data[key] is num) out['total'] = (data[key] as num).toDouble();
     }
@@ -484,7 +629,8 @@ class _PaymentSheetState extends State<PaymentSheet> {
       return;
     }
 
-    final meetsThreshold = _loyaltyThreshold <= 0 || _loyaltyBalance >= _loyaltyThreshold;
+    final meetsThreshold =
+        _loyaltyThreshold <= 0 || _loyaltyBalance >= _loyaltyThreshold;
     var useLoyalty = _useLoyalty && meetsThreshold;
     var target = useLoyalty ? _loyaltyToUse : 0;
     if (useLoyalty) {
@@ -508,7 +654,10 @@ class _PaymentSheetState extends State<PaymentSheet> {
       _useLoyalty = useLoyalty;
       _loyaltyToUse = useLoyalty ? target : 0;
       _loyaltyDiscount = useLoyalty ? discountValue : 0;
-      _amount = (baseAmount - (useLoyalty ? discountValue : 0)).clamp(0, baseAmount);
+      _amount = (baseAmount - (useLoyalty ? discountValue : 0)).clamp(
+        0,
+        baseAmount,
+      );
     });
   }
 
@@ -520,14 +669,23 @@ class _PaymentSheetState extends State<PaymentSheet> {
 
   double? _computeDiscount(double? base, Map info) {
     if (base == null) return null;
-    final data = (info['data'] is Map) ? Map<String, dynamic>.from(info['data']) : info;
-    final type = (data['type'] ?? data['discount_type'] ?? '').toString().toLowerCase();
-    final percent = data['percent'] ?? data['percentage'] ?? data['discount_percent'];
-    final fixed = data['amount'] ?? data['discount_amount'] ?? data['amount_off'];
+    final data = (info['data'] is Map)
+        ? Map<String, dynamic>.from(info['data'])
+        : info;
+    final type = (data['type'] ?? data['discount_type'] ?? '')
+        .toString()
+        .toLowerCase();
+    final percent =
+        data['percent'] ?? data['percentage'] ?? data['discount_percent'];
+    final fixed =
+        data['amount'] ?? data['discount_amount'] ?? data['amount_off'];
     final maxCap = data['max_discount'] ?? data['max_amount'] ?? data['cap'];
 
     double discount = 0;
-    final isPercent = type.contains('percent') || data['is_percent'] == true || data['is_percentage'] == true;
+    final isPercent =
+        type.contains('percent') ||
+        data['is_percent'] == true ||
+        data['is_percentage'] == true;
 
     if (isPercent && percent is num) {
       discount = base * (percent.toDouble() / 100);
@@ -564,7 +722,10 @@ class _PaymentSheetState extends State<PaymentSheet> {
                   hintText: 'Enter coupon code',
                   filled: true,
                   fillColor: const Color(0xFFF3F5F7),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -577,8 +738,13 @@ class _PaymentSheetState extends State<PaymentSheet> {
                 ? OutlinedButton(
                     onPressed: _removeCoupon,
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: const Text('Remove'),
                   )
@@ -587,8 +753,13 @@ class _PaymentSheetState extends State<PaymentSheet> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFF1592A),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: Text(_applyingCoupon ? 'Applying…' : 'Apply'),
                   ),
@@ -608,7 +779,8 @@ class _PaymentSheetState extends State<PaymentSheet> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    (_normalizeCoupon(_couponInfo!)['message'] as String?) ?? 'Coupon applied',
+                    (_normalizeCoupon(_couponInfo!)['message'] as String?) ??
+                        'Coupon applied',
                     style: GoogleFonts.urbanist(color: const Color(0xFF2E7D32)),
                   ),
                 ),
@@ -622,11 +794,18 @@ class _PaymentSheetState extends State<PaymentSheet> {
   Widget _loyaltySection() {
     final base = _baseAmount ?? _amount ?? 0;
     final maxForAmount = _maxRedeemablePointsForAmount(base);
-    final meetsThreshold = _loyaltyThreshold <= 0 || _loyaltyBalance >= _loyaltyThreshold;
-    final sliderMax = meetsThreshold ? math.min(_loyaltyBalance, maxForAmount) : 0;
+    final meetsThreshold =
+        _loyaltyThreshold <= 0 || _loyaltyBalance >= _loyaltyThreshold;
+    final sliderMax = meetsThreshold
+        ? math.min(_loyaltyBalance, maxForAmount)
+        : 0;
     final canRedeemNow = sliderMax > 0 && base > 0;
     final currencyValue = (_loyaltyBalance * _pointValue).toStringAsFixed(2);
     final shortfall = math.max(0, _loyaltyThreshold - _loyaltyBalance);
+    final minPoints = _loyaltyThreshold > 0 ? _loyaltyThreshold : 0;
+    final thresholdValue = (_loyaltyThreshold > 0)
+        ? (_loyaltyThreshold * _pointValue).toStringAsFixed(2)
+        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -646,24 +825,48 @@ class _PaymentSheetState extends State<PaymentSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Available: $_loyaltyBalance pts',
-                            style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Available: $_loyaltyBalance pts',
+                          style: GoogleFonts.urbanist(
+                            fontWeight: FontWeight.w700,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Worth approximately K$currencyValue',
-                            style: GoogleFonts.urbanist(color: Colors.black54, fontSize: 12),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Worth approximately K$currencyValue',
+                          style: GoogleFonts.urbanist(
+                            color: Colors.black54,
+                            fontSize: 12,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '1 pt = K${_pointValue.toStringAsFixed(2)}',
+                          style: GoogleFonts.urbanist(
+                            color: Colors.black45,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (_loyaltyThreshold > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              'Redeem from $minPoints pts (K${thresholdValue ?? '0.00'})',
+                              style: GoogleFonts.urbanist(
+                                color: Colors.black45,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    Switch(
+                  ),
+                  Switch(
                     value: _useLoyalty && canRedeemNow,
                     onChanged: canRedeemNow
                         ? (value) {
@@ -681,7 +884,7 @@ class _PaymentSheetState extends State<PaymentSheet> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'Earn $shortfall more points to unlock redemptions.',
+                    'Earn $shortfall more points (K${(shortfall * _pointValue).toStringAsFixed(2)}) to unlock redemptions.',
                     style: GoogleFonts.urbanist(color: Colors.black54),
                   ),
                 )
@@ -692,15 +895,18 @@ class _PaymentSheetState extends State<PaymentSheet> {
                     base <= 0
                         ? 'You will be able to redeem points on the next bill.'
                         : _loyaltyBalance <= 0
-                            ? 'Earn points by completing bookings to unlock rewards.'
-                            : 'Insufficient points for this amount. Keep earning to redeem.',
+                        ? 'Earn points by completing bookings to unlock rewards.'
+                        : 'Insufficient points for this amount. Keep earning to redeem.',
                     style: GoogleFonts.urbanist(color: Colors.black54),
                   ),
                 ),
               if (canRedeemNow) ...[
                 const SizedBox(height: 12),
                 Slider(
-                  value: _loyaltyToUse.toDouble().clamp(0, sliderMax.toDouble()),
+                  value: _loyaltyToUse.toDouble().clamp(
+                    0,
+                    sliderMax.toDouble(),
+                  ),
                   min: 0,
                   max: sliderMax.toDouble(),
                   divisions: sliderMax > 0 ? sliderMax : null,
@@ -718,7 +924,7 @@ class _PaymentSheetState extends State<PaymentSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Using ${_loyaltyToUse.toString()} pts',
+                      'Using ${_loyaltyToUse.toString()} pts (K${(_loyaltyDiscount).toStringAsFixed(2)})',
                       style: GoogleFonts.urbanist(fontWeight: FontWeight.w600),
                     ),
                     Text(
@@ -746,11 +952,13 @@ class _PaymentSheetState extends State<PaymentSheet> {
     final labelStyle = GoogleFonts.urbanist(color: Colors.black54);
     final valueStyle = GoogleFonts.urbanist(fontWeight: FontWeight.w700);
 
+    const brand = Color(0xFFF1592A);
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFFFFF2EA),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: brand.withOpacity(0.12)),
       ),
       child: Column(
         children: [
@@ -790,7 +998,10 @@ class _PaymentSheetState extends State<PaymentSheet> {
           const Divider(height: 16),
           Row(
             children: [
-              Text('Total Due', style: GoogleFonts.urbanist(fontWeight: FontWeight.w800)),
+              Text(
+                'Total Due',
+                style: GoogleFonts.urbanist(fontWeight: FontWeight.w800),
+              ),
               const Spacer(),
               Text(
                 total.toStringAsFixed(2),
@@ -828,20 +1039,32 @@ class _PaymentSheetState extends State<PaymentSheet> {
       if (sr == null) return '';
       final fixer = sr['fixer'];
       if (fixer is Map) {
-        final first = (fixer['first_name'] ?? fixer['firstName'] ?? '').toString().trim();
-        final last = (fixer['last_name'] ?? fixer['lastName'] ?? '').toString().trim();
+        final first = (fixer['first_name'] ?? fixer['firstName'] ?? '')
+            .toString()
+            .trim();
+        final last = (fixer['last_name'] ?? fixer['lastName'] ?? '')
+            .toString()
+            .trim();
         final combined = [first, last].where((p) => p.isNotEmpty).join(' ');
         if (combined.isNotEmpty) return combined;
         final nested = fixer['user'];
         if (nested is Map) {
-          final nf = (nested['first_name'] ?? nested['firstName'] ?? '').toString().trim();
-          final nl = (nested['last_name'] ?? nested['lastName'] ?? '').toString().trim();
+          final nf = (nested['first_name'] ?? nested['firstName'] ?? '')
+              .toString()
+              .trim();
+          final nl = (nested['last_name'] ?? nested['lastName'] ?? '')
+              .toString()
+              .trim();
           final c = [nf, nl].where((p) => p.isNotEmpty).join(' ');
           if (c.isNotEmpty) return c;
-          final fallback = (nested['name'] ?? nested['full_name'] ?? nested['username']).toString();
+          final fallback =
+              (nested['name'] ?? nested['full_name'] ?? nested['username'])
+                  .toString();
           if (fallback.trim().isNotEmpty) return fallback.trim();
         }
-        final fallback = (fixer['name'] ?? fixer['full_name'] ?? fixer['username']).toString();
+        final fallback =
+            (fixer['name'] ?? fixer['full_name'] ?? fixer['username'])
+                .toString();
         if (fallback.trim().isNotEmpty) return fallback.trim();
       }
       return '';
@@ -919,8 +1142,10 @@ class _PaymentSheetState extends State<PaymentSheet> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            [if (serviceName.isNotEmpty) serviceName, if (fixerName.isNotEmpty) 'with $fixerName']
-                                .join(' '),
+                            [
+                              if (serviceName.isNotEmpty) serviceName,
+                              if (fixerName.isNotEmpty) 'with $fixerName',
+                            ].join(' '),
                             style: GoogleFonts.urbanist(
                               color: Colors.white.withOpacity(0.9),
                             ),
@@ -930,7 +1155,10 @@ class _PaymentSheetState extends State<PaymentSheet> {
                     ),
                     const SizedBox(height: 24),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 16,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF6EEEA),
                         borderRadius: BorderRadius.circular(20),
@@ -952,9 +1180,12 @@ class _PaymentSheetState extends State<PaymentSheet> {
                               final idx = i + 1;
                               final filled = rating >= idx;
                               return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
                                 child: InkResponse(
-                                  onTap: () => setLocal(() => rating = idx.toDouble()),
+                                  onTap: () =>
+                                      setLocal(() => rating = idx.toDouble()),
                                   radius: 30,
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 180),
@@ -962,10 +1193,14 @@ class _PaymentSheetState extends State<PaymentSheet> {
                                     padding: const EdgeInsets.all(4),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: filled ? brand.withOpacity(0.15) : Colors.transparent,
+                                      color: filled
+                                          ? brand.withOpacity(0.15)
+                                          : Colors.transparent,
                                     ),
                                     child: Icon(
-                                      filled ? Icons.star_rounded : Icons.star_border_rounded,
+                                      filled
+                                          ? Icons.star_rounded
+                                          : Icons.star_border_rounded,
                                       color: filled ? brand : Colors.black26,
                                       size: 36,
                                     ),
@@ -987,7 +1222,10 @@ class _PaymentSheetState extends State<PaymentSheet> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFF1592A).withOpacity(0.2), width: 1.2),
+                        border: Border.all(
+                          color: const Color(0xFFF1592A).withOpacity(0.2),
+                          width: 1.2,
+                        ),
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0x112B1B10),
@@ -996,7 +1234,10 @@ class _PaymentSheetState extends State<PaymentSheet> {
                           ),
                         ],
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 4,
+                      ),
                       child: TextField(
                         controller: ctrl,
                         maxLines: 4,
@@ -1012,11 +1253,15 @@ class _PaymentSheetState extends State<PaymentSheet> {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: submitting ? null : () => Navigator.of(ctx).pop(false),
+                            onPressed: submitting
+                                ? null
+                                : () => Navigator.of(ctx).pop(false),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: brand,
                               side: BorderSide(color: brand.withOpacity(0.4)),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                             child: const Text('Later'),
@@ -1030,33 +1275,48 @@ class _PaymentSheetState extends State<PaymentSheet> {
                                 : () async {
                                     setLocal(() => submitting = true);
                                     try {
-                                      final prefs = await SharedPreferences.getInstance();
-                                      final token = prefs.getString('auth_token');
+                                      final prefs =
+                                          await SharedPreferences.getInstance();
+                                      final token = prefs.getString(
+                                        'auth_token',
+                                      );
                                       final res = await http.post(
-                                        Uri.parse('${Api.baseUrl}/service-requests/${widget.requestId}/ratings'),
+                                        Uri.parse(
+                                          '${Api.baseUrl}/service-requests/${widget.requestId}/ratings',
+                                        ),
                                         headers: {
                                           'Accept': 'application/json',
                                           'Content-Type': 'application/json',
-                                          if (token != null) 'Authorization': 'Bearer $token',
+                                          if (token != null)
+                                            'Authorization': 'Bearer $token',
                                         },
                                         body: jsonEncode({
                                           'rating': rating,
-                                          if (ctrl.text.trim().isNotEmpty) 'comment': ctrl.text.trim(),
+                                          if (ctrl.text.trim().isNotEmpty)
+                                            'comment': ctrl.text.trim(),
                                         }),
                                       );
                                       if (!mounted) return;
-                                      Navigator.of(ctx).pop(res.statusCode >= 200 && res.statusCode < 300);
+                                      Navigator.of(ctx).pop(
+                                        res.statusCode >= 200 &&
+                                            res.statusCode < 300,
+                                      );
                                     } finally {
-                                      if (mounted) setLocal(() => submitting = false);
+                                      if (mounted)
+                                        setLocal(() => submitting = false);
                                     }
                                   },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: brand,
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
-                            child: Text(submitting ? 'Sending…' : 'Submit Review'),
+                            child: Text(
+                              submitting ? 'Sending…' : 'Submit Review',
+                            ),
                           ),
                         ),
                       ],

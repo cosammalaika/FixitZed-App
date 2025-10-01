@@ -1,9 +1,16 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
-import '../../services/home_service.dart';
 import '../../services/fixer_application_service.dart';
+import '../../services/home_service.dart';
+
+enum _AttachmentAction { camera, gallery, file }
 
 class BecomeFixerScreen extends StatefulWidget {
   const BecomeFixerScreen({super.key});
@@ -16,21 +23,34 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
   final _home = HomeService();
   final _applyService = FixerApplicationService();
   final _bioCtrl = TextEditingController();
+  final _locationCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _imagePicker = ImagePicker();
+
   final Set<int> _selectedServices = <int>{};
+  final List<PlatformFile> _supportingDocs = [];
+
   PlatformFile? _profilePhoto;
   PlatformFile? _nrcFront;
   PlatformFile? _nrcBack;
-  final List<PlatformFile> _supportingDocs = [];
 
   List<Map<String, dynamic>> _services = const [];
   bool _loading = true;
   bool _submitting = false;
+  bool _requestingLocation = false;
+  int _step = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _bioCtrl.dispose();
+    _locationCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -48,54 +68,137 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
     });
   }
 
-  Future<void> _selectSingleFile({required bool imagesOnly, required void Function(PlatformFile file) onSelected}) async {
+  Future<void> _useCurrentLocation() async {
+    if (_requestingLocation) return;
+    setState(() => _requestingLocation = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: imagesOnly
-            ? const ['jpg', 'jpeg', 'png', 'webp']
-            : const ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
-      );
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        if (file.path != null) onSelected(file);
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showSnack('Location services are disabled. Please enable them.');
+        return;
       }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) {
+        _showSnack('Location permissions are denied.');
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+      final place = placemarks.isNotEmpty ? placemarks.first : null;
+      final buffer = [
+        if (place != null && place.street != null && place.street!.trim().isNotEmpty) place.street,
+        if (place != null && place.subLocality != null && place.subLocality!.trim().isNotEmpty) place.subLocality,
+        if (place != null && place.locality != null && place.locality!.trim().isNotEmpty) place.locality,
+        if (place != null && place.country != null && place.country!.trim().isNotEmpty) place.country,
+      ].whereType<String>().join(', ');
+      final locationString = buffer.isNotEmpty
+          ? buffer
+          : 'Lat ${position.latitude.toStringAsFixed(4)}, Lng ${position.longitude.toStringAsFixed(4)}';
+      if (!mounted) return;
+      _locationCtrl.text = locationString;
     } catch (_) {
-      _showSnack('Failed to pick file. Please try again.');
+      _showSnack('Unable to fetch current location.');
+    } finally {
+      if (mounted) setState(() => _requestingLocation = false);
     }
   }
 
-  Future<void> _selectSupportingDocs() async {
+  Future<void> _pickAttachment({
+    required bool allowPdf,
+    required ValueChanged<PlatformFile> onSelected,
+  }) async {
+    final action = await showModalBottomSheet<_AttachmentAction>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_rounded),
+              title: const Text('Take photo'),
+              onTap: () => Navigator.of(ctx).pop(_AttachmentAction.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.image_rounded),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.of(ctx).pop(_AttachmentAction.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.file_present_rounded),
+              title: Text(allowPdf ? 'Upload file (PDF or image)' : 'Upload image'),
+              onTap: () => Navigator.of(ctx).pop(_AttachmentAction.file),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+
+    if (action == null) return;
+
     try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: FileType.custom,
-        allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
-      );
-      if (result != null && result.files.isNotEmpty) {
-        final files = result.files.where((f) => f.path != null).take(5).toList();
-        setState(() {
-          _supportingDocs
-            ..clear()
-            ..addAll(files);
-        });
+      PlatformFile? file;
+      switch (action) {
+        case _AttachmentAction.camera:
+          final xFile = await _imagePicker.pickImage(source: ImageSource.camera, imageQuality: 85);
+          if (xFile == null) return;
+          file = await _toPlatformFile(xFile);
+          break;
+        case _AttachmentAction.gallery:
+          final xFile = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+          if (xFile == null) return;
+          file = await _toPlatformFile(xFile);
+          break;
+        case _AttachmentAction.file:
+          final result = await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: allowPdf
+                ? const ['jpg', 'jpeg', 'png', 'webp', 'pdf']
+                : const ['jpg', 'jpeg', 'png', 'webp'],
+          );
+          if (result == null || result.files.isEmpty) return;
+          final picked = result.files.first;
+          if (picked.path == null || picked.path!.isEmpty) {
+            _showSnack('Selected file has no path. Please try again.');
+            return;
+          }
+          file = picked;
+          break;
+      }
+
+      if (file != null) {
+        onSelected(file);
       }
     } catch (_) {
-      _showSnack('Failed to pick documents. Please try again.');
+      _showSnack('Could not pick file. Please try again.');
     }
   }
 
-  String _fileLabel(PlatformFile file) {
-    final sizeKb = file.size / 1024;
-    final size = sizeKb > 1024 ? '${(sizeKb / 1024).toStringAsFixed(1)} MB' : '${sizeKb.toStringAsFixed(0)} KB';
-    return '${file.name} · $size';
+  Future<PlatformFile> _toPlatformFile(XFile xFile) async {
+    final path = xFile.path;
+    final size = await File(path).length();
+    return PlatformFile(name: _fileName(path), path: path, size: size);
+  }
+
+  String _fileName(String path) {
+    final segments = path.split(RegExp(r'[\\/]'));
+    return segments.isNotEmpty ? segments.last : path;
   }
 
   Widget _documentTile({
     required String label,
     required PlatformFile? file,
-    required VoidCallback onTap,
-    bool required = false,
+    required bool allowPdf,
+    required ValueChanged<PlatformFile> onSelected,
+    bool requiredField = false,
     String? helper,
     VoidCallback? onRemove,
   }) {
@@ -112,11 +215,11 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                required ? '$label *' : label,
+                requiredField ? '$label *' : label,
                 style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
               ),
               TextButton(
-                onPressed: onTap,
+                onPressed: () => _pickAttachment(allowPdf: allowPdf, onSelected: onSelected),
                 child: Text(file == null ? 'Upload' : 'Change'),
               ),
             ],
@@ -143,7 +246,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      _fileLabel(file),
+                      '${file.name} · ${_fileSize(file.size)}',
                       style: GoogleFonts.urbanist(fontWeight: FontWeight.w600),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -159,6 +262,12 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
         ],
       ),
     );
+  }
+
+  String _fileSize(int bytes) {
+    final kb = bytes / 1024;
+    if (kb > 1024) return '${(kb / 1024).toStringAsFixed(1)} MB';
+    return '${kb.toStringAsFixed(0)} KB';
   }
 
   Widget _supportingDocsSection() {
@@ -179,7 +288,17 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                 style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
               ),
               TextButton.icon(
-                onPressed: _selectSupportingDocs,
+                onPressed: () async {
+                  await _pickAttachment(
+                    allowPdf: true,
+                    onSelected: (file) {
+                      setState(() {
+                        if (_supportingDocs.length >= 5) _supportingDocs.removeAt(0);
+                        _supportingDocs.add(file);
+                      });
+                    },
+                  );
+                },
                 icon: const Icon(Icons.upload_rounded),
                 label: const Text('Add'),
               ),
@@ -212,53 +331,35 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
     );
   }
 
-  Future<void> _pickProfilePhoto() async {
-    await _selectSingleFile(
-      imagesOnly: true,
-      onSelected: (file) => setState(() => _profilePhoto = file),
-    );
-  }
-
-  Future<void> _pickNrcFront() async {
-    await _selectSingleFile(
-      imagesOnly: false,
-      onSelected: (file) => setState(() => _nrcFront = file),
-    );
-  }
-
-  Future<void> _pickNrcBack() async {
-    await _selectSingleFile(
-      imagesOnly: false,
-      onSelected: (file) => setState(() => _nrcBack = file),
-    );
-  }
-
-  @override
-  void dispose() {
-    _bioCtrl.dispose();
-    super.dispose();
-  }
-
   Future<void> _submit() async {
     final valid = _formKey.currentState?.validate() ?? false;
-    if (!valid) return;
-    if (_selectedServices.isEmpty) {
-      _showSnack('Select at least one service');
+    if (!valid) {
+      setState(() => _step = 0);
       return;
     }
-    if ((_nrcFront?.path ?? '').isEmpty || (_nrcBack?.path ?? '').isEmpty) {
+    if (_nrcFront == null || _nrcBack == null) {
+      setState(() => _step = 1);
       _showSnack('Please upload both sides of your NRC');
       return;
     }
+    if (_selectedServices.isEmpty) {
+      setState(() => _step = 2);
+      _showSnack('Select at least one service');
+      return;
+    }
+
     setState(() => _submitting = true);
     final ok = await _applyService.apply(
       bio: _bioCtrl.text.trim(),
+      location: _locationCtrl.text.trim(),
       serviceIds: _selectedServices.toList(),
       profilePhotoPath: _profilePhoto?.path,
       nrcFrontPath: _nrcFront?.path,
       nrcBackPath: _nrcBack?.path,
-      supportingDocuments:
-          _supportingDocs.where((f) => f.path != null && f.path!.isNotEmpty).map((f) => f.path!).toList(),
+      supportingDocuments: _supportingDocs
+          .where((f) => f.path != null && f.path!.isNotEmpty)
+          .map((f) => f.path!)
+          .toList(),
     );
     if (!mounted) return;
     setState(() => _submitting = false);
@@ -279,6 +380,27 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
     );
   }
 
+  bool _validateCurrentStep() {
+    switch (_step) {
+      case 0:
+        return _formKey.currentState?.validate() ?? false;
+      case 1:
+        if (_nrcFront == null || _nrcBack == null) {
+          _showSnack('Please upload both sides of your NRC');
+          return false;
+        }
+        return true;
+      case 2:
+        if (_selectedServices.isEmpty) {
+          _showSnack('Select at least one service');
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const brand = Color(0xFFF1592A);
@@ -294,154 +416,212 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: ListView(
-                  children: [
-                    Text('Apply to become a verified Fixer', style: GoogleFonts.urbanist(fontSize: 18, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tell us about your skills and experience. We will review your application and get back to you.',
-                      style: GoogleFonts.urbanist(color: Colors.black54),
-                    ),
-                    const SizedBox(height: 24),
-                    Text('Services you can handle', style: GoogleFonts.urbanist(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 12),
-                    if (_services.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF3E9),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'No services available yet. Please try again later.',
-                          style: GoogleFonts.urbanist(color: Colors.black54),
-                        ),
-                      )
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _services.map((service) {
-                          final id = (service['id'] as num?)?.toInt();
-                          if (id == null) return const SizedBox.shrink();
-                          final selected = _selectedServices.contains(id);
-                          final name = (service['name'] ?? 'Service').toString();
-                          return FilterChip(
-                            selected: selected,
-                            onSelected: (_) {
-                              setState(() {
-                                if (selected) {
-                                  _selectedServices.remove(id);
+              child: Stepper(
+                currentStep: _step,
+                onStepTapped: (value) => setState(() => _step = value),
+                controlsBuilder: (context, details) {
+                  return Row(
+                    children: [
+                      ElevatedButton(
+                        onPressed: _submitting
+                            ? null
+                            : () {
+                                final valid = _validateCurrentStep();
+                                if (!valid) return;
+                                if (_step == 2) {
+                                  _submit();
                                 } else {
-                                  _selectedServices.add(id);
+                                  setState(() => _step += 1);
                                 }
-                              });
-                            },
-                            label: Text(name),
-                            selectedColor: brand.withOpacity(0.2),
-                            checkmarkColor: brand,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          );
-                        }).toList(),
-                      ),
-                    if (_selectedServices.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Select the services you offer',
-                          style: GoogleFonts.urbanist(fontSize: 12, color: Colors.black54),
-                        ),
-                      ),
-                    const SizedBox(height: 24),
-                    Text('About you', style: GoogleFonts.urbanist(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _bioCtrl,
-                      maxLines: 5,
-                      decoration: InputDecoration(
-                        hintText: 'Describe your experience, qualifications, and preferred areas.',
-                        filled: true,
-                        fillColor: const Color(0xFFF3F5F7),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Tell us a bit about your experience';
-                        }
-                        if (value.trim().length < 30) {
-                          return 'Please provide at least 30 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 32),
-                    Text('Verification documents', style: GoogleFonts.urbanist(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Upload your NRC and any supporting documents so we can verify your identity. Each file must be under 5MB.',
-                      style: GoogleFonts.urbanist(color: Colors.black54, fontSize: 12),
-                    ),
-                    const SizedBox(height: 16),
-                    _documentTile(
-                      label: 'Profile photo (optional)',
-                      file: _profilePhoto,
-                      onTap: _pickProfilePhoto,
-                      helper: 'A clear headshot helps customers recognise you.',
-                      onRemove: _profilePhoto == null
-                          ? null
-                          : () => setState(() => _profilePhoto = null),
-                    ),
-                    const SizedBox(height: 12),
-                    _documentTile(
-                      label: 'NRC front',
-                      file: _nrcFront,
-                      required: true,
-                      onTap: _pickNrcFront,
-                      helper: 'Accepted: JPG, PNG, WEBP or PDF.',
-                      onRemove: _nrcFront == null
-                          ? null
-                          : () => setState(() => _nrcFront = null),
-                    ),
-                    const SizedBox(height: 12),
-                    _documentTile(
-                      label: 'NRC back',
-                      file: _nrcBack,
-                      required: true,
-                      onTap: _pickNrcBack,
-                      helper: 'Accepted: JPG, PNG, WEBP or PDF.',
-                      onRemove: _nrcBack == null
-                          ? null
-                          : () => setState(() => _nrcBack = null),
-                    ),
-                    const SizedBox(height: 12),
-                    _supportingDocsSection(),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: brand,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                         ),
-                        onPressed: _submitting ? null : _submit,
-                        child: Text(_submitting ? 'Submitting…' : 'Submit Application'),
+                        child: Text(_step == 2 ? (_submitting ? 'Submitting…' : 'Submit') : 'Next'),
                       ),
+                      const SizedBox(width: 12),
+                      TextButton(
+                        onPressed: _step == 0
+                            ? () => Navigator.of(context).pop()
+                            : () => setState(() => _step -= 1),
+                        child: const Text('Back'),
+                      ),
+                    ],
+                  );
+                },
+                steps: [
+                  Step(
+                    title: const Text('Profile'),
+                    isActive: _step >= 0,
+                    state: _step > 0 ? StepState.complete : StepState.indexed,
+                    content: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tell us about your skills and where you operate. This helps customers know you better.',
+                          style: GoogleFonts.urbanist(color: Colors.black54),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _bioCtrl,
+                          maxLines: 5,
+                          decoration: InputDecoration(
+                            hintText: 'Describe your experience, qualifications, and preferred areas.',
+                            filled: true,
+                            fillColor: const Color(0xFFF3F5F7),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Tell us a bit about your experience';
+                            }
+                            if (value.trim().length < 30) {
+                              return 'Please provide at least 30 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _locationCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Business location (optional)',
+                            filled: true,
+                            fillColor: const Color(0xFFF3F5F7),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: _requestingLocation
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.my_location_rounded),
+                              onPressed: _requestingLocation ? null : _useCurrentLocation,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'We will notify you once your application has been reviewed.',
-                      style: GoogleFonts.urbanist(color: Colors.black45, fontSize: 12),
-                      textAlign: TextAlign.center,
+                  ),
+                  Step(
+                    title: const Text('Documents'),
+                    isActive: _step >= 1,
+                    state: _step > 1
+                        ? StepState.complete
+                        : (_nrcFront != null && _nrcBack != null ? StepState.editing : StepState.indexed),
+                    content: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _documentTile(
+                          label: 'Profile photo (optional)',
+                          file: _profilePhoto,
+                          allowPdf: false,
+                          helper: 'A clear headshot helps customers recognise you.',
+                          onSelected: (file) => setState(() => _profilePhoto = file),
+                          onRemove: _profilePhoto == null
+                              ? null
+                              : () => setState(() => _profilePhoto = null),
+                        ),
+                        const SizedBox(height: 12),
+                        _documentTile(
+                          label: 'NRC front',
+                          file: _nrcFront,
+                          allowPdf: true,
+                          requiredField: true,
+                          helper: 'Accepted: JPG, PNG, WEBP or PDF (max 5MB).',
+                          onSelected: (file) => setState(() => _nrcFront = file),
+                          onRemove: _nrcFront == null
+                              ? null
+                              : () => setState(() => _nrcFront = null),
+                        ),
+                        const SizedBox(height: 12),
+                        _documentTile(
+                          label: 'NRC back',
+                          file: _nrcBack,
+                          allowPdf: true,
+                          requiredField: true,
+                          helper: 'Accepted: JPG, PNG, WEBP or PDF (max 5MB).',
+                          onSelected: (file) => setState(() => _nrcBack = file),
+                          onRemove: _nrcBack == null
+                              ? null
+                              : () => setState(() => _nrcBack = null),
+                        ),
+                        const SizedBox(height: 12),
+                        _supportingDocsSection(),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  Step(
+                    title: const Text('Services'),
+                    isActive: _step >= 2,
+                    state: _selectedServices.isNotEmpty ? StepState.editing : StepState.indexed,
+                    content: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Select the services you can handle. Customers will see these on your profile.',
+                          style: GoogleFonts.urbanist(color: Colors.black54),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_services.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF3E9),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'No services available yet. Please try again later.',
+                              style: GoogleFonts.urbanist(color: Colors.black54),
+                            ),
+                          )
+                        else
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _services.map((service) {
+                              final id = (service['id'] as num?)?.toInt();
+                              if (id == null) return const SizedBox.shrink();
+                              final selected = _selectedServices.contains(id);
+                              final name = (service['name'] ?? 'Service').toString();
+                              return FilterChip(
+                                selected: selected,
+                                onSelected: (_) {
+                                  setState(() {
+                                    if (selected) {
+                                      _selectedServices.remove(id);
+                                    } else {
+                                      _selectedServices.add(id);
+                                    }
+                                  });
+                                },
+                                label: Text(name),
+                                selectedColor: brand.withOpacity(0.2),
+                                checkmarkColor: brand,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              );
+                            }).toList(),
+                          ),
+                        if (_selectedServices.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Select at least one service you offer.',
+                              style: GoogleFonts.urbanist(fontSize: 12, color: Colors.black54),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
     );

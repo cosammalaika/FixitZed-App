@@ -38,19 +38,29 @@ class BookingDetailContent extends StatelessWidget {
   final Map<String, dynamic> request;
   final ScrollController? scrollController;
   final EdgeInsets padding;
-  const BookingDetailContent({super.key, required this.request, this.scrollController, EdgeInsets? padding})
-      : padding = padding ?? const EdgeInsets.fromLTRB(16, 12, 16, 24);
+
+  const BookingDetailContent({
+    super.key,
+    required this.request,
+    this.scrollController,
+    EdgeInsets? padding,
+  }) : padding = padding ?? const EdgeInsets.fromLTRB(20, 16, 20, 28);
 
   @override
   Widget build(BuildContext context) {
+    final brand = const Color(0xFFF1592A);
     final r = request;
-    final service = (r['service'] is Map) ? r['service'] as Map : null;
-    final fixer = (r['fixer'] is Map) ? r['fixer'] as Map : null;
-    final title =
+    final service = (r['service'] is Map) ? Map<String, dynamic>.from(r['service'] as Map) : null;
+    final fixer = (r['fixer'] is Map) ? Map<String, dynamic>.from(r['fixer'] as Map) : null;
+    final serviceName =
         (service != null ? (service['name'] ?? service['title']) : r['service_name'] ?? 'Service').toString();
     final status = (r['status'] ?? 'pending').toString();
-    final dt = (r['scheduled_at'] ?? r['scheduledAt'] ?? r['schedule'])?.toString();
+    final scheduled = (r['scheduled_at'] ?? r['scheduledAt'] ?? r['schedule'])?.toString();
+    final location = (r['location'] ?? '').toString();
     final coupon = (r['coupon_code'] ?? r['coupon'] ?? '').toString();
+    final fixerName = fixer != null
+        ? (fixer['name'] ?? fixer['full_name'] ?? fixer['username'] ?? 'Unknown').toString()
+        : 'Pending assignment';
     final price = _toDouble(r['price'] ?? r['amount'] ?? r['total']);
     final discount = _toDouble(r['discount'] ?? r['discount_amount']);
     final total = _toDouble(r['total'] ?? ((price ?? 0) - (discount ?? 0)));
@@ -59,153 +69,237 @@ class BookingDetailContent extends StatelessWidget {
       controller: scrollController,
       padding: padding,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            title,
-            style: GoogleFonts.urbanist(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
+          _headerCard(
+            serviceName: serviceName,
+            scheduled: scheduled,
+            status: status,
+            fixerName: fixerName,
+            brand: brand,
           ),
-          const SizedBox(height: 6),
-          if (dt != null)
-            Text(
-              'Scheduled: $dt',
-              style: GoogleFonts.urbanist(color: Colors.black54),
-            ),
-          const SizedBox(height: 6),
-          _chip(
-            'Status: ${_formatStatus(status)}',
-            _statusColor(status),
+          const SizedBox(height: 20),
+          _infoSection(
+            title: 'Booking details',
+            children: [
+              _infoTile(Icons.place_rounded, 'Location', location.isEmpty ? '—' : location),
+              if (coupon.isNotEmpty)
+                _infoTile(Icons.sell_rounded, 'Coupon', coupon.toUpperCase()),
+            ],
           ),
-          const SizedBox(height: 16),
-          if (fixer != null)
-            _tile(
-              'Fixer',
-              (fixer['name'] ?? fixer['full_name'] ?? fixer['username'] ?? 'Unknown').toString(),
-              Icons.engineering_rounded,
-            ),
-          if (r['location'] != null)
-            _tile('Location', r['location'].toString(), Icons.place_outlined),
-          if (coupon.isNotEmpty) _tile('Coupon', coupon, Icons.sell_outlined),
-          const SizedBox(height: 12),
-          if (price != null)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  _row('Price', price),
-                  const SizedBox(height: 6),
-                  if (discount != null)
-                    _row('Discount', -discount, negative: true),
-                  const Divider(height: 16),
-                  _row(
-                    'Total',
-                    total ?? (price - (discount ?? 0)),
-                    highlight: true,
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 16),
-          _PayNowSection(request: r),
+          if (price != null) ...[
+            const SizedBox(height: 20),
+            _priceBreakdown(price: price, discount: discount, total: total ?? price, brand: brand),
+          ],
+          const SizedBox(height: 20),
+          _PayNowSection(request: r, brand: brand),
         ],
       ),
     );
   }
 
-  Widget _tile(String label, String value, IconData icon) => ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Icon(icon, color: const Color(0xFFF1592A)),
-        title: Text(
-          label,
-          style: GoogleFonts.urbanist(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(value),
-      );
-
-  Widget _chip(String label, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.urbanist(fontWeight: FontWeight.w700, color: color),
-        ),
-      );
-
-  String _formatStatus(String s) {
-    switch (s.toLowerCase()) {
-      case 'approved':
-      case 'accepted':
-        return 'Accepted';
-      case 'awaiting_payment':
-        return 'Awaiting Payment';
-      case 'cancelled':
-      case 'canceled':
-        return 'Cancelled';
-      case 'completed':
-        return 'Completed';
-      case 'pending':
-        return 'Pending';
-      default:
-        return s.isEmpty
-            ? 'Pending'
-            : s
-                .split('_')
-                .map((part) => part.isEmpty
-                    ? part
-                    : part[0].toUpperCase() + part.substring(1))
-                .join(' ');
-    }
-  }
-
-  Color _statusColor(String s) {
-    switch (s.toLowerCase()) {
-      case 'approved':
-      case 'accepted':
-        return const Color(0xFF2E7D32);
-      case 'awaiting_payment':
-        return const Color(0xFFF1592A);
-      case 'cancelled':
-      case 'canceled':
-        return const Color(0xFFD32F2F);
-      case 'completed':
-        return const Color(0xFF1976D2);
-      default:
-        return const Color(0xFFF1592A);
-    }
-  }
-
-  Widget _row(
-    String label,
-    double? amount, {
-    bool negative = false,
-    bool highlight = false,
+  Widget _headerCard({
+    required String serviceName,
+    required String status,
+    required String fixerName,
+    required Color brand,
+    String? scheduled,
   }) {
-    final style = GoogleFonts.urbanist(
-      fontWeight: highlight ? FontWeight.w800 : FontWeight.w700,
-      color: highlight ? const Color(0xFF2E7D32) : null,
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [brand, const Color(0xFFFFA26C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: brand.withOpacity(0.2),
+            blurRadius: 20,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.handyman_rounded, color: Colors.white, size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      serviceName,
+                      style:
+                          GoogleFonts.urbanist(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20),
+                    ),
+                    if (scheduled != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          scheduled,
+                          style: GoogleFonts.urbanist(color: Colors.white.withOpacity(0.85)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              _statusChip(status),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _headerHighlight(label: 'Fixer', value: fixerName),
+        ],
+      ),
     );
-    final val = amount == null
-        ? '-'
-        : (negative
-              ? '-${amount.toStringAsFixed(2)}'
-              : amount.toStringAsFixed(2));
+  }
+
+  Widget _headerHighlight({required String label, required String value}) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: GoogleFonts.urbanist(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 2),
+          Text(value, style: GoogleFonts.urbanist(color: Colors.white, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoSection({required String title, required List<Widget> children}) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F5F7),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: GoogleFonts.urbanist(fontWeight: FontWeight.w800, fontSize: 16)),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _infoTile(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: const Color(0xFFF1592A)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: GoogleFonts.urbanist(color: Colors.black54, fontSize: 12)),
+                const SizedBox(height: 2),
+                Text(value, style: GoogleFonts.urbanist(fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _priceBreakdown({
+    required double price,
+    double? discount,
+    required double total,
+    required Color brand,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(color: Color(0x11000000), blurRadius: 18, offset: Offset(0, 12)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Price summary', style: GoogleFonts.urbanist(fontWeight: FontWeight.w800, fontSize: 16)),
+          const SizedBox(height: 14),
+          _priceRow('Subtotal', price),
+          if (discount != null && discount > 0)
+            _priceRow('Discount', -discount, highlightColor: const Color(0xFFD32F2F)),
+          const Divider(height: 24),
+          _priceRow('Total due', total, isTotal: true, highlightColor: brand),
+        ],
+      ),
+    );
+  }
+
+  Widget _priceRow(String label, double amount,
+      {bool isTotal = false, Color highlightColor = Colors.black87}) {
     return Row(
       children: [
-        Text(label),
+        Text(label, style: GoogleFonts.urbanist(fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500)),
         const Spacer(),
-        Text(val, style: style),
+        Text(
+          '${amount >= 0 ? '' : '-'}${amount.abs().toStringAsFixed(2)}',
+          style: GoogleFonts.urbanist(
+            fontWeight: isTotal ? FontWeight.w800 : FontWeight.w700,
+            color: isTotal ? highlightColor : null,
+          ),
+        ),
       ],
     );
+  }
+
+  Widget _statusChip(String status) {
+    final formatted = _formatStatus(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        formatted,
+        style: GoogleFonts.urbanist(color: Colors.white, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+
+  String _formatStatus(String value) {
+    if (value.isEmpty) return 'Pending';
+    return value
+        .split('_')
+        .map((part) => part.isEmpty ? part : part[0].toUpperCase() + part.substring(1))
+        .join(' ');
   }
 
   double? _toDouble(dynamic v) {
@@ -218,13 +312,13 @@ class BookingDetailContent extends StatelessWidget {
 
 class _PayNowSection extends StatefulWidget {
   final Map<String, dynamic> request;
-  const _PayNowSection({required this.request});
+  final Color brand;
+  const _PayNowSection({required this.request, required this.brand});
   @override
   State<_PayNowSection> createState() => _PayNowSectionState();
 }
 
 class _PayNowSectionState extends State<_PayNowSection> {
-  bool _loading = false;
   Map<String, dynamic>? _payment;
 
   @override
@@ -252,25 +346,52 @@ class _PayNowSectionState extends State<_PayNowSection> {
     if (paid) return const SizedBox();
     if (amount == null) return const SizedBox();
 
-    return Row(
-      children: [
-        Expanded(child: Text('Amount due: ${amount.toStringAsFixed(2)}')),
-        ElevatedButton(
-          onPressed: () async {
-            final paid = await showModalBottomSheet<bool>(
-              context: context,
-              isScrollControlled: true,
-              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-              builder: (ctx) => PaymentSheet(requestId: id),
-            );
-            if (paid == true) {
-              _load();
-            }
-          },
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF1592A), foregroundColor: Colors.white),
-          child: const Text('Pay Now'),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [widget.brand.withOpacity(0.12), widget.brand.withOpacity(0.04)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-      ],
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: widget.brand.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Payment', style: GoogleFonts.urbanist(fontWeight: FontWeight.w800, fontSize: 16)),
+          const SizedBox(height: 8),
+          Text(
+            'Amount due: K${amount.toStringAsFixed(2)}',
+            style: GoogleFonts.urbanist(fontWeight: FontWeight.w700, fontSize: 15),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                final paid = await Navigator.of(context, rootNavigator: true).push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) => PaymentScreen(requestId: id),
+                    fullscreenDialog: true,
+                  ),
+                );
+                if (paid == true) {
+                  _load();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: widget.brand,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: const Text('Pay now'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -290,12 +411,14 @@ Future<bool?> showBookingDetailSheet(
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
+    backgroundColor: Colors.transparent,
+    clipBehavior: Clip.antiAlias,
     builder: (ctx) {
       return DraggableScrollableSheet(
         expand: false,
-        minChildSize: 0.6,
+        minChildSize: 0.55,
         initialChildSize: 0.85,
         maxChildSize: 0.95,
         builder: (sheetCtx, controller) {
@@ -303,7 +426,7 @@ Future<bool?> showBookingDetailSheet(
           return BookingDetailContent(
             request: request,
             scrollController: controller,
-            padding: EdgeInsets.fromLTRB(16, 12, 16, bottom + 24),
+            padding: EdgeInsets.fromLTRB(20, 16, 20, bottom + 32),
           );
         },
       );

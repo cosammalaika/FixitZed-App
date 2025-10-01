@@ -11,6 +11,7 @@ class FixerApplicationService {
 
   Future<bool> apply({
     required String bio,
+    String? location,
     required List<int> serviceIds,
     String? profilePhotoPath,
     String? nrcFrontPath,
@@ -29,6 +30,9 @@ class FixerApplicationService {
     request.headers['Authorization'] = 'Bearer $token';
 
     request.fields['bio'] = bio;
+    if (location != null && location.trim().isNotEmpty) {
+      request.fields['location'] = location.trim();
+    }
     for (var i = 0; i < serviceIds.length; i++) {
       request.fields['service_ids[$i]'] = serviceIds[i].toString();
     }
