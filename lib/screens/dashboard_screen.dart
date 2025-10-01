@@ -5,9 +5,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/home_service.dart';
 import '../core/api.dart';
 import 'profile_screen.dart';
+import 'profile/my_booking_screen.dart';
 import '../services/notification_service.dart';
 import '../services/favorites_service.dart';
 import 'dashboard_widgets.dart';
+import 'favorites_screen.dart';
+import 'booking_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -65,7 +68,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _greetName = combined;
         } else {
           final name = raw['name'] ?? raw['full_name'] ?? raw['username'];
-          if (name is String && name.trim().isNotEmpty) _greetName = name.trim();
+          if (name is String && name.trim().isNotEmpty)
+            _greetName = name.trim();
         }
 
         final city = (raw['city'] ?? '').toString().trim();
@@ -335,6 +339,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _bottomNav() => DashboardBottomNav(
     currentIndex: _tabIndex,
     onTap: (i) => setState(() => _tabIndex = i),
+    onBookTap: () async {
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => const BookingSheet(),
+      );
+    },
   );
 
   @override
@@ -349,29 +363,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: Colors.white,
         bottomNavigationBar: _bottomNav(),
         body: SafeArea(
-          child: _tabIndex == 4
-              ? const ProfileScreen()
-              : (_loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _greeting(),
-                            const SizedBox(height: 16),
-                            _search(),
-                            const SizedBox(height: 20),
-                            _offersCarousel(),
-                            const SizedBox(height: 20),
-                            _categories(),
-                            const SizedBox(height: 20),
-                            _popular(),
-                            const SizedBox(height: 20),
-                            _topFixers(),
-                          ],
-                        ),
-                      )),
+          child: () {
+            if (_tabIndex == 3) return const ProfileScreen();
+            if (_tabIndex == 1) return const MyBookingScreen();
+            if (_tabIndex == 2) return const FavoritesScreen();
+            if (_loading)
+              return const Center(child: CircularProgressIndicator());
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _greeting(),
+                  const SizedBox(height: 16),
+                  _search(),
+                  const SizedBox(height: 20),
+                  _offersCarousel(),
+                  const SizedBox(height: 20),
+                  _categories(),
+                  const SizedBox(height: 20),
+                  _popular(),
+                  const SizedBox(height: 20),
+                  _topFixers(),
+                ],
+              ),
+            );
+          }(),
         ),
       ),
     );

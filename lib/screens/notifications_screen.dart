@@ -58,76 +58,99 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final readVal = n['read'] ?? n['read_at'] ?? n['is_read'];
     final read = readVal == true || (readVal is String && readVal.isNotEmpty);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F5F7),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF6EEEA),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.event_available_rounded,
-              color: Color(0xFFF1592A),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: GoogleFonts.urbanist(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      timeStr,
-                      style: GoogleFonts.urbanist(
-                        color: Colors.black45,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  body,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.urbanist(
-                    color: Colors.black54,
-                    height: 1.25,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (!read)
+    void onTap() {
+      final reqId =
+          n['request_id'] ??
+          n['service_request_id'] ??
+          n['request'] ??
+          n['requestId'];
+      if (reqId is int) {
+        // Navigate to bookings screen; customer can see/pay there (extendable to detail route if added)
+        Navigator.pushNamed(context, '/profile/bookings');
+        return;
+      }
+      // Heuristic: if message mentions payment/bill, go to bookings
+      final msg = (n['message'] ?? n['body'] ?? '').toString().toLowerCase();
+      if (msg.contains('payment') || msg.contains('bill')) {
+        Navigator.pushNamed(context, '/profile/bookings');
+        return;
+      }
+    }
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F5F7),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.only(left: 8, top: 6),
+              padding: const EdgeInsets.all(12),
               decoration: const BoxDecoration(
-                color: Color(0xFFF1592A),
+                color: Color(0xFFF6EEEA),
                 shape: BoxShape.circle,
               ),
+              child: const Icon(
+                Icons.event_available_rounded,
+                color: Color(0xFFF1592A),
+              ),
             ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: GoogleFonts.urbanist(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        timeStr,
+                        style: GoogleFonts.urbanist(
+                          color: Colors.black45,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    body,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.urbanist(
+                      color: Colors.black54,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!read)
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(left: 8, top: 6),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1592A),
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -159,7 +182,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         centerTitle: true,
-        title: Text('Notification', style: GoogleFonts.urbanist(color: Theme.of(context).colorScheme.onBackground, fontWeight: FontWeight.w700)),
+        title: Text(
+          'Notification',
+          style: GoogleFonts.urbanist(
+            color: Theme.of(context).colorScheme.onBackground,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _loading

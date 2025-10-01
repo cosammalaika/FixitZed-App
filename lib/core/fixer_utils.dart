@@ -139,6 +139,24 @@ double? fixerRating(Map<dynamic, dynamic> fixer) {
       }
     }
   }
+  // Compute from an inlined reviews list when present
+  if (rating == null) {
+    final reviews = fixer['reviews'];
+    if (reviews is List && reviews.isNotEmpty) {
+      double sum = 0;
+      int count = 0;
+      for (final r in reviews) {
+        if (r is Map && r['rating'] != null) {
+          final v = double.tryParse(r['rating'].toString());
+          if (v != null) {
+            sum += v;
+            count++;
+          }
+        }
+      }
+      if (count > 0) return sum / count;
+    }
+  }
   if (rating == null) return null;
   return double.tryParse(rating.toString());
 }

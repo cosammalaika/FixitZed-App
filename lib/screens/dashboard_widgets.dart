@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../widgets/fixer_list_item.dart';
 
 import '../core/api.dart';
 import '../core/fixer_utils.dart';
@@ -124,10 +125,12 @@ class DashboardSearchField extends StatelessWidget {
 class DashboardBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final VoidCallback? onBookTap;
   const DashboardBottomNav({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.onBookTap,
   });
 
   @override
@@ -152,12 +155,6 @@ class DashboardBottomNav extends StatelessWidget {
       },
       {
         'icon': currentIndex == 3
-            ? Icons.chat_bubble_rounded
-            : Icons.chat_bubble_outline_rounded,
-        'label': 'Chat',
-      },
-      {
-        'icon': currentIndex == 4
             ? Icons.person_rounded
             : Icons.person_outline_rounded,
         'label': 'Profile',
@@ -221,7 +218,40 @@ class DashboardBottomNav extends StatelessWidget {
                 ),
               ),
             );
-          }),
+          })
+            // Insert a prominent center 'Book' button between item 1 and 2
+            ..insert(
+              2,
+              GestureDetector(
+                onTap: onBookTap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 76,
+                        height: 50,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1592A),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x33000000), blurRadius: 12, offset: Offset(0, 6)),
+                          ],
+                        ),
+                        child: const Icon(Icons.event_available_rounded, color: Colors.white, size: 28),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Book',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFF1592A)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ),
       ),
     );
@@ -234,6 +264,9 @@ class TopFixersStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Reuse the same list item UI as the full Fixers list for consistency
+    // so Top Rated Fixers look identical to the main list style.
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -272,124 +305,15 @@ class TopFixersStrip extends StatelessWidget {
               return const Center(child: Text('No fixers yet'));
             }
 
-            return ListView.separated(
+            // Use same card item as the Fixers list
+            return ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 8),
               itemCount: items.length.clamp(0, 5),
-              separatorBuilder: (_, __) => const Divider(),
               itemBuilder: (ctx, i) {
                 final f = items[i] as Map;
-                final name = fixerDisplayName(f);
-                final avatar = fixerAvatarUrl(f);
-                final double? rating = fixerRating(f);
-                final services = (f['services'] ?? []) as List;
-
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Avatar with robust fallback
-                    ClipOval(
-                      child: SizedBox(
-                        width: 56,
-                        height: 56,
-                        child: avatar.isNotEmpty
-                            ? Image.network(
-                                avatar,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Image.asset(
-                                  'assets/images/logo-sm.png',
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            : Image.asset(
-                                'assets/images/logo-sm.png',
-                                fit: BoxFit.cover,
-                              ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // Name + Services
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  name,
-                                  style: GoogleFonts.urbanist(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              if (rating != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.amber.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.star_rounded,
-                                        color: Colors.amber,
-                                        size: 14,
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        rating.toStringAsFixed(1),
-                                        style: GoogleFonts.urbanist(
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: List.generate(
-                              services.length > 3 ? 3 : services.length,
-                              (j) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFFF1592A,
-                                  ).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  (services[j]['name'] ??
-                                          services[j]['title'] ??
-                                          "Service")
-                                      .toString(),
-                                  style: GoogleFonts.urbanist(
-                                    fontSize: 12,
-                                    color: const Color(0xFFF1592A),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
+                return FixerListItem(fixer: f);
               },
             );
           },
@@ -444,40 +368,39 @@ class CategoriesBlock extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        if (categories.isEmpty)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              CategoryIconLabel(
-                icon: Icons.cleaning_services_rounded,
-                label: 'Cleaning',
-              ),
-              CategoryIconLabel(icon: Icons.build_rounded, label: 'Repairing'),
-              CategoryIconLabel(
-                icon: Icons.format_paint_rounded,
-                label: 'Painting',
-              ),
-              CategoryIconLabel(icon: Icons.grid_view_rounded, label: 'More'),
-            ],
-          )
-        else
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(4, (i) {
-              if (i >= categories.length) {
-                return const CategoryIconLabel(
-                  icon: Icons.build_rounded,
-                  label: 'More',
-                );
-              }
-              final c = categories[i] as Map;
-              final label = (c['name'] ?? c['title'] ?? 'Category').toString();
-              return CategoryIconLabel(
-                icon: Icons.handyman_rounded,
-                label: label,
-              );
-            }),
+        SizedBox(
+          height: 96,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: () {
+                List<Widget> items = [];
+                List<Map> data;
+                if (categories.isEmpty) {
+                  data = [
+                    {'icon': Icons.cleaning_services_rounded, 'name': 'Cleaning'},
+                    {'icon': Icons.build_rounded, 'name': 'Repairing'},
+                    {'icon': Icons.format_paint_rounded, 'name': 'Painting'},
+                    {'icon': Icons.grid_view_rounded, 'name': 'More'},
+                  ];
+                  for (final c in data) {
+                    if (items.isNotEmpty) items.add(const SizedBox(width: 16));
+                    items.add(CategoryIconLabel(icon: c['icon'] as IconData, label: c['name'] as String));
+                  }
+                } else {
+                  for (var i = 0; i < categories.length; i++) {
+                    final c = categories[i] as Map;
+                    final label = (c['name'] ?? c['title'] ?? 'Category').toString();
+                    if (items.isNotEmpty) items.add(const SizedBox(width: 16));
+                    items.add(CategoryIconLabel(icon: Icons.handyman_rounded, label: label));
+                  }
+                }
+                return items;
+              }(),
+            ),
           ),
+        ),
       ],
     );
   }

@@ -93,7 +93,12 @@ class HomeService {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = _extractList(data);
-        if (list.isNotEmpty) return list;
+        if (list.isNotEmpty) {
+          // Enrich with details from the full fixers endpoint when the
+          // compact payload lacks avatar/rating/services.
+          final enriched = await _enrichFixers(list);
+          return enriched.isNotEmpty ? enriched : list;
+        }
       }
       // Fallback to legacy /fixers
       final res2 = await http.get(_uri('fixers'), headers: _headers());
@@ -104,6 +109,54 @@ class HomeService {
       }
     } catch (_) {}
     return [];
+  }
+
+  Future<List<dynamic>> _enrichFixers(List<dynamic> compact) async {
+    try {
+      final full = await fetchAllFixers();
+      if (full.isEmpty) return compact;
+
+      Map<String, Map> index = {};
+      String? keyOf(Map m) {
+        final id = m['id'] ?? m['user_id'] ?? (m['user'] is Map ? m['user']['id'] : null);
+        if (id != null) return 'id:$id';
+        final name = (m['name'] ?? m['full_name'] ?? m['display_name'])?.toString();
+        if (name != null && name.isNotEmpty) return 'name:${name.toLowerCase()}';
+        return null;
+      }
+
+      for (final e in full.whereType<Map>()) {
+        final k = keyOf(e);
+        if (k != null) index[k] = e;
+      }
+
+      Map merge(Map a, Map b) {
+        final out = Map.of(a);
+        b.forEach((k, v) {
+          final exists = a[k];
+          final isMissing = exists == null || (exists is String && exists.toString().trim().isEmpty);
+          if (isMissing) out[k] = v;
+        });
+        return out;
+      }
+
+      final result = <dynamic>[];
+      for (final e in compact) {
+        if (e is Map) {
+          final k = keyOf(e);
+          if (k != null && index.containsKey(k)) {
+            result.add(merge(e, index[k]!));
+          } else {
+            result.add(e);
+          }
+        } else {
+          result.add(e);
+        }
+      }
+      return result;
+    } catch (_) {
+      return compact;
+    }
   }
 
   /// Fetches the full list of fixers (not just top),
