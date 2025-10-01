@@ -50,6 +50,7 @@ class PaymentService {
     String method = 'manual',
     String transactionId = '',
     String? couponCode,
+    int loyaltyPoints = 0,
   }) async {
     final token = await _token();
     if (token == null) {
@@ -62,6 +63,7 @@ class PaymentService {
       'transaction_id': transactionId,
       if (originalAmount != null) 'original_amount': originalAmount,
       if (couponCode != null && couponCode.trim().isNotEmpty) 'coupon_code': couponCode.trim(),
+      if (loyaltyPoints > 0) 'loyalty_points': loyaltyPoints,
     };
 
     final res = await http.post(
@@ -101,6 +103,17 @@ class PaymentService {
         }
       }
     } catch (_) {}
+
+    if (errorMessage == null && res.body.isNotEmpty) {
+      var text = res.body;
+      if (text.length > 400) {
+        text = text.substring(0, 400);
+      }
+      text = text.replaceAll(RegExp(r'<[^>]+>'), '').trim();
+      if (text.isNotEmpty) {
+        errorMessage = text;
+      }
+    }
 
     errorMessage ??= res.statusCode == 401
         ? 'You are not authorized to complete this payment.'

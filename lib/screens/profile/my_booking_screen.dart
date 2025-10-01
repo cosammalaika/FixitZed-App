@@ -93,14 +93,13 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                   final payAmount = pay?['amount'];
                   final hasDue = rid != null && payAmount != null && payStatus != 'paid' && status != 'completed';
                   return InkWell(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => BookingDetailScreen(
-                          request: Map<String, dynamic>.from(r),
-                        ),
-                      ),
-                    ),
+                    onTap: () async {
+                      final refresh = await showBookingDetailSheet(
+                        context,
+                        Map<String, dynamic>.from(r),
+                      );
+                      if (refresh == true) _load();
+                    },
                     child: Container(
                       margin: const EdgeInsets.symmetric(vertical: 8),
                       padding: const EdgeInsets.all(14),

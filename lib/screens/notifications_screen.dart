@@ -143,7 +143,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final ok = await _svc.markRead(id);
       if (ok && mounted) {
         setState(() {
-          final idx = _items.indexWhere((e) => (e['id'] as num?)?.toInt() == id);
+          final idx = _items.indexWhere(
+            (e) => (e['id'] as num?)?.toInt() == id,
+          );
           if (idx != -1) {
             final updated = Map<String, dynamic>.from(_items[idx]);
             updated['read'] = true;
@@ -177,7 +179,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   int? _parseRequestId(Map<String, dynamic> notification) {
-    for (final key in const ['request_id', 'service_request_id', 'request', 'requestId']) {
+    for (final key in const [
+      'request_id',
+      'service_request_id',
+      'request',
+      'requestId',
+    ]) {
       final value = notification[key];
       if (value is num) return value.toInt();
       if (value is String) {
@@ -195,7 +202,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       notification['message'],
       notification['body'],
     ].whereType<String>().join(' ').toLowerCase();
-    return combined.contains('payment') || combined.contains('bill') || combined.contains('invoice');
+    return combined.contains('payment') ||
+        combined.contains('bill') ||
+        combined.contains('invoice');
   }
 
   @override

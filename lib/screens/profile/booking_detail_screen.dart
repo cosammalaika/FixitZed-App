@@ -14,22 +14,6 @@ class BookingDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final r = request;
-    final service = (r['service'] is Map) ? r['service'] as Map : null;
-    final fixer = (r['fixer'] is Map) ? r['fixer'] as Map : null;
-    String title =
-        (service != null
-                ? (service['name'] ?? service['title'])
-                : r['service_name'] ?? 'Service')
-            .toString();
-    final status = (r['status'] ?? 'pending').toString();
-    final dt = (r['scheduled_at'] ?? r['scheduledAt'] ?? r['schedule'])
-        ?.toString();
-    final coupon = (r['coupon_code'] ?? r['coupon'] ?? '').toString();
-    final price = _toDouble(r['price'] ?? r['amount'] ?? r['total']);
-    final discount = _toDouble(r['discount'] ?? r['discount_amount']);
-    final total = _toDouble(r['total'] ?? ((price ?? 0) - (discount ?? 0)));
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: theme.scaffoldBackgroundColor,
@@ -45,95 +29,117 @@ class BookingDetailScreen extends StatelessWidget {
         centerTitle: true,
       ),
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: BookingDetailContent(request: request),
+    );
+  }
+}
+
+class BookingDetailContent extends StatelessWidget {
+  final Map<String, dynamic> request;
+  final ScrollController? scrollController;
+  final EdgeInsets padding;
+  const BookingDetailContent({super.key, required this.request, this.scrollController, EdgeInsets? padding})
+      : padding = padding ?? const EdgeInsets.fromLTRB(16, 12, 16, 24);
+
+  @override
+  Widget build(BuildContext context) {
+    final r = request;
+    final service = (r['service'] is Map) ? r['service'] as Map : null;
+    final fixer = (r['fixer'] is Map) ? r['fixer'] as Map : null;
+    final title =
+        (service != null ? (service['name'] ?? service['title']) : r['service_name'] ?? 'Service').toString();
+    final status = (r['status'] ?? 'pending').toString();
+    final dt = (r['scheduled_at'] ?? r['scheduledAt'] ?? r['schedule'])?.toString();
+    final coupon = (r['coupon_code'] ?? r['coupon'] ?? '').toString();
+    final price = _toDouble(r['price'] ?? r['amount'] ?? r['total']);
+    final discount = _toDouble(r['discount'] ?? r['discount_amount']);
+    final total = _toDouble(r['total'] ?? ((price ?? 0) - (discount ?? 0)));
+
+    return SingleChildScrollView(
+      controller: scrollController,
+      padding: padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.urbanist(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (dt != null)
             Text(
-              title,
-              style: GoogleFonts.urbanist(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
+              'Scheduled: $dt',
+              style: GoogleFonts.urbanist(color: Colors.black54),
+            ),
+          const SizedBox(height: 6),
+          _chip(
+            'Status: ${_formatStatus(status)}',
+            _statusColor(status),
+          ),
+          const SizedBox(height: 16),
+          if (fixer != null)
+            _tile(
+              'Fixer',
+              (fixer['name'] ?? fixer['full_name'] ?? fixer['username'] ?? 'Unknown').toString(),
+              Icons.engineering_rounded,
+            ),
+          if (r['location'] != null)
+            _tile('Location', r['location'].toString(), Icons.place_outlined),
+          if (coupon.isNotEmpty) _tile('Coupon', coupon, Icons.sell_outlined),
+          const SizedBox(height: 12),
+          if (price != null)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  _row('Price', price),
+                  const SizedBox(height: 6),
+                  if (discount != null)
+                    _row('Discount', -discount, negative: true),
+                  const Divider(height: 16),
+                  _row(
+                    'Total',
+                    total ?? (price - (discount ?? 0)),
+                    highlight: true,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 6),
-            if (dt != null)
-              Text(
-                'Scheduled: $dt',
-                style: GoogleFonts.urbanist(color: Colors.black54),
-              ),
-            const SizedBox(height: 6),
-            _chip(
-              'Status: ${_formatStatus(status)}',
-              _statusColor(status),
-            ),
-            const SizedBox(height: 16),
-            if (fixer != null)
-              _tile(
-                'Fixer',
-                (fixer['name'] ??
-                        fixer['full_name'] ??
-                        fixer['username'] ??
-                        'Unknown')
-                    .toString(),
-                Icons.engineering_rounded,
-              ),
-            if (r['location'] != null)
-              _tile('Location', r['location'].toString(), Icons.place_outlined),
-            if (coupon.isNotEmpty) _tile('Coupon', coupon, Icons.sell_outlined),
-            const SizedBox(height: 12),
-            if (price != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    _row('Price', price),
-                    const SizedBox(height: 6),
-                    if (discount != null)
-                      _row('Discount', -discount, negative: true),
-                    const Divider(height: 16),
-                    _row(
-                      'Total',
-                      total ?? (price - (discount ?? 0)),
-                      highlight: true,
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16),
-            _PayNowSection(request: r),
-          ],
-        ),
+          const SizedBox(height: 16),
+          _PayNowSection(request: r),
+        ],
       ),
     );
   }
 
   Widget _tile(String label, String value, IconData icon) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: Icon(icon, color: const Color(0xFFF1592A)),
-    title: Text(
-      label,
-      style: GoogleFonts.urbanist(fontWeight: FontWeight.w600),
-    ),
-    subtitle: Text(value),
-  );
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(icon, color: const Color(0xFFF1592A)),
+        title: Text(
+          label,
+          style: GoogleFonts.urbanist(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(value),
+      );
 
   Widget _chip(String label, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(
-      color: color.withOpacity(0.12),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Text(
-      label,
-      style: GoogleFonts.urbanist(fontWeight: FontWeight.w700, color: color),
-    ),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.urbanist(fontWeight: FontWeight.w700, color: color),
+        ),
+      );
 
   String _formatStatus(String s) {
     switch (s.toLowerCase()) {
@@ -274,4 +280,33 @@ class _PayNowSectionState extends State<_PayNowSection> {
     if (v is String) return double.tryParse(v);
     return null;
   }
+}
+
+Future<bool?> showBookingDetailSheet(
+  BuildContext context,
+  Map<String, dynamic> request,
+) {
+  return showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) {
+      return DraggableScrollableSheet(
+        expand: false,
+        minChildSize: 0.6,
+        initialChildSize: 0.85,
+        maxChildSize: 0.95,
+        builder: (sheetCtx, controller) {
+          final bottom = MediaQuery.of(sheetCtx).viewInsets.bottom;
+          return BookingDetailContent(
+            request: request,
+            scrollController: controller,
+            padding: EdgeInsets.fromLTRB(16, 12, 16, bottom + 24),
+          );
+        },
+      );
+    },
+  );
 }

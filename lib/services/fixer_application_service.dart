@@ -1,32 +1,56 @@
-import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/api.dart';
 
 class FixerApplicationService {
-  Map<String, String> _headers(String token) => {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
   Future<String?> _token() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token');
   }
 
-  Future<bool> apply({required String bio, required List<int> serviceIds}) async {
+  Future<bool> apply({
+    required String bio,
+    required List<int> serviceIds,
+    String? profilePhotoPath,
+    String? nrcFrontPath,
+    String? nrcBackPath,
+    List<String> supportingDocuments = const [],
+  }) async {
     final token = await _token();
     if (token == null) return false;
-    final res = await http.post(
+
+    final request = http.MultipartRequest(
+      'POST',
       Uri.parse('${Api.baseUrl}/fixer/apply'),
-      headers: _headers(token),
-      body: jsonEncode({
-        'bio': bio,
-        'service_ids': serviceIds,
-      }),
     );
-    return res.statusCode >= 200 && res.statusCode < 300;
+
+    request.headers['Accept'] = 'application/json';
+    request.headers['Authorization'] = 'Bearer $token';
+
+    request.fields['bio'] = bio;
+    for (var i = 0; i < serviceIds.length; i++) {
+      request.fields['service_ids[$i]'] = serviceIds[i].toString();
+    }
+
+    Future<void> attach(String? path, String field) async {
+      if (path == null || path.isEmpty) return;
+      request.files.add(await http.MultipartFile.fromPath(field, path));
+    }
+
+    await attach(profilePhotoPath, 'profile_photo');
+    await attach(nrcFrontPath, 'nrc_front');
+    await attach(nrcBackPath, 'nrc_back');
+
+    for (var i = 0; i < supportingDocuments.length; i++) {
+      final path = supportingDocuments[i];
+      if (path.isEmpty) continue;
+      request.files.add(await http.MultipartFile.fromPath('supporting_documents[$i]', path));
+    }
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+
+    return response.statusCode >= 200 && response.statusCode < 300;
   }
 }

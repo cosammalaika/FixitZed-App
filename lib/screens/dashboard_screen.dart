@@ -162,20 +162,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (!paid && amount != null) {
           if (!mounted) return;
           _billPromptShown = true;
-          await _showPayNowSheet(r, (amount is num) ? amount.toDouble() : double.tryParse(amount.toString()) ?? 0);
+          await _showPayNowSheet(
+            r,
+            (amount is num)
+                ? amount.toDouble()
+                : double.tryParse(amount.toString()) ?? 0,
+          );
           break;
         }
       }
     } catch (_) {}
   }
 
-  Future<void> _showPayNowSheet(Map<String, dynamic> request, double amount) async {
+  Future<void> _showPayNowSheet(
+    Map<String, dynamic> request,
+    double amount,
+  ) async {
     final id = (request['id'] as num?)?.toInt();
     if (id == null) return;
     final paid = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => PaymentSheet(requestId: id),
     );
     if (paid == true && mounted) {
