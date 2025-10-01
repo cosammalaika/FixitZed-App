@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/notification_service.dart';
+import 'payment_sheet.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -58,27 +59,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final readVal = n['read'] ?? n['read_at'] ?? n['is_read'];
     final read = readVal == true || (readVal is String && readVal.isNotEmpty);
 
-    void onTap() {
-      final reqId =
-          n['request_id'] ??
-          n['service_request_id'] ??
-          n['request'] ??
-          n['requestId'];
-      if (reqId is int) {
-        // Navigate to bookings screen; customer can see/pay there (extendable to detail route if added)
-        Navigator.pushNamed(context, '/profile/bookings');
-        return;
-      }
-      // Heuristic: if message mentions payment/bill, go to bookings
-      final msg = (n['message'] ?? n['body'] ?? '').toString().toLowerCase();
-      if (msg.contains('payment') || msg.contains('bill')) {
-        Navigator.pushNamed(context, '/profile/bookings');
-        return;
-      }
-    }
-
     return InkWell(
-      onTap: onTap,
+      onTap: () => _handleTap(n),
       borderRadius: BorderRadius.circular(20),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 10),
@@ -153,6 +135,67 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleTap(Map<String, dynamic> notification) async {
+    final id = (notification['id'] as num?)?.toInt();
+    if (id != null) {
+      final ok = await _svc.markRead(id);
+      if (ok && mounted) {
+        setState(() {
+          final idx = _items.indexWhere((e) => (e['id'] as num?)?.toInt() == id);
+          if (idx != -1) {
+            final updated = Map<String, dynamic>.from(_items[idx]);
+            updated['read'] = true;
+            updated['read_at'] = DateTime.now().toIso8601String();
+            _items[idx] = updated;
+          }
+        });
+      }
+    }
+
+    final requestId = _parseRequestId(notification);
+    final isPayment = _isPaymentNotification(notification);
+
+    if (requestId != null && isPayment) {
+      final paid = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => PaymentSheet(requestId: requestId),
+      );
+      if (paid == true && mounted) {
+        _load();
+      }
+      return;
+    }
+
+    await Navigator.pushNamed(context, '/profile/bookings');
+    if (mounted) _load();
+  }
+
+  int? _parseRequestId(Map<String, dynamic> notification) {
+    for (final key in const ['request_id', 'service_request_id', 'request', 'requestId']) {
+      final value = notification[key];
+      if (value is num) return value.toInt();
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
+  bool _isPaymentNotification(Map<String, dynamic> notification) {
+    final combined = [
+      notification['title'],
+      notification['subject'],
+      notification['message'],
+      notification['body'],
+    ].whereType<String>().join(' ').toLowerCase();
+    return combined.contains('payment') || combined.contains('bill') || combined.contains('invoice');
   }
 
   @override

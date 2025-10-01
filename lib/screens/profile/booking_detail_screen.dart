@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../services/payment_service.dart';
+import '../payment_sheet.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../../core/api.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BookingDetailScreen extends StatelessWidget {
   final Map<String, dynamic> request;
@@ -59,7 +65,7 @@ class BookingDetailScreen extends StatelessWidget {
               ),
             const SizedBox(height: 6),
             _chip(
-              'Status: ${status[0].toUpperCase()}${status.substring(1)}',
+              'Status: ${_formatStatus(status)}',
               _statusColor(status),
             ),
             const SizedBox(height: 16),
@@ -99,6 +105,8 @@ class BookingDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
+            const SizedBox(height: 16),
+            _PayNowSection(request: r),
           ],
         ),
       ),
@@ -127,11 +135,39 @@ class BookingDetailScreen extends StatelessWidget {
     ),
   );
 
+  String _formatStatus(String s) {
+    switch (s.toLowerCase()) {
+      case 'approved':
+      case 'accepted':
+        return 'Accepted';
+      case 'awaiting_payment':
+        return 'Awaiting Payment';
+      case 'cancelled':
+      case 'canceled':
+        return 'Cancelled';
+      case 'completed':
+        return 'Completed';
+      case 'pending':
+        return 'Pending';
+      default:
+        return s.isEmpty
+            ? 'Pending'
+            : s
+                .split('_')
+                .map((part) => part.isEmpty
+                    ? part
+                    : part[0].toUpperCase() + part.substring(1))
+                .join(' ');
+    }
+  }
+
   Color _statusColor(String s) {
     switch (s.toLowerCase()) {
       case 'approved':
       case 'accepted':
         return const Color(0xFF2E7D32);
+      case 'awaiting_payment':
+        return const Color(0xFFF1592A);
       case 'cancelled':
       case 'canceled':
         return const Color(0xFFD32F2F);
@@ -162,6 +198,72 @@ class BookingDetailScreen extends StatelessWidget {
         Text(label),
         const Spacer(),
         Text(val, style: style),
+      ],
+    );
+  }
+
+  double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v);
+    return null;
+  }
+}
+
+class _PayNowSection extends StatefulWidget {
+  final Map<String, dynamic> request;
+  const _PayNowSection({required this.request});
+  @override
+  State<_PayNowSection> createState() => _PayNowSectionState();
+}
+
+class _PayNowSectionState extends State<_PayNowSection> {
+  bool _loading = false;
+  Map<String, dynamic>? _payment;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final id = (widget.request['id'] as num?)?.toInt();
+    if (id == null) return;
+    final p = await PaymentService().get(id);
+    if (!mounted) return;
+    setState(() => _payment = p);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final id = (widget.request['id'] as num?)?.toInt();
+    if (id == null) return const SizedBox();
+    final status = (widget.request['status'] ?? '').toString();
+    if (status == 'completed') return const SizedBox();
+    final amount = _toDouble(_payment?['amount']);
+    final paid = ((_payment?['status'] ?? '').toString().toLowerCase() == 'paid');
+    if (paid) return const SizedBox();
+    if (amount == null) return const SizedBox();
+
+    return Row(
+      children: [
+        Expanded(child: Text('Amount due: ${amount.toStringAsFixed(2)}')),
+        ElevatedButton(
+          onPressed: () async {
+            final paid = await showModalBottomSheet<bool>(
+              context: context,
+              isScrollControlled: true,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+              builder: (ctx) => PaymentSheet(requestId: id),
+            );
+            if (paid == true) {
+              _load();
+            }
+          },
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF1592A), foregroundColor: Colors.white),
+          child: const Text('Pay Now'),
+        ),
       ],
     );
   }

@@ -1,0 +1,115 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../core/api.dart';
+
+class PaymentResult {
+  final bool success;
+  final String? message;
+  final Map<String, dynamic>? data;
+  final int statusCode;
+
+  const PaymentResult({
+    required this.success,
+    this.message,
+    this.data,
+    this.statusCode = 0,
+  });
+}
+
+class PaymentService {
+  Map<String, String> _headers(String token) => {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
+
+  Uri _uri(String path) => Uri.parse('${Api.baseUrl}/$path');
+
+  Future<String?> _token() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  Future<Map<String, dynamic>?> get(int requestId) async {
+    final token = await _token();
+    if (token == null) return null;
+    final res = await http.get(_uri('requests/$requestId/payment'), headers: _headers(token));
+    if (res.statusCode == 200) {
+      final root = jsonDecode(res.body);
+      if (root is Map && root['data'] is Map) return Map<String, dynamic>.from(root['data'] as Map);
+      if (root is Map) return Map<String, dynamic>.from(root);
+    }
+    return null;
+  }
+
+  Future<PaymentResult> pay({
+    required int requestId,
+    required double amount,
+    double? originalAmount,
+    String method = 'manual',
+    String transactionId = '',
+    String? couponCode,
+  }) async {
+    final token = await _token();
+    if (token == null) {
+      return const PaymentResult(success: false, message: 'You need to sign in again.');
+    }
+    final payload = {
+      'amount': amount,
+      'status': 'paid',
+      'payment_method': method,
+      'transaction_id': transactionId,
+      if (originalAmount != null) 'original_amount': originalAmount,
+      if (couponCode != null && couponCode.trim().isNotEmpty) 'coupon_code': couponCode.trim(),
+    };
+
+    final res = await http.post(
+      _uri('requests/$requestId/payment'),
+      headers: _headers(token),
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      Map<String, dynamic>? data;
+      String? message;
+      try {
+        final body = jsonDecode(res.body);
+        if (body is Map) {
+          data = body['data'] is Map
+              ? Map<String, dynamic>.from(body['data'] as Map)
+              : Map<String, dynamic>.from(body);
+          message = body['message']?.toString();
+        }
+      } catch (_) {}
+      return PaymentResult(
+        success: true,
+        message: message ?? 'Payment successful',
+        data: data,
+        statusCode: res.statusCode,
+      );
+    }
+
+    String? errorMessage;
+    try {
+      final body = jsonDecode(res.body);
+      if (body is Map) {
+        if (body['message'] != null) {
+          errorMessage = body['message'].toString();
+        } else if (body['errors'] is Map && (body['errors'] as Map).isNotEmpty) {
+          final first = (body['errors'] as Map).values.first;
+          if (first is List && first.isNotEmpty) errorMessage = first.first.toString();
+        }
+      }
+    } catch (_) {}
+
+    errorMessage ??= res.statusCode == 401
+        ? 'You are not authorized to complete this payment.'
+        : 'Payment failed. Please try again.';
+
+    return PaymentResult(
+      success: false,
+      message: errorMessage,
+      statusCode: res.statusCode,
+    );
+  }
+}

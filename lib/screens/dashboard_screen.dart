@@ -11,6 +11,9 @@ import '../services/favorites_service.dart';
 import 'dashboard_widgets.dart';
 import 'favorites_screen.dart';
 import 'booking_sheet.dart';
+import '../services/service_request_service.dart';
+import '../services/payment_service.dart';
+import 'payment_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -139,6 +142,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _loading = false;
     });
     _startAutoCarousel();
+    // After data + notifications, check for pending bills and prompt nicely
+    _checkPendingBills();
+  }
+
+  bool _billPromptShown = false;
+  Future<void> _checkPendingBills() async {
+    if (_billPromptShown) return;
+    try {
+      final list = await ServiceRequestService().listRequests();
+      for (final r in list) {
+        final id = (r['id'] as num?)?.toInt();
+        final status = (r['status'] ?? '').toString();
+        if (id == null || status == 'completed') continue;
+        final p = await PaymentService().get(id);
+        if (p == null) continue;
+        final paid = ((p['status'] ?? '').toString().toLowerCase() == 'paid');
+        final amount = p['amount'];
+        if (!paid && amount != null) {
+          if (!mounted) return;
+          _billPromptShown = true;
+          await _showPayNowSheet(r, (amount is num) ? amount.toDouble() : double.tryParse(amount.toString()) ?? 0);
+          break;
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _showPayNowSheet(Map<String, dynamic> request, double amount) async {
+    final id = (request['id'] as num?)?.toInt();
+    if (id == null) return;
+    final paid = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => PaymentSheet(requestId: id),
+    );
+    if (paid == true && mounted) {
+      _billPromptShown = false;
+      await _loadData();
+    }
   }
 
   void _startAutoCarousel() {

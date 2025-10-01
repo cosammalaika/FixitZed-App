@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/home_service.dart';
 import '../services/service_request_service.dart';
-import '../services/coupon_service.dart';
 import '../services/locations_service.dart';
 
 class BookingSheet extends StatefulWidget {
@@ -26,10 +25,6 @@ class _BookingSheetState extends State<BookingSheet> {
   bool _submitting = false;
   final _locationCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  final _couponCtrl = TextEditingController();
-  Map<String, dynamic>? _couponInfo;
-  double? _servicePrice;
-  double? _discountValue;
   String? _fixerNameSelected;
   List<Map<String, dynamic>> _savedLocations = const [];
 
@@ -152,9 +147,6 @@ class _BookingSheetState extends State<BookingSheet> {
       scheduledAt: _scheduledAt!,
       location: _locationCtrl.text.trim(),
       status: 'pending',
-      couponCode: _couponCtrl.text.trim().isEmpty
-          ? null
-          : _couponCtrl.text.trim(),
     );
     if (!mounted) return;
     setState(() => _submitting = false);
@@ -397,84 +389,25 @@ class _BookingSheetState extends State<BookingSheet> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _couponCtrl,
-                            decoration: _fieldDecoration(
-                              label: 'Coupon code',
-                              hint: 'Enter code',
-                              icon: const Icon(Icons.sell_outlined),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F5F7),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.sell_outlined, color: Color(0xFFF1592A)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Have a coupon? You can apply it during payment after the fixer sends a bill.',
+                              style: GoogleFonts.urbanist(color: Colors.black54),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: _applyCoupon,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF1592A),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text('Apply'),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    if (_couponInfo != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.check_circle,
-                              color: Color(0xFF2E7D32),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _couponInfo!['message']?.toString() ??
-                                    'Coupon applied',
-                                style: GoogleFonts.urbanist(
-                                  color: const Color(0xFF2E7D32),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else if (_couponCtrl.text.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.info_outline,
-                              color: Colors.black45,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Tap Apply to validate your code',
-                                style: GoogleFonts.urbanist(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (_servicePrice != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12.0),
-                        child: _priceSummary(),
-                      ),
                     const SizedBox(height: 12),
                     InkWell(
                       borderRadius: BorderRadius.circular(12),
@@ -605,157 +538,6 @@ class _BookingSheetState extends State<BookingSheet> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Future<void> _applyCoupon() async {
-    final code = _couponCtrl.text.trim();
-    if (code.isEmpty) {
-      _showSnack(message: 'Enter a coupon code', success: false);
-      return;
-    }
-    if (_serviceId == null) {
-      _showSnack(message: 'Select a service first', success: false);
-      return;
-    }
-    try {
-      final svc = _services.firstWhere(
-        (s) => (s['id'] ?? s['uuid']).toString() == _serviceId,
-      );
-      _servicePrice = _parsePrice(svc);
-    } catch (_) {
-      _servicePrice = null;
-    }
-
-    final validate = await CouponService().validate(
-      code,
-      serviceId: _serviceId,
-    );
-    if (validate == null) {
-      if (!mounted) return;
-      setState(() {
-        _couponInfo = null;
-        _discountValue = null;
-      });
-      _showSnack(message: 'Invalid coupon', success: false);
-      return;
-    }
-    if (!mounted) return;
-    setState(() {
-      _couponInfo = validate;
-      final norm = _normalizeCoupon(validate);
-      if (norm['discount'] is num) {
-        _discountValue = (norm['discount'] as num).toDouble();
-      } else {
-        _discountValue = _computeDiscount(_servicePrice, validate);
-      }
-      if (norm['price'] is num) {
-        _servicePrice = (norm['price'] as num).toDouble();
-      }
-    });
-    _showSnack(message: 'Coupon applied', success: true);
-  }
-
-  double? _parsePrice(Map s) {
-    final v = s['price'] ?? s['amount'] ?? s['cost'] ?? s['rate'];
-    if (v == null) return null;
-    if (v is num) return v.toDouble();
-    if (v is String) return double.tryParse(v);
-    return null;
-  }
-
-  Map<String, dynamic> _normalizeCoupon(Map info) {
-    final out = <String, dynamic>{};
-    final m = (info['data'] is Map) ? Map<String, dynamic>.from(info['data']) : info;
-    for (final k in ['total', 'final_total', 'finalAmount', 'final_amount']) {
-      if (m[k] is num) out['total'] = (m[k] as num).toDouble();
-    }
-    for (final k in ['price', 'amount_before', 'subtotal', 'price_before']) {
-      if (m[k] is num) out['price'] = (m[k] as num).toDouble();
-    }
-    for (final k in ['discount', 'discount_amount', 'amount_off']) {
-      if (m[k] is num) out['discount'] = (m[k] as num).toDouble();
-    }
-    if (m['message'] != null) out['message'] = m['message'].toString();
-    return out;
-  }
-
-  double? _computeDiscount(double? base, Map info) {
-    if (base == null) return null;
-    final m = (info['data'] is Map) ? Map<String, dynamic>.from(info['data']) : info;
-    final type = (m['type'] ?? m['discount_type'] ?? '').toString().toLowerCase();
-    final isPercent = type.contains('percent') || m['is_percent'] == true || m['is_percentage'] == true;
-    final percent = m['percent'] ?? m['percentage'] ?? m['discount_percent'];
-    final fixed = m['amount'] ?? m['discount_amount'] ?? m['amount_off'];
-    final maxCap = m['max_discount'] ?? m['max_amount'] ?? m['cap'];
-    double d = 0;
-    if (isPercent && percent is num) {
-      d = base * (percent.toDouble() / 100.0);
-    } else if (fixed is num) {
-      d = fixed.toDouble();
-    } else if (percent is num) {
-      d = base * (percent.toDouble() / 100.0);
-    }
-    if (maxCap is num) d = d.clamp(0, maxCap.toDouble());
-    return d.clamp(0, base);
-  }
-
-  Widget _priceSummary() {
-    final base = _servicePrice ?? 0;
-    final disc = _discountValue ?? 0;
-    // Prefer server-provided total when present
-    double total = (base - disc).clamp(0, double.infinity);
-    if (_couponInfo != null) {
-      final norm = _normalizeCoupon(_couponInfo!);
-      if (norm['total'] is num) total = (norm['total'] as num).toDouble();
-    }
-    TextStyle label = GoogleFonts.urbanist(color: Colors.black54);
-    TextStyle value = GoogleFonts.urbanist(fontWeight: FontWeight.w700);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Text('Price', style: label),
-              const Spacer(),
-              Text(base.toStringAsFixed(2), style: value),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Text('Discount', style: label),
-              const Spacer(),
-              Text(
-                '-${disc.toStringAsFixed(2)}',
-                style: value.copyWith(color: const Color(0xFFD32F2F)),
-              ),
-            ],
-          ),
-          const Divider(height: 16),
-          Row(
-            children: [
-              Text(
-                'Total',
-                style: GoogleFonts.urbanist(fontWeight: FontWeight.w800),
-              ),
-              const Spacer(),
-              Text(
-                total.toStringAsFixed(2),
-                style: GoogleFonts.urbanist(
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF2E7D32),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

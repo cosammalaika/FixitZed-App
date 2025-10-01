@@ -113,6 +113,22 @@ class HomeService {
 
   Future<List<dynamic>> _enrichFixers(List<dynamic> compact) async {
     try {
+      final needsEnrichment = compact.any((e) {
+        if (e is! Map) return false;
+        final map = e as Map;
+        final hasServices = map['services'] is List && (map['services'] as List).isNotEmpty;
+        final hasAvatar = (map['avatar'] ?? map['image_url'] ?? map['photo'] ?? '')
+            .toString()
+            .trim()
+            .isNotEmpty;
+        final hasBio = (map['bio'] ?? '').toString().trim().isNotEmpty;
+        return !(hasServices && hasAvatar && hasBio);
+      });
+
+      if (!needsEnrichment) {
+        return compact;
+      }
+
       final full = await fetchAllFixers();
       if (full.isEmpty) return compact;
 
