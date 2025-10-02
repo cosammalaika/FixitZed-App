@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/home_service.dart';
 import '../services/auth_service.dart';
 import '../core/api.dart';
+import '../services/report_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -248,12 +249,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   //       Navigator.pushNamed(context, '/profile/payments'),
                   // ),
                   _menuItem(
-                    Icons.calendar_today_rounded,
-                    'My Booking',
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/profile/bookings'),
-                  ),
-                  _menuItem(
                     Icons.settings_rounded,
                     'Settings',
                     onTap: () =>
@@ -263,6 +258,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icons.help_outline_rounded,
                     'FAQs',
                     onTap: () => Navigator.pushNamed(context, '/profile/faqs'),
+                  ),
+                  _menuItem(
+                    Icons.flag_outlined,
+                    'Report a Fixer',
+                    onTap: () => _showReportSheet(type: 'fixer'),
                   ),
                   if (!_isFixer)
                     _menuItem(
@@ -285,6 +285,190 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+extension _ReportSheet on _ProfileScreenState {
+  Future<void> _showReportSheet({required String type}) async {
+    final subjectCtrl = TextEditingController();
+    final messageCtrl = TextEditingController();
+    bool submitting = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final bottom = MediaQuery.of(ctx).viewInsets.bottom;
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFFFF8F3), Colors.white],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, bottom + 20),
+              child: StatefulBuilder(
+                builder: (ctx, setLocal) {
+                  InputDecoration deco(
+                    String label, {
+                    String? hint,
+                    IconData? icon,
+                  }) => InputDecoration(
+                    labelText: label,
+                    hintText: hint,
+                    prefixIcon: icon != null ? Icon(icon) : null,
+                    filled: true,
+                    fillColor: const Color(0xFFF3F5F7),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                  );
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 46,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.black12,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFF1592A), Color(0xFFFFA26C)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFF1592A).withOpacity(0.2),
+                              blurRadius: 20,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.flag_outlined,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Report ${type == 'fixer' ? 'a Fixer' : 'an Issue'}',
+                                    style: GoogleFonts.urbanist(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Help us keep the community safe.',
+                                    style: GoogleFonts.urbanist(
+                                      color: Colors.white.withOpacity(0.9),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: subjectCtrl,
+                        decoration: deco(
+                          'Subject',
+                          hint: 'Short title',
+                          icon: Icons.subject_rounded,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: messageCtrl,
+                        maxLines: 5,
+                        decoration: deco(
+                          'Message',
+                          hint: 'Describe the issue',
+                          icon: Icons.message_rounded,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: submitting
+                              ? null
+                              : () async {
+                                  setLocal(() => submitting = true);
+                                  final ok = await ReportService().submit(
+                                    type: type,
+                                    subject: subjectCtrl.text.trim(),
+                                    message: messageCtrl.text.trim(),
+                                  );
+                                  if (!mounted) return;
+                                  setLocal(() => submitting = false);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ok
+                                            ? 'Report submitted'
+                                            : 'Failed to submit report',
+                                      ),
+                                    ),
+                                  );
+                                  if (ok) Navigator.of(ctx).pop();
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF1592A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Text(submitting ? 'Submitting…' : 'Submit'),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

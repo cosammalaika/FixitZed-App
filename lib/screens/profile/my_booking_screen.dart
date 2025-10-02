@@ -89,9 +89,15 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                           ?.toString();
                   final rid = (r['id'] as num?)?.toInt();
                   final pay = rid != null ? _payments[rid] : null;
-                  final payStatus = (pay?['status'] ?? '').toString().toLowerCase();
+                  final payStatus = (pay?['status'] ?? '')
+                      .toString()
+                      .toLowerCase();
                   final payAmount = pay?['amount'];
-                  final hasDue = rid != null && payAmount != null && payStatus != 'paid' && status != 'completed';
+                  final hasDue =
+                      rid != null &&
+                      payAmount != null &&
+                      payStatus != 'paid' &&
+                      status != 'completed';
                   return InkWell(
                     onTap: () async {
                       final refresh = await showBookingDetailSheet(
@@ -149,21 +155,45 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                               ? ElevatedButton(
                                   onPressed: () async {
                                     if (rid == null) return;
-                                    final paid = await Navigator.of(context, rootNavigator: true).push<bool>(
-                                      MaterialPageRoute(
-                                        builder: (_) => PaymentScreen(requestId: rid),
-                                        fullscreenDialog: true,
-                                      ),
-                                    );
+                                    final paid =
+                                        await Navigator.of(
+                                          context,
+                                          rootNavigator: true,
+                                        ).push<bool>(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                PaymentScreen(requestId: rid),
+                                            fullscreenDialog: true,
+                                          ),
+                                        );
                                     if (paid == true) _load();
                                   },
-                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF1592A), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFF1592A),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
                                   child: const Text('Pay'),
                                 )
                               : Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(color: _statusBg(status), borderRadius: BorderRadius.circular(20)),
-                                  child: Text(_statusText(status), style: GoogleFonts.urbanist(fontSize: 12, fontWeight: FontWeight.w700, color: _statusFg(status))),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _statusBg(status),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    _statusText(status),
+                                    style: GoogleFonts.urbanist(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: _statusFg(status),
+                                    ),
+                                  ),
                                 ),
                         ],
                       ),

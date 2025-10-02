@@ -60,7 +60,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
         .whereType<Map>()
         .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
         .toList();
-    services.sort((a, b) => (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
+    services.sort(
+      (a, b) =>
+          (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()),
+    );
     if (!mounted) return;
     setState(() {
       _services = services;
@@ -82,19 +85,37 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) {
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
         _showSnack('Location permissions are denied.');
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
       final place = placemarks.isNotEmpty ? placemarks.first : null;
       final buffer = [
-        if (place != null && place.street != null && place.street!.trim().isNotEmpty) place.street,
-        if (place != null && place.subLocality != null && place.subLocality!.trim().isNotEmpty) place.subLocality,
-        if (place != null && place.locality != null && place.locality!.trim().isNotEmpty) place.locality,
-        if (place != null && place.country != null && place.country!.trim().isNotEmpty) place.country,
+        if (place != null &&
+            place.street != null &&
+            place.street!.trim().isNotEmpty)
+          place.street,
+        if (place != null &&
+            place.subLocality != null &&
+            place.subLocality!.trim().isNotEmpty)
+          place.subLocality,
+        if (place != null &&
+            place.locality != null &&
+            place.locality!.trim().isNotEmpty)
+          place.locality,
+        if (place != null &&
+            place.country != null &&
+            place.country!.trim().isNotEmpty)
+          place.country,
       ].whereType<String>().join(', ');
       final locationString = buffer.isNotEmpty
           ? buffer
@@ -133,7 +154,9 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.file_present_rounded),
-              title: Text(allowPdf ? 'Upload file (PDF or image)' : 'Upload image'),
+              title: Text(
+                allowPdf ? 'Upload file (PDF or image)' : 'Upload image',
+              ),
               onTap: () => Navigator.of(ctx).pop(_AttachmentAction.file),
             ),
             const SizedBox(height: 12),
@@ -148,12 +171,18 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
       PlatformFile? file;
       switch (action) {
         case _AttachmentAction.camera:
-          final xFile = await _imagePicker.pickImage(source: ImageSource.camera, imageQuality: 85);
+          final xFile = await _imagePicker.pickImage(
+            source: ImageSource.camera,
+            imageQuality: 85,
+          );
           if (xFile == null) return;
           file = await _toPlatformFile(xFile);
           break;
         case _AttachmentAction.gallery:
-          final xFile = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+          final xFile = await _imagePicker.pickImage(
+            source: ImageSource.gallery,
+            imageQuality: 85,
+          );
           if (xFile == null) return;
           file = await _toPlatformFile(xFile);
           break;
@@ -219,7 +248,8 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                 style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
               ),
               TextButton(
-                onPressed: () => _pickAttachment(allowPdf: allowPdf, onSelected: onSelected),
+                onPressed: () =>
+                    _pickAttachment(allowPdf: allowPdf, onSelected: onSelected),
                 child: Text(file == null ? 'Upload' : 'Change'),
               ),
             ],
@@ -229,7 +259,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 helper,
-                style: GoogleFonts.urbanist(color: Colors.black54, fontSize: 12),
+                style: GoogleFonts.urbanist(
+                  color: Colors.black54,
+                  fontSize: 12,
+                ),
               ),
             ),
           if (file != null)
@@ -293,7 +326,8 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                     allowPdf: true,
                     onSelected: (file) {
                       setState(() {
-                        if (_supportingDocs.length >= 5) _supportingDocs.removeAt(0);
+                        if (_supportingDocs.length >= 5)
+                          _supportingDocs.removeAt(0);
                         _supportingDocs.add(file);
                       });
                     },
@@ -364,7 +398,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
     if (!mounted) return;
     setState(() => _submitting = false);
     if (ok) {
-      _showSnack('Application submitted. We will review it shortly.', success: true);
+      _showSnack(
+        'Application submitted. We will review it shortly.',
+        success: true,
+      );
       Navigator.of(context).pop(true);
     } else {
       _showSnack('Failed to submit application. Please try again.');
@@ -375,7 +412,9 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: success ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F),
+        backgroundColor: success
+            ? const Color(0xFF2E7D32)
+            : const Color(0xFFD32F2F),
       ),
     );
   }
@@ -404,220 +443,344 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
   @override
   Widget build(BuildContext context) {
     const brand = Color(0xFFF1592A);
+    const accent = Color(0xFFFFA26C);
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
-        title: Text('Become a Fixer', style: GoogleFonts.urbanist(color: Colors.black, fontWeight: FontWeight.w700)),
+        title: Text(
+          'Become a Fixer',
+          style: GoogleFonts.urbanist(
+            color: Colors.black,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         centerTitle: true,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
-              child: Stepper(
-                currentStep: _step,
-                onStepTapped: (value) => setState(() => _step = value),
-                controlsBuilder: (context, details) {
-                  return Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: _submitting
-                            ? null
-                            : () {
-                                final valid = _validateCurrentStep();
-                                if (!valid) return;
-                                if (_step == 2) {
-                                  _submit();
-                                } else {
-                                  setState(() => _step += 1);
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: brand,
-                          foregroundColor: Colors.white,
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [brand, accent],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: brand.withOpacity(0.20),
+                          blurRadius: 18,
+                          offset: const Offset(0, 12),
                         ),
-                        child: Text(_step == 2 ? (_submitting ? 'Submitting…' : 'Submit') : 'Next'),
-                      ),
-                      const SizedBox(width: 12),
-                      TextButton(
-                        onPressed: _step == 0
-                            ? () => Navigator.of(context).pop()
-                            : () => setState(() => _step -= 1),
-                        child: const Text('Back'),
-                      ),
-                    ],
-                  );
-                },
-                steps: [
-                  Step(
-                    title: const Text('Profile'),
-                    isActive: _step >= 0,
-                    state: _step > 0 ? StepState.complete : StepState.indexed,
-                    content: Column(
+                      ],
+                    ),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Tell us about your skills and where you operate. This helps customers know you better.',
-                          style: GoogleFonts.urbanist(color: Colors.black54),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _bioCtrl,
-                          maxLines: 5,
-                          decoration: InputDecoration(
-                            hintText: 'Describe your experience, qualifications, and preferred areas.',
-                            filled: true,
-                            fillColor: const Color(0xFFF3F5F7),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
                           ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Tell us a bit about your experience';
-                            }
-                            if (value.trim().length < 30) {
-                              return 'Please provide at least 30 characters';
-                            }
-                            return null;
-                          },
+                          child: const Icon(
+                            Icons.handyman_rounded,
+                            color: Colors.white,
+                          ),
                         ),
-                        const SizedBox(height: 20),
-                        TextFormField(
-                          controller: _locationCtrl,
-                          decoration: InputDecoration(
-                            hintText: 'Business location (optional)',
-                            filled: true,
-                            fillColor: const Color(0xFFF3F5F7),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                            suffixIcon: IconButton(
-                              icon: _requestingLocation
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.my_location_rounded),
-                              onPressed: _requestingLocation ? null : _useCurrentLocation,
-                            ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Become a Fixer',
+                                style: GoogleFonts.urbanist(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Tell us about yourself and upload your documents to get started.',
+                                style: GoogleFonts.urbanist(
+                                  color: Colors.white.withOpacity(0.9),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Step(
-                    title: const Text('Documents'),
-                    isActive: _step >= 1,
-                    state: _step > 1
-                        ? StepState.complete
-                        : (_nrcFront != null && _nrcBack != null ? StepState.editing : StepState.indexed),
-                    content: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _documentTile(
-                          label: 'Profile photo (optional)',
-                          file: _profilePhoto,
-                          allowPdf: false,
-                          helper: 'A clear headshot helps customers recognise you.',
-                          onSelected: (file) => setState(() => _profilePhoto = file),
-                          onRemove: _profilePhoto == null
-                              ? null
-                              : () => setState(() => _profilePhoto = null),
-                        ),
-                        const SizedBox(height: 12),
-                        _documentTile(
-                          label: 'NRC front',
-                          file: _nrcFront,
-                          allowPdf: true,
-                          requiredField: true,
-                          helper: 'Accepted: JPG, PNG, WEBP or PDF (max 5MB).',
-                          onSelected: (file) => setState(() => _nrcFront = file),
-                          onRemove: _nrcFront == null
-                              ? null
-                              : () => setState(() => _nrcFront = null),
-                        ),
-                        const SizedBox(height: 12),
-                        _documentTile(
-                          label: 'NRC back',
-                          file: _nrcBack,
-                          allowPdf: true,
-                          requiredField: true,
-                          helper: 'Accepted: JPG, PNG, WEBP or PDF (max 5MB).',
-                          onSelected: (file) => setState(() => _nrcBack = file),
-                          onRemove: _nrcBack == null
-                              ? null
-                              : () => setState(() => _nrcBack = null),
-                        ),
-                        const SizedBox(height: 12),
-                        _supportingDocsSection(),
-                      ],
-                    ),
-                  ),
-                  Step(
-                    title: const Text('Services'),
-                    isActive: _step >= 2,
-                    state: _selectedServices.isNotEmpty ? StepState.editing : StepState.indexed,
-                    content: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Select the services you can handle. Customers will see these on your profile.',
-                          style: GoogleFonts.urbanist(color: Colors.black54),
-                        ),
-                        const SizedBox(height: 16),
-                        if (_services.isEmpty)
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF3E9),
-                              borderRadius: BorderRadius.circular(12),
+                  Expanded(
+                    child: Stepper(
+                      currentStep: _step,
+                      onStepTapped: (value) => setState(() => _step = value),
+                      controlsBuilder: (context, details) {
+                        return Row(
+                          children: [
+                            ElevatedButton(
+                              onPressed: _submitting
+                                  ? null
+                                  : () {
+                                      final valid = _validateCurrentStep();
+                                      if (!valid) return;
+                                      if (_step == 2) {
+                                        _submit();
+                                      } else {
+                                        setState(() => _step += 1);
+                                      }
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: brand,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                              ),
+                              child: Text(
+                                _step == 2
+                                    ? (_submitting ? 'Submitting…' : 'Submit')
+                                    : 'Next',
+                              ),
                             ),
-                            child: Text(
-                              'No services available yet. Please try again later.',
-                              style: GoogleFonts.urbanist(color: Colors.black54),
+                            const SizedBox(width: 12),
+                            OutlinedButton(
+                              onPressed: _step == 0
+                                  ? () => Navigator.of(context).pop()
+                                  : () => setState(() => _step -= 1),
+                              style: OutlinedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                              ),
+                              child: const Text('Back'),
                             ),
-                          )
-                        else
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _services.map((service) {
-                              final id = (service['id'] as num?)?.toInt();
-                              if (id == null) return const SizedBox.shrink();
-                              final selected = _selectedServices.contains(id);
-                              final name = (service['name'] ?? 'Service').toString();
-                              return FilterChip(
-                                selected: selected,
-                                onSelected: (_) {
-                                  setState(() {
-                                    if (selected) {
-                                      _selectedServices.remove(id);
-                                    } else {
-                                      _selectedServices.add(id);
-                                    }
-                                  });
+                          ],
+                        );
+                      },
+                      steps: [
+                        Step(
+                          title: const Text('Profile'),
+                          isActive: _step >= 0,
+                          state: _step > 0
+                              ? StepState.complete
+                              : StepState.indexed,
+                          content: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Tell us about your skills and where you operate. This helps customers know you better.',
+                                style: GoogleFonts.urbanist(
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _bioCtrl,
+                                maxLines: 5,
+                                decoration: InputDecoration(
+                                  hintText:
+                                      'Describe your experience, qualifications, and preferred areas.',
+                                  filled: true,
+                                  fillColor: const Color(0xFFF3F5F7),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Tell us a bit about your experience';
+                                  }
+                                  if (value.trim().length < 30) {
+                                    return 'Please provide at least 30 characters';
+                                  }
+                                  return null;
                                 },
-                                label: Text(name),
-                                selectedColor: brand.withOpacity(0.2),
-                                checkmarkColor: brand,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              );
-                            }).toList(),
+                              ),
+                              const SizedBox(height: 20),
+                              TextFormField(
+                                controller: _locationCtrl,
+                                decoration: InputDecoration(
+                                  hintText: 'Business location (optional)',
+                                  filled: true,
+                                  fillColor: const Color(0xFFF3F5F7),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  suffixIcon: IconButton(
+                                    icon: _requestingLocation
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(Icons.my_location_rounded),
+                                    onPressed: _requestingLocation
+                                        ? null
+                                        : _useCurrentLocation,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        if (_selectedServices.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              'Select at least one service you offer.',
-                              style: GoogleFonts.urbanist(fontSize: 12, color: Colors.black54),
-                            ),
+                        ),
+                        Step(
+                          title: const Text('Documents'),
+                          isActive: _step >= 1,
+                          state: _step > 1
+                              ? StepState.complete
+                              : (_nrcFront != null && _nrcBack != null
+                                    ? StepState.editing
+                                    : StepState.indexed),
+                          content: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _documentTile(
+                                label: 'Profile photo (optional)',
+                                file: _profilePhoto,
+                                allowPdf: false,
+                                helper:
+                                    'A clear headshot helps customers recognise you.',
+                                onSelected: (file) =>
+                                    setState(() => _profilePhoto = file),
+                                onRemove: _profilePhoto == null
+                                    ? null
+                                    : () =>
+                                          setState(() => _profilePhoto = null),
+                              ),
+                              const SizedBox(height: 12),
+                              _documentTile(
+                                label: 'NRC front',
+                                file: _nrcFront,
+                                allowPdf: true,
+                                requiredField: true,
+                                helper:
+                                    'Accepted: JPG, PNG, WEBP or PDF (max 5MB).',
+                                onSelected: (file) =>
+                                    setState(() => _nrcFront = file),
+                                onRemove: _nrcFront == null
+                                    ? null
+                                    : () => setState(() => _nrcFront = null),
+                              ),
+                              const SizedBox(height: 12),
+                              _documentTile(
+                                label: 'NRC back',
+                                file: _nrcBack,
+                                allowPdf: true,
+                                requiredField: true,
+                                helper:
+                                    'Accepted: JPG, PNG, WEBP or PDF (max 5MB).',
+                                onSelected: (file) =>
+                                    setState(() => _nrcBack = file),
+                                onRemove: _nrcBack == null
+                                    ? null
+                                    : () => setState(() => _nrcBack = null),
+                              ),
+                              const SizedBox(height: 12),
+                              _supportingDocsSection(),
+                            ],
                           ),
+                        ),
+                        Step(
+                          title: const Text('Services'),
+                          isActive: _step >= 2,
+                          state: _selectedServices.isNotEmpty
+                              ? StepState.editing
+                              : StepState.indexed,
+                          content: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Select the services you can handle. Customers will see these on your profile.',
+                                style: GoogleFonts.urbanist(
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              if (_services.isEmpty)
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF3E9),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    'No services available yet. Please try again later.',
+                                    style: GoogleFonts.urbanist(
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                )
+                              else
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _services.map((service) {
+                                    final id = (service['id'] as num?)?.toInt();
+                                    if (id == null)
+                                      return const SizedBox.shrink();
+                                    final selected = _selectedServices.contains(
+                                      id,
+                                    );
+                                    final name = (service['name'] ?? 'Service')
+                                        .toString();
+                                    return FilterChip(
+                                      selected: selected,
+                                      onSelected: (_) {
+                                        setState(() {
+                                          if (selected) {
+                                            _selectedServices.remove(id);
+                                          } else {
+                                            _selectedServices.add(id);
+                                          }
+                                        });
+                                      },
+                                      label: Text(name),
+                                      selectedColor: brand.withOpacity(0.2),
+                                      checkmarkColor: brand,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              if (_selectedServices.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    'Select at least one service you offer.',
+                                    style: GoogleFonts.urbanist(
+                                      fontSize: 12,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),

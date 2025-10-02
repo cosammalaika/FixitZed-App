@@ -65,6 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     const brand = Color(0xFFF1592A);
+    const accent = Color(0xFFFFA26C);
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -84,6 +85,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               children: [
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [brand, accent], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [BoxShadow(color: brand.withOpacity(0.18), blurRadius: 18, offset: const Offset(0, 12))],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle), child: const Icon(Icons.settings_rounded, color: Colors.white)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Tune your experience', style: GoogleFonts.urbanist(color: Colors.white, fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 4),
+                          Text('Control notifications, theme and language.', style: GoogleFonts.urbanist(color: Colors.white.withOpacity(0.9))),
+                        ]),
+                      ),
+                    ],
+                  ),
+                ),
                 _sectionTitle('General'),
                 ListTile(
                   title: Text('Language', style: GoogleFonts.urbanist()),
@@ -98,18 +122,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onTap: () async {
                     final choice = await showModalBottomSheet<String>(
                       context: context,
-                      builder: (context) => SafeArea(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (final lang in ['English', 'Bemba', 'Nyanja'])
-                              ListTile(
-                                title: Text(lang),
-                                onTap: () => Navigator.pop(context, lang),
+                      useSafeArea: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (ctx) {
+                        return ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(colors: [Color(0xFFFFF8F3), Colors.white], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                            ),
+                            child: SafeArea(
+                              top: false,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(height: 12),
+                                  for (final lang in ['English', 'Bemba', 'Nyanja'])
+                                    ListTile(
+                                      leading: const Icon(Icons.translate_rounded),
+                                      title: Text(lang),
+                                      onTap: () => Navigator.pop(ctx, lang),
+                                    ),
+                                  const SizedBox(height: 12),
+                                ],
                               ),
-                          ],
-                        ),
-                      ),
+                            ),
+                          ),
+                        );
+                      },
                     );
                     if (choice != null) {
                       setState(() => language = choice);

@@ -407,14 +407,16 @@ Future<bool?> showBookingDetailSheet(
   BuildContext context,
   Map<String, dynamic> request,
 ) {
+  final theme = Theme.of(context);
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
+    barrierColor: Colors.black.withOpacity(0.4),
+    backgroundColor: theme.scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    backgroundColor: Colors.transparent,
-    clipBehavior: Clip.antiAlias,
     builder: (ctx) {
       return DraggableScrollableSheet(
         expand: false,
@@ -423,10 +425,13 @@ Future<bool?> showBookingDetailSheet(
         maxChildSize: 0.95,
         builder: (sheetCtx, controller) {
           final bottom = MediaQuery.of(sheetCtx).viewInsets.bottom;
-          return BookingDetailContent(
-            request: request,
-            scrollController: controller,
-            padding: EdgeInsets.fromLTRB(20, 16, 20, bottom + 32),
+          return ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: BookingDetailContent(
+              request: request,
+              scrollController: controller,
+              padding: EdgeInsets.fromLTRB(20, 16, 20, bottom + 28),
+            ),
           );
         },
       );
