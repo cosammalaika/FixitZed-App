@@ -6,7 +6,8 @@ import '../services/service_request_service.dart';
 import '../services/locations_service.dart';
 
 class BookingSheet extends StatefulWidget {
-  const BookingSheet({super.key});
+  final Map<String, dynamic>? initialService;
+  const BookingSheet({super.key, this.initialService});
 
   @override
   State<BookingSheet> createState() => _BookingSheetState();
@@ -31,6 +32,11 @@ class _BookingSheetState extends State<BookingSheet> {
   @override
   void initState() {
     super.initState();
+    final init = widget.initialService;
+    if (init != null) {
+      _serviceId = _extractServiceId(init);
+      _serviceName = _extractServiceName(init);
+    }
     _load();
   }
 
@@ -83,7 +89,27 @@ class _BookingSheetState extends State<BookingSheet> {
       _services = services;
       _fixers = fixers;
       _savedLocations = locsRaw;
+      if (_serviceId != null) {
+        final match = _services.firstWhere(
+          (s) => _extractServiceId(s) == _serviceId,
+          orElse: () => <String, dynamic>{},
+        );
+        if (match.isNotEmpty) {
+          _serviceName = _extractServiceName(match);
+        }
+      }
     });
+  }
+
+  String? _extractServiceId(Map<dynamic, dynamic> s) {
+    final id = s['id'] ?? s['uuid'] ?? s['service_id'];
+    if (id == null) return null;
+    if (id is num) return id.toInt().toString();
+    return id.toString();
+  }
+
+  String _extractServiceName(Map<dynamic, dynamic> s) {
+    return (s['name'] ?? s['title'] ?? 'Service').toString();
   }
 
   List<Map<String, dynamic>> get _filteredFixers {
