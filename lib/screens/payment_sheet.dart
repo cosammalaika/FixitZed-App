@@ -38,6 +38,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   double _pointValue = 1;
   bool _useLoyalty = false;
   int _loyaltyToUse = 0;
+  String? _autoTransactionId;
 
   @override
   void initState() {
@@ -140,6 +141,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _useLoyalty = eligible && meetsThreshold && _loyaltyBalance > 0;
 
       _loading = false;
+      _autoTransactionId = null;
     });
 
     _recalculateLoyalty(reset: true);
@@ -358,6 +360,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                     amount: _amount!,
                                     originalAmount: _originalAmount,
                                     method: _method,
+                                    transactionId: _ensureTransactionId(),
                                     couponCode: _couponCode,
                                     loyaltyPoints:
                                         _useLoyalty ? _loyaltyToUse : 0,
@@ -496,6 +499,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ),
       ),
     );
+  }
+
+  String _ensureTransactionId() {
+    return _autoTransactionId ??= _generateTransactionId();
+  }
+
+  String _generateTransactionId() {
+    final now = DateTime.now().toUtc();
+    final timestamp =
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}'
+        '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+    final random = math.Random().nextInt(900000) + 100000;
+    return 'APP-$timestamp-$random';
   }
 
   String? get _serviceId {

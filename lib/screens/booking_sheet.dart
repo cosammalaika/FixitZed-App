@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/date_utils.dart';
 import '../services/home_service.dart';
 import '../services/service_request_service.dart';
 import '../services/locations_service.dart';
@@ -28,6 +31,7 @@ class _BookingSheetState extends State<BookingSheet> {
   final _formKey = GlobalKey<FormState>();
   String? _fixerNameSelected;
   List<Map<String, dynamic>> _savedLocations = const [];
+  bool _locating = false;
 
   @override
   void initState() {
@@ -47,12 +51,13 @@ class _BookingSheetState extends State<BookingSheet> {
     String? helper,
   }) {
     final ctx = context;
+    final scheme = Theme.of(ctx).colorScheme;
     return InputDecoration(
       labelText: label,
       hintText: hint,
       helperText: helper,
       filled: true,
-      fillColor: Theme.of(ctx).colorScheme.surfaceVariant.withOpacity(0.18),
+      fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.18),
       prefixIcon: icon,
       labelStyle: TextStyle(color: Theme.of(ctx).hintColor),
       hintStyle: TextStyle(color: Theme.of(ctx).hintColor),
@@ -101,6 +106,290 @@ class _BookingSheetState extends State<BookingSheet> {
     });
   }
 
+  Widget _buildHeroHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF1592A), Color(0xFFFF9155)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF1592A).withValues(alpha: 0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.event_available_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Book a service',
+                      style: GoogleFonts.urbanist(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Pick what you need, choose a fixer and lock in the visit without leaving the app.',
+                      style: GoogleFonts.urbanist(
+                        color: Colors.white.withValues(alpha: 0.92),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (_serviceName != null)
+                _heroChip(Icons.handyman_outlined, _serviceName!),
+              if (_scheduledAt != null)
+                _heroChip(
+                  Icons.schedule_rounded,
+                  _formatDateTime(_scheduledAt!),
+                ),
+              if (_fixerNameSelected != null)
+                _heroChip(Icons.engineering_rounded, _fixerNameSelected!),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.32)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.urbanist(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionCard({
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 22,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0x1AF1592A),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: const Color(0xFFF1592A)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.urbanist(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _selectTile({
+    required String label,
+    required String value,
+    required IconData icon,
+    VoidCallback? onTap,
+    String? helper,
+  }) {
+    final enabled = onTap != null;
+    final textColor = enabled ? Colors.black87 : Colors.black45;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFDF3ED),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: enabled ? const Color(0xFFF6C2A6) : const Color(0xFFE5E5E5),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, size: 20, color: const Color(0xFFF1592A)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: GoogleFonts.urbanist(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF9C531D),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        value,
+                        style: GoogleFonts.urbanist(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  enabled ? Icons.chevron_right_rounded : Icons.lock_outline,
+                  color: enabled ? const Color(0xFFF1592A) : Colors.black26,
+                ),
+              ],
+            ),
+            if (helper != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  helper,
+                  style: GoogleFonts.urbanist(
+                    fontSize: 12,
+                    color: Colors.black54,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoBanner({
+    required IconData icon,
+    required String message,
+    required Color background,
+    Color? foreground,
+  }) {
+    final fg = foreground ?? const Color(0xFFF1592A);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: background.withOpacity(0.6)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: fg),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: GoogleFonts.urbanist(
+                color: fg,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String? _extractServiceId(Map<dynamic, dynamic> s) {
     final id = s['id'] ?? s['uuid'] ?? s['service_id'];
     if (id == null) return null;
@@ -142,11 +431,13 @@ class _BookingSheetState extends State<BookingSheet> {
       initialDate: now,
     );
     if (date == null) return;
+    if (!mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
     );
     if (time == null) return;
+    if (!mounted) return;
     final dt = DateTime(
       date.year,
       date.month,
@@ -166,6 +457,21 @@ class _BookingSheetState extends State<BookingSheet> {
       );
       return;
     }
+    if (_serviceId == null || _serviceId!.isEmpty) {
+      _showSnack(
+        message: 'Pick the service you need before booking',
+        success: false,
+      );
+      return;
+    }
+    if (_scheduledAt == null) {
+      _showSnack(
+        message: 'Please choose a date and time for the service',
+        success: false,
+      );
+      return;
+    }
+    FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
     final ok = await _req.createRequest(
       serviceId: _serviceId!,
@@ -189,319 +495,241 @@ class _BookingSheetState extends State<BookingSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-          top: 12,
-        ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return FractionallySizedBox(
+      heightFactor: 0.82,
+      child: SafeArea(
+        top: false,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(color: Color(0xFFFFF7F2)),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, bottomInset + 16),
+            physics: const BouncingScrollPhysics(),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.event_available_rounded,
-                    color: Color(0xFFF1592A),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Book a Service',
-                    style: GoogleFonts.urbanist(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    FormField<String>(
-                      validator: (_) =>
-                          (_serviceId == null || _serviceId!.isEmpty)
-                          ? 'Please select a service'
-                          : null,
-                      builder: (state) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: _pickService,
-                            child: InputDecorator(
-                              decoration: _fieldDecoration(
-                                label: 'Service',
-                                icon: const Icon(Icons.handyman_outlined),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      _serviceName ?? 'Select a service',
-                                      style: GoogleFonts.urbanist(),
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.search_rounded,
-                                    color: Colors.black45,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (state.hasError)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                state.errorText!,
-                                style: GoogleFonts.urbanist(
-                                  color: const Color(0xFFD32F2F),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                        ],
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    FormField<String>(
-                      validator: (_) => (_fixerId == null || _fixerId!.isEmpty)
-                          ? 'Please select a fixer'
-                          : null,
-                      builder: (state) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: _serviceId == null ? null : _pickFixer,
-                            child: InputDecorator(
-                              decoration: _fieldDecoration(
-                                label: 'Fixer',
-                                icon: const Icon(Icons.engineering_outlined),
-                                helper: _serviceId == null
-                                    ? 'Select a service to see available fixers'
-                                    : (_filteredFixers.isEmpty
-                                          ? 'No fixers found for this service'
-                                          : '${_filteredFixers.length} available'),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      _fixerNameSelected ??
-                                          'Any available fixer',
-                                      style: GoogleFonts.urbanist(),
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.search_rounded,
-                                    color: Colors.black45,
-                                  ),
-                                ],
-                              ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildHeroHeader(),
+                  const SizedBox(height: 16),
+                  _sectionCard(
+                    icon: Icons.assignment_turned_in_rounded,
+                    title: 'Service details',
+                    children: [
+                      FormField<String>(
+                        validator: (_) =>
+                            (_serviceId == null || _serviceId!.isEmpty)
+                            ? 'Please select a service'
+                            : null,
+                        builder: (state) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _selectTile(
+                              label: 'Service',
+                              value: _serviceName ?? 'Select a service',
+                              icon: Icons.handyman_outlined,
+                              onTap: _pickService,
                             ),
-                          ),
-                          if (state.hasError)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                state.errorText!,
-                                style: GoogleFonts.urbanist(
-                                  color: Color(0xFFD32F2F),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (_serviceId != null && _filteredFixers.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0x1AD32F2F),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0x33D32F2F)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.report_gmailerrorred_rounded,
-                                color: Color(0xFFD32F2F),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
+                            if (state.hasError)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
                                 child: Text(
-                                  'No available fixer for the selected service right now. You can still book and we\'ll assign one when available.',
+                                  state.errorText!,
                                   style: GoogleFonts.urbanist(
-                                    color: Color(0xFFB00020),
+                                    color: const Color(0xFFD32F2F),
+                                    fontSize: 12,
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
+                          ],
                         ),
                       ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
+                      const SizedBox(height: 14),
+                      FormField<String>(
+                        validator: (_) => null,
+                        builder: (_) => _selectTile(
+                          label: 'Preferred fixer',
+                          value: _fixerNameSelected ?? 'Any available fixer',
+                          icon: Icons.engineering_outlined,
+                          onTap: _serviceId == null ? null : _pickFixer,
+                          helper: _serviceId == null
+                              ? 'Pick a service to see available fixers'
+                              : (_filteredFixers.isEmpty
+                                    ? 'No fixer is free right now — we will assign one for you'
+                                    : 'Optional · ${_filteredFixers.length} available fixers'),
+                        ),
+                      ),
+                      if (_serviceId != null && _filteredFixers.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: _infoBanner(
+                            message:
+                                'No fixer is free for this service right now. Place the request and we\'ll assign one once available.',
+                            icon: Icons.report_gmailerrorred_rounded,
+                            background: const Color(0x1AD32F2F),
+                            foreground: const Color(0xFFB00020),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _sectionCard(
+                    icon: Icons.place_outlined,
+                    title: 'Location & schedule',
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextFormField(
                             controller: _locationCtrl,
                             decoration: _fieldDecoration(
-                              label: 'Location',
+                              label: 'Service location',
                               hint: 'e.g., Plot 123, Kabwata, Lusaka',
-                              icon: const Icon(Icons.place_outlined),
+                              icon: const Icon(Icons.location_on_outlined),
                             ),
                             textInputAction: TextInputAction.next,
                             validator: (v) => (v == null || v.trim().isEmpty)
                                 ? 'Location is required'
                                 : null,
                           ),
-                        ),
-                        if (_savedLocations.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            onPressed: _pickSavedLocation,
-                            icon: const Icon(Icons.location_on_outlined),
-                            label: const Text('Saved'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F5F7),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.sell_outlined, color: Color(0xFFF1592A)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Have a coupon? You can apply it during payment after the fixer sends a bill.',
-                              style: GoogleFonts.urbanist(color: Colors.black54),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: _pickDateTime,
-                      child: InputDecorator(
-                        decoration: _fieldDecoration(
-                          label: 'Scheduled At',
-                          icon: const Icon(Icons.access_time),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _scheduledAt == null
-                                    ? 'Pick date & time'
-                                    : _formatDateTime(_scheduledAt!),
-                                style: GoogleFonts.urbanist(),
-                              ),
-                            ),
-                            const Icon(
-                              Icons.edit_calendar_outlined,
-                              color: Colors.black45,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (_scheduledAt == null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          'Choose when you want the service',
-                          style: GoogleFonts.urbanist(
-                            fontSize: 12,
-                            color: Colors.black54,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _submitting ? null : _submit,
-                        icon: _submitting
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              SizedBox(
+                                height: 36,
+                                child: OutlinedButton.icon(
+                                  onPressed: _locating
+                                      ? null
+                                      : _useCurrentLocation,
+                                  icon: _locating
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.my_location_rounded,
+                                          size: 18,
+                                        ),
+                                  label: Text(
+                                    _locating ? 'Locating…' : 'Use current',
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    foregroundColor: const Color(0xFFF1592A),
+                                    side: const BorderSide(
+                                      color: Color(0xFFF1592A),
+                                    ),
+                                    textStyle: GoogleFonts.urbanist(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
                                 ),
-                              )
-                            : const Icon(Icons.check_circle_outline),
-                        label: Text(_submitting ? 'Booking…' : 'Book Now'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF1592A),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                              ),
+                              if (_savedLocations.isNotEmpty)
+                                SizedBox(
+                                  height: 36,
+                                  child: OutlinedButton.icon(
+                                    onPressed: _pickSavedLocation,
+                                    icon: const Icon(
+                                      Icons.maps_home_work_outlined,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Saved'),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      foregroundColor: const Color(0xFFF1592A),
+                                      side: const BorderSide(
+                                        color: Color(0xFFF1592A),
+                                      ),
+                                      textStyle: GoogleFonts.urbanist(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _selectTile(
+                        label: 'Scheduled for',
+                        value: _scheduledAt == null
+                            ? 'Pick date & time'
+                            : _formatDateTime(_scheduledAt!),
+                        icon: Icons.schedule_rounded,
+                        onTap: _pickDateTime,
+                        helper: _scheduledAt == null
+                            ? 'Choose when you want us to come through'
+                            : null,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _submitting ? null : _submit,
+                      icon: _submitting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.check_circle_outline),
+                      label: Text(_submitting ? 'Booking…' : 'Book Now'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF1592A),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 12),
+                  _infoBanner(
+                    icon: Icons.local_offer_outlined,
+                    message:
+                        'Coupons and loyalty points can be applied once your fixer shares a bill.',
+                    background: const Color(0x1AF1592A),
+                    foreground: Colors.black87,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -534,18 +762,18 @@ class _BookingSheetState extends State<BookingSheet> {
     return fromMap(f);
   }
 
-  String _formatDateTime(DateTime dt) {
-    final d = dt.toLocal();
-    final y = d.year.toString().padLeft(4, '0');
-    final m = d.month.toString().padLeft(2, '0');
-    final day = d.day.toString().padLeft(2, '0');
-    final hh = d.hour.toString().padLeft(2, '0');
-    final mm = d.minute.toString().padLeft(2, '0');
-    return '$y-$m-$day  $hh:$mm';
+  String? _extractFixerId(Map<dynamic, dynamic> f) {
+    final dynamic raw = f['fixer_id'] ?? f['id'] ?? f['uuid'];
+    if (raw == null) return null;
+    if (raw is num) return raw.toInt().toString();
+    if (raw is String) return raw.trim().isEmpty ? null : raw.trim();
+    return null;
   }
 
+  String _formatDateTime(DateTime dt) =>
+      formatAppDateTime(dt, pattern: 'd MMM yyyy • h:mm a');
+
   void _showSnack({required String message, required bool success}) {
-    final theme = Theme.of(context);
     final color = success ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);
     final icon = success ? Icons.check_circle_rounded : Icons.error_rounded;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -698,11 +926,13 @@ class _BookingSheetState extends State<BookingSheet> {
         );
       },
     );
+    if (!mounted) return;
     if (selected != null) {
       setState(() {
         _serviceId = selected['id'];
         _serviceName = selected['name'];
         _fixerId = null;
+        _fixerNameSelected = null;
       });
     }
   }
@@ -827,6 +1057,7 @@ class _BookingSheetState extends State<BookingSheet> {
         );
       },
     );
+    if (!mounted) return;
     if (selected != null) {
       setState(() {
         _fixerId = selected['id'];
@@ -908,6 +1139,58 @@ class _BookingSheetState extends State<BookingSheet> {
     );
     if (selected != null) {
       setState(() => _locationCtrl.text = selected);
+    }
+  }
+
+  Future<void> _useCurrentLocation() async {
+    setState(() => _locating = true);
+    try {
+      final enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) {
+        _showSnack(
+          message: 'Turn on location services to use current location',
+          success: false,
+        );
+        return;
+      }
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _showSnack(message: 'Location permission denied', success: false);
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      String formatted =
+          '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          final parts =
+              [p.street, p.subLocality, p.locality, p.administrativeArea]
+                  .where((e) => e != null && e!.trim().isNotEmpty)
+                  .map((e) => e!.trim());
+          final str = parts.join(', ');
+          if (str.isNotEmpty) formatted = str;
+        }
+      } catch (_) {}
+
+      if (!mounted) return;
+      _locationCtrl.text = formatted;
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack(message: 'Could not fetch current location', success: false);
+    } finally {
+      if (mounted) setState(() => _locating = false);
     }
   }
 }

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/service_request_service.dart';
 import '../../services/payment_service.dart';
 import '../payment_sheet.dart';
+import '../../core/date_utils.dart';
 
 import 'booking_detail_screen.dart';
 
@@ -84,9 +85,11 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                               : r['service_name'] ?? 'Service')
                           .toString();
                   final status = (r['status'] ?? 'pending').toString();
-                  final dt =
-                      (r['scheduled_at'] ?? r['scheduledAt'] ?? r['schedule'])
-                          ?.toString();
+                  final scheduledRaw =
+                      r['scheduled_at'] ?? r['scheduledAt'] ?? r['schedule'];
+                  final scheduledDt = parseAppDate(scheduledRaw);
+                  final scheduledLabel =
+                      scheduledDt != null ? formatAppDateTime(scheduledDt) : null;
                   final rid = (r['id'] as num?)?.toInt();
                   final pay = rid != null ? _payments[rid] : null;
                   final payStatus = (pay?['status'] ?? '')
@@ -134,9 +137,9 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                if (dt != null)
+                                if (scheduledLabel != null)
                                   Text(
-                                    'Scheduled: $dt',
+                                    'Scheduled: $scheduledLabel',
                                     style: GoogleFonts.urbanist(
                                       color: Colors.black54,
                                     ),
@@ -268,17 +271,20 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                   m['full_name'] ??
                   m['display_name'] ??
                   m['username'] ??
+                  m['company_name'] ??
+                  m['business_name'] ??
                   '')
               .toString()
               .trim();
-      return name.isNotEmpty ? name : 'Unknown';
+      return name.isNotEmpty ? name : '';
     }
 
     if (fixer['user'] is Map) {
       final u = Map<String, dynamic>.from(fixer['user'] as Map);
       final nm = fromMap(u);
-      if (nm != 'Unknown') return nm;
+      if (nm.isNotEmpty) return nm;
     }
-    return fromMap(fixer);
+    final direct = fromMap(fixer);
+    return direct.isNotEmpty ? direct : 'Pending assignment';
   }
 }

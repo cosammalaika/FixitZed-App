@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import '../services/notification_service.dart';
 import 'payment_sheet.dart';
+import '../core/date_utils.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -32,28 +32,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
   }
 
-  DateTime _parseDate(dynamic v) {
-    if (v is String) {
-      try {
-        return DateTime.parse(v).toLocal();
-      } catch (_) {}
-    }
-    return DateTime.now();
-  }
-
-  bool _isToday(DateTime d) {
-    final n = DateTime.now();
-    return d.year == n.year && d.month == n.month && d.day == n.day;
-  }
-
-  bool _isYesterday(DateTime d) {
-    final y = DateTime.now().subtract(const Duration(days: 1));
-    return d.year == y.year && d.month == y.month && d.day == y.day;
-  }
-
   Widget _tile(Map<String, dynamic> n) {
-    final created = _parseDate(n['created_at'] ?? n['updated_at']);
-    final timeStr = DateFormat('h:mm a').format(created);
+    final created =
+        parseAppDate(n['created_at'] ?? n['updated_at']) ?? DateTime.now();
+    final timeStr = formatAppTime(created);
     final title = (n['title'] ?? n['subject'] ?? 'Notification').toString();
     final body = (n['message'] ?? n['body'] ?? '').toString();
     final readVal = n['read'] ?? n['read_at'] ?? n['is_read'];
@@ -210,11 +192,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final today = <Map<String, dynamic>>[];
     final yesterday = <Map<String, dynamic>>[];
     final earlier = <Map<String, dynamic>>[];
+    final now = DateTime.now();
     for (final n in _items) {
-      final d = _parseDate(n['created_at'] ?? n['updated_at']);
-      if (_isToday(d))
+      final d = parseAppDate(n['created_at'] ?? n['updated_at']) ?? now;
+      if (isSameDay(d, now))
         today.add(n);
-      else if (_isYesterday(d))
+      else if (isYesterday(d, relativeTo: now))
         yesterday.add(n);
       else
         earlier.add(n);
