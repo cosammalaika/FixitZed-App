@@ -1036,7 +1036,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<void> _promptRating() async {
     final brand = const Color(0xFFF1592A);
     double rating = 5;
-    final ctrl = TextEditingController();
+    String comment = '';
     bool submitting = false;
 
     final serviceName = (() {
@@ -1255,8 +1255,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         vertical: 4,
                       ),
                       child: TextField(
-                        controller: ctrl,
                         maxLines: 4,
+                        onChanged: (value) => comment = value,
                         textInputAction: TextInputAction.done,
                         decoration: const InputDecoration(
                           border: InputBorder.none,
@@ -1308,8 +1308,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                         },
                                         body: jsonEncode({
                                           'rating': rating,
-                                          if (ctrl.text.trim().isNotEmpty)
-                                            'comment': ctrl.text.trim(),
+                                          if (comment.trim().isNotEmpty)
+                                            'comment': comment.trim(),
                                         }),
                                       );
                                       if (!mounted) return;
@@ -1346,8 +1346,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       },
     );
 
-    ctrl.dispose();
-
     if (ok == true) {
       _showSnack(message: 'Thanks for your rating!', success: true);
     }
@@ -1361,9 +1359,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   void _showSnack({required String message, required bool success}) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
     final color = success ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);
     final icon = success ? Icons.check_circle_rounded : Icons.error_rounded;
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: color,

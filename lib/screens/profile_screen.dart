@@ -80,28 +80,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (raw['fixer_profile'] != null) fixer = true;
       _isFixer = fixer;
 
-      String? avatar =
-          (raw['profile_photo_path'] ??
-                  raw['avatar'] ??
-                  raw['photo'] ??
-                  raw['profile_photo_url'] ??
-                  raw['image'])
-              ?.toString();
-      if (avatar != null && avatar.trim().isNotEmpty) {
-        avatar = avatar.trim();
-        if (!avatar.startsWith('http')) {
-          final base = Api.baseUrl;
-          final origin = base.endsWith('/api')
-              ? base.substring(0, base.length - 4)
-              : base;
-          final path = avatar.startsWith('/') ? avatar.substring(1) : avatar;
-          avatarUrl = path.startsWith('storage/')
-              ? '$origin/$path'
-              : '$origin/storage/$path';
-        } else {
-          avatarUrl = avatar;
-        }
-      }
+      final rawAvatar = (raw['profile_photo_path'] ??
+              raw['avatar'] ??
+              raw['photo'] ??
+              raw['profile_photo_url'] ??
+              raw['image'])
+          ?.toString();
+      final resolvedAvatar = Api.resolveImageUrl(rawAvatar);
+      avatarUrl = resolvedAvatar.isEmpty ? null : resolvedAvatar;
       _loading = false;
     });
   }
@@ -186,15 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 32,
-                        backgroundImage:
-                            (avatarUrl != null && avatarUrl!.isNotEmpty)
-                            ? (avatarUrl!.startsWith('http')
-                                  ? NetworkImage(avatarUrl!) as ImageProvider
-                                  : AssetImage(avatarUrl!))
-                            : const AssetImage('assets/images/logo-sm.png'),
-                      ),
+                      _ProfileAvatar(url: avatarUrl, radius: 32),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -285,6 +263,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _ProfileAvatar extends StatefulWidget {
+  final String? url;
+  final double radius;
+  const _ProfileAvatar({required this.url, this.radius = 32});
+
+  @override
+  State<_ProfileAvatar> createState() => _ProfileAvatarState();
+}
+
+class _ProfileAvatarState extends State<_ProfileAvatar> {
+  bool _failed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final innerRadius = widget.radius - 2;
+    final placeholder = ClipOval(
+      child: Image.asset(
+        'assets/images/logo-sm.png',
+        width: innerRadius * 2,
+        height: innerRadius * 2,
+        fit: BoxFit.cover,
+      ),
+    );
+
+    final url = widget.url?.trim() ?? '';
+    final validUrl = url.isNotEmpty && url.toLowerCase() != 'null';
+
+    Widget child;
+    if (!_failed && validUrl) {
+      child = ClipOval(
+        child: Image.network(
+          url,
+          width: innerRadius * 2,
+          height: innerRadius * 2,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) {
+            if (!_failed && mounted) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _failed = true);
+              });
+            }
+            return placeholder;
+          },
+        ),
+      );
+    } else {
+      child = placeholder;
+    }
+
+    return CircleAvatar(
+      radius: widget.radius,
+      backgroundColor: Colors.white,
+      child: child,
     );
   }
 }

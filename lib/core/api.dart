@@ -24,7 +24,7 @@ class Api {
     final value = raw.trim();
     if (value.isEmpty) return '';
     if (value.startsWith('http://') || value.startsWith('https://')) {
-      return value;
+      return _normalizeHost(value);
     }
 
     final base = baseUrl;
@@ -34,5 +34,22 @@ class Api {
       return '$origin/$normalized';
     }
     return '$origin/storage/$normalized';
+  }
+
+  static String _normalizeHost(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final host = uri.host;
+      if ((host == 'localhost' || host == '127.0.0.1') && !kIsWeb) {
+        try {
+          if (Platform.isAndroid) {
+            return uri.replace(host: '10.0.2.2').toString();
+          }
+        } catch (_) {}
+      }
+      return url;
+    } catch (_) {
+      return url;
+    }
   }
 }

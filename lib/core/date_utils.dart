@@ -38,7 +38,7 @@ DateTime? parseAppDate(dynamic value) {
 
 String formatAppDateTime(
   dynamic value, {
-  String pattern = 'd MMM yyyy • h:mm a',
+  String pattern = 'd MMM yyyy • HH:mm',
   String fallback = '--',
 }) {
   final dt = value is DateTime ? value : parseAppDate(value);
@@ -50,7 +50,7 @@ String formatAppDate(dynamic value, {String pattern = 'd MMM yyyy'}) {
   return formatAppDateTime(value, pattern: pattern);
 }
 
-String formatAppTime(dynamic value, {String pattern = 'h:mm a'}) {
+String formatAppTime(dynamic value, {String pattern = 'HH:mm'}) {
   return formatAppDateTime(value, pattern: pattern);
 }
 

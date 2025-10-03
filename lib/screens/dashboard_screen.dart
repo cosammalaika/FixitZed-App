@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/home_service.dart';
 import '../core/api.dart';
@@ -21,7 +20,8 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
   final Color orange = const Color(0xFFF1592A);
   // Data
   final _svc = HomeService();
@@ -34,28 +34,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _hasUnread = false;
   Future<List<dynamic>>? _fixersFuture;
 
+  bool _refreshing = false;
+
   @override
   void initState() {
     super.initState();
-    _loadData();
+    WidgetsBinding.instance.addObserver(this);
     _fixersFuture = _svc.fetchFixers();
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
-    setState(() => _loading = true);
-    final meF = _svc.fetchMe();
-    final catF = _svc.fetchCategories();
-    final srvF = _svc.fetchServices();
-    final me = await meF;
-    final cats = await catF;
-    final srvs = await srvF;
-    // Fetch notifications to know if there are unread
-    final notifs = await NotificationService().fetch(page: 1);
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      if (mounted) {
+        setState(() => _loading = true);
+      }
+      final meF = _svc.fetchMe();
+      final catF = _svc.fetchCategories();
+      final srvF = _svc.fetchServices();
+      final me = await meF;
+      final cats = await catF;
+      final srvs = await srvF;
+      // Fetch notifications to know if there are unread
+      final notifs = await NotificationService().fetch(page: 1);
 
-    if (!mounted) return;
-    setState(() {
-      if (me != null) {
-        final raw = (me['user'] is Map) ? me['user'] as Map : me;
+      if (!mounted) return;
+      setState(() {
+        if (me != null) {
+          final raw = (me['user'] is Map) ? me['user'] as Map : me;
         final first = (raw['first_name'] ?? '').toString().trim();
         final last = (raw['last_name'] ?? '').toString().trim();
         final combined = [first, last].where((s) => s.isNotEmpty).join(' ');
@@ -85,32 +106,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _greetLocation = loc;
         }
 
-        String? avatar =
-            (raw['profile_photo_path'] ??
-                    raw['avatar'] ??
-                    raw['photo'] ??
-                    raw['profile_photo_url'] ??
-                    raw['profile_image'] ??
-                    raw['image'])
-                ?.toString();
-        if (avatar != null && avatar.trim().isNotEmpty) {
-          avatar = avatar.trim();
-          if (!avatar.startsWith('http')) {
-            final base = Api.baseUrl;
-            final origin = base.endsWith('/api')
-                ? base.substring(0, base.length - 4)
-                : base;
-            final path = avatar.startsWith('/') ? avatar.substring(1) : avatar;
-            _avatarUrl = path.startsWith('storage/')
-                ? '$origin/$path'
-                : '$origin/storage/$path';
-          } else {
-            _avatarUrl = avatar;
-          }
-        }
+        final avatarRaw = (raw['profile_photo_path'] ??
+                raw['avatar'] ??
+                raw['photo'] ??
+                raw['profile_photo_url'] ??
+                raw['profile_image'] ??
+                raw['image'])
+            ?.toString();
+        final resolvedAvatar = Api.resolveImageUrl(avatarRaw);
+        _avatarUrl = resolvedAvatar.isEmpty ? null : resolvedAvatar;
       }
-      _categoryList = cats;
-      _services = srvs;
+        _categoryList = cats;
+        _services = srvs;
       // unread detection compatible with various API shapes
       bool anyUnread = false;
       for (final n in notifs) {
@@ -132,12 +139,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       }
       // Show badge only when there are truly unread notifications
-      _hasUnread = anyUnread;
-      _loading = false;
-      _fixersFuture ??= _svc.fetchFixers();
-    });
-    // After data + notifications, check for pending bills and prompt nicely
-    _checkPendingBills();
+        _hasUnread = anyUnread;
+        _loading = false;
+        _fixersFuture ??= _svc.fetchFixers();
+      });
+      // After data + notifications, check for pending bills and prompt nicely
+      await _checkPendingBills();
+    } finally {
+      _refreshing = false;
+    }
   }
 
   bool _billPromptShown = false;

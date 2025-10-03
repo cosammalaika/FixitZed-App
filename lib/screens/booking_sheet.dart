@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
@@ -5,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../core/date_utils.dart';
 import '../services/home_service.dart';
+import '../services/local_notification_service.dart';
 import '../services/service_request_service.dart';
 import '../services/locations_service.dart';
 
@@ -424,28 +426,66 @@ class _BookingSheetState extends State<BookingSheet> {
 
   Future<void> _pickDateTime() async {
     final now = DateTime.now();
-    final date = await showDatePicker(
+    final initial = (() {
+      final base = _scheduledAt ?? now.add(const Duration(hours: 1));
+      if (base.isBefore(now)) {
+        return now.add(const Duration(minutes: 15));
+      }
+      return base;
+    })();
+    DateTime tempValue = initial;
+    final picked = await showCupertinoModalPopup<DateTime>(
       context: context,
-      firstDate: now,
-      lastDate: DateTime(now.year + 2),
-      initialDate: now,
+      builder: (ctx) {
+        return Container(
+          height: 320,
+          color: Colors.white,
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () => Navigator.of(ctx).pop(tempValue),
+                        child: const Text('Done'),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.dateAndTime,
+                    minimumDate: now,
+                    maximumDate: DateTime(now.year + 2),
+                    initialDateTime: initial,
+                    use24hFormat: true,
+                    minuteInterval: 1,
+                    onDateTimeChanged: (value) => tempValue = value,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
-    if (date == null) return;
+    if (picked == null) return;
     if (!mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
-    );
-    if (time == null) return;
-    if (!mounted) return;
-    final dt = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
-    setState(() => _scheduledAt = dt);
+    setState(() => _scheduledAt = picked);
   }
 
   Future<void> _submit() async {
@@ -483,6 +523,11 @@ class _BookingSheetState extends State<BookingSheet> {
     if (!mounted) return;
     setState(() => _submitting = false);
     if (ok) {
+      LocalNotificationService.instance.notifyBookingCreated(
+        serviceName: _serviceName ?? 'Service booking',
+        scheduledAt: _scheduledAt!,
+        location: _locationCtrl.text.trim(),
+      );
       Navigator.of(context).pop(true);
       _showSnack(
         message: 'Booking submitted — pending approval',
@@ -771,7 +816,7 @@ class _BookingSheetState extends State<BookingSheet> {
   }
 
   String _formatDateTime(DateTime dt) =>
-      formatAppDateTime(dt, pattern: 'd MMM yyyy • h:mm a');
+      formatAppDateTime(dt, pattern: 'd MMM yyyy • HH:mm');
 
   void _showSnack({required String message, required bool success}) {
     final color = success ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);

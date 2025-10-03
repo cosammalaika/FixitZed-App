@@ -14,37 +14,59 @@ class MyBookingScreen extends StatefulWidget {
   State<MyBookingScreen> createState() => _MyBookingScreenState();
 }
 
-class _MyBookingScreenState extends State<MyBookingScreen> {
+class _MyBookingScreenState extends State<MyBookingScreen>
+    with WidgetsBindingObserver {
   final _req = ServiceRequestService();
   bool _loading = true;
   List<Map<String, dynamic>> _requests = const [];
   final Map<int, Map<String, dynamic>> _payments = {};
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
-  Future<void> _load() async {
-    final list = await _req.listRequests();
-    final pays = <int, Map<String, dynamic>>{};
-    for (final r in list) {
-      final id = (r['id'] as num?)?.toInt();
-      if (id == null) continue;
-      try {
-        final p = await PaymentService().get(id);
-        if (p != null) pays[id] = p;
-      } catch (_) {}
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load();
     }
-    if (!mounted) return;
-    setState(() {
-      _requests = list;
-      _payments
-        ..clear()
-        ..addAll(pays);
+  }
+
+  Future<void> _load() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      final list = await _req.listRequests();
+      final pays = <int, Map<String, dynamic>>{};
+      for (final r in list) {
+        final id = (r['id'] as num?)?.toInt();
+        if (id == null) continue;
+        try {
+          final p = await PaymentService().get(id);
+          if (p != null) pays[id] = p;
+        } catch (_) {}
+      }
+      if (!mounted) return;
+      setState(() {
+        _requests = list;
+        _payments
+          ..clear()
+          ..addAll(pays);
       _loading = false;
     });
+  } finally {
+    _refreshing = false;
+    }
   }
 
   @override

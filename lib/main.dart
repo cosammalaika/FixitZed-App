@@ -20,10 +20,12 @@ import 'package:fixitzed_app/screens/profile/change_password_screen.dart';
 import 'package:fixitzed_app/screens/fixer/become_fixer_screen.dart';
 
 import 'package:fixitzed_app/core/app_theme.dart';
+import 'package:fixitzed_app/services/local_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppTheme.load();
+  await LocalNotificationService.instance.init();
   runApp(const MyApp());
 }
 
