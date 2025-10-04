@@ -4,6 +4,24 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api.dart';
 
+class AuthResult {
+  final bool success;
+  final String? message;
+  final List<String> errors;
+
+  const AuthResult({required this.success, this.message, this.errors = const []});
+
+  String? get displayMessage {
+    if (message != null && message!.trim().isNotEmpty) {
+      return message!.trim();
+    }
+    if (errors.isNotEmpty) {
+      return errors.join('\n');
+    }
+    return null;
+  }
+}
+
 class AuthService {
   static const String _tokenKey = 'auth_token';
 
@@ -77,19 +95,7 @@ class AuthService {
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final data = jsonDecode(res.body);
-        String? token;
-        if (data is Map<String, dynamic>) {
-          // Common token shapes across Laravel stacks
-          token = (data['token'] ?? data['access_token'])?.toString();
-          if ((token == null || token.isEmpty) && data['data'] is Map) {
-            final d = data['data'] as Map;
-            token = (d['token'] ?? d['access_token'])?.toString();
-          }
-          if ((token == null || token.isEmpty) && data['authorisation'] is Map) {
-            final a = data['authorisation'] as Map;
-            token = (a['token'] ?? a['access_token'])?.toString();
-          }
-        }
+        final token = _extractToken(data);
         if (token != null && token.isNotEmpty) {
           await _saveToken(token);
           return true;
@@ -103,7 +109,7 @@ class AuthService {
 
   /// Registers a user. Always sends required fields and
   /// conditionally includes optional fields like address/username when provided.
-  Future<bool> register(
+  Future<AuthResult> register(
     String name,
     String email,
     String phone,
@@ -132,15 +138,24 @@ class AuthService {
       final res = await _postJson('register', body);
 
       if (res.statusCode == 201 || res.statusCode == 200) {
-        final data = jsonDecode(res.body) as Map<String, dynamic>;
-        final token = (data['token'] ?? '') as String;
-        if (token.isEmpty) return false;
+        final data = jsonDecode(res.body);
+        final token = _extractToken(data);
+        if (token == null || token.isEmpty) {
+          return const AuthResult(
+            success: false,
+            message: 'Registration succeeded but no access token was returned.',
+          );
+        }
         await _saveToken(token);
-        return true;
+        final msg = _extractMessage(data);
+        return AuthResult(success: true, message: msg);
       }
-      return false;
+      return _mapError(res);
     } catch (_) {
-      return false;
+      return const AuthResult(
+        success: false,
+        message: 'Unable to reach the server. Please try again.',
+      );
     }
   }
 
@@ -271,5 +286,66 @@ class AuthService {
     } catch (_) {
       return false;
     }
+  }
+
+  String? _extractToken(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      final direct = data['token'] ?? data['access_token'];
+      if (direct is String && direct.isNotEmpty) return direct;
+
+      final nestedData = data['data'];
+      if (nestedData is Map) {
+        final innerToken = nestedData['token'] ?? nestedData['access_token'];
+        if (innerToken is String && innerToken.isNotEmpty) return innerToken;
+      }
+
+      final authorisation = data['authorisation'];
+      if (authorisation is Map) {
+        final authToken = authorisation['token'] ?? authorisation['access_token'];
+        if (authToken is String && authToken.isNotEmpty) return authToken;
+      }
+    }
+    return null;
+  }
+
+  String? _extractMessage(dynamic data) {
+    if (data is Map) {
+      final msg = data['message'] ?? data['msg'] ?? data['status'];
+      if (msg is String && msg.trim().isNotEmpty) return msg.trim();
+    }
+    return null;
+  }
+
+  AuthResult _mapError(http.Response res) {
+    String? message;
+    final errors = <String>[];
+    try {
+      final body = jsonDecode(res.body);
+      if (body is Map) {
+        final msg = body['message'] ?? body['error'] ?? body['status'];
+        if (msg is String && msg.trim().isNotEmpty) {
+          message = msg.trim();
+        }
+        final err = body['errors'];
+        if (err is Map) {
+          err.forEach((_, value) {
+            if (value is List) {
+              errors.addAll(value.map((e) => e.toString()).where((e) => e.trim().isNotEmpty));
+            } else if (value != null) {
+              final text = value.toString();
+              if (text.trim().isNotEmpty) errors.add(text);
+            }
+          });
+        }
+      }
+    } catch (_) {
+      // leave message/errors as collected
+    }
+
+    message ??= res.statusCode >= 500
+        ? 'Our servers are busy right now. Please try again shortly.'
+        : 'Please double-check your details and try again.';
+
+    return AuthResult(success: false, message: message, errors: errors);
   }
 }

@@ -14,8 +14,7 @@ class MyBookingScreen extends StatefulWidget {
   State<MyBookingScreen> createState() => _MyBookingScreenState();
 }
 
-class _MyBookingScreenState extends State<MyBookingScreen>
-    with WidgetsBindingObserver {
+class _MyBookingScreenState extends State<MyBookingScreen> {
   final _req = ServiceRequestService();
   bool _loading = true;
   List<Map<String, dynamic>> _requests = const [];
@@ -25,21 +24,12 @@ class _MyBookingScreenState extends State<MyBookingScreen>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _load();
-    }
   }
 
   Future<void> _load() async {

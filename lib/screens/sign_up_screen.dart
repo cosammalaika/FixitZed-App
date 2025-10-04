@@ -58,7 +58,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     setState(() => _loading = true);
     try {
-      final ok = await AuthService().register(
+      final result = await AuthService().register(
         name,
         email,
         phone,
@@ -68,25 +68,121 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       if (!mounted) return;
 
-      if (ok) {
+      if (result.success) {
         // Optional: clear remembered email on a fresh sign-up
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove('remember_email');
 
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        _showSnack('Registration failed. Check your details and try again.');
+        final detailLines = result.errors;
+        var message = result.displayMessage ?? '';
+        if (message.isEmpty && detailLines.isNotEmpty) {
+          message = 'Please review the issues below.';
+        } else if (message.isEmpty) {
+          message = 'We couldn\'t create your account. Please try again.';
+        }
+        await _showErrorDialog(
+          title: 'Sign up failed',
+          message: message,
+          details: detailLines,
+        );
       }
     } catch (_) {
       if (!mounted) return;
-      _showSnack('Unable to register right now. Check your connection.');
+      await _showErrorDialog(
+        title: 'Sign up failed',
+        message: 'We couldn\'t reach our servers. Please check your internet connection and try again.',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  Future<void> _showErrorDialog({
+    required String title,
+    required String message,
+    List<String> details = const [],
+  }) async {
+    const brand = Color(0xFFF1592A);
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: brand.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error_outline_rounded,
+                  color: brand,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.urbanist(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.urbanist(color: Colors.black87),
+              ),
+              if (details.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ...details.map(
+                  (line) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('• ', style: TextStyle(color: Colors.black54)),
+                        Expanded(
+                          child: Text(
+                            line,
+                            style: GoogleFonts.urbanist(color: Colors.black54),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: brand,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('OK, got it'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   InputDecoration _dec(String label, {Widget? suffix}) {

@@ -20,8 +20,7 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen>
-    with WidgetsBindingObserver {
+class _DashboardScreenState extends State<DashboardScreen> {
   final Color orange = const Color(0xFFF1592A);
   // Data
   final _svc = HomeService();
@@ -33,28 +32,20 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _loading = true;
   bool _hasUnread = false;
   Future<List<dynamic>>? _fixersFuture;
+  String? _error;
 
   bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _fixersFuture = _svc.fetchFixers();
     _loadData();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _loadData();
-    }
   }
 
   Future<void> _loadData() async {
@@ -62,7 +53,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     _refreshing = true;
     try {
       if (mounted) {
-        setState(() => _loading = true);
+        setState(() {
+          _loading = true;
+          _error = null;
+        });
       }
       final meF = _svc.fetchMe();
       final catF = _svc.fetchCategories();
@@ -77,74 +71,81 @@ class _DashboardScreenState extends State<DashboardScreen>
       setState(() {
         if (me != null) {
           final raw = (me['user'] is Map) ? me['user'] as Map : me;
-        final first = (raw['first_name'] ?? '').toString().trim();
-        final last = (raw['last_name'] ?? '').toString().trim();
-        final combined = [first, last].where((s) => s.isNotEmpty).join(' ');
-        if (combined.isNotEmpty) {
-          _greetName = combined;
-        } else {
-          final name = raw['name'] ?? raw['full_name'] ?? raw['username'];
-          if (name is String && name.trim().isNotEmpty) {
-            _greetName = name.trim();
+          final first = (raw['first_name'] ?? '').toString().trim();
+          final last = (raw['last_name'] ?? '').toString().trim();
+          final combined = [first, last].where((s) => s.isNotEmpty).join(' ');
+          if (combined.isNotEmpty) {
+            _greetName = combined;
+          } else {
+            final name = raw['name'] ?? raw['full_name'] ?? raw['username'];
+            if (name is String && name.trim().isNotEmpty) {
+              _greetName = name.trim();
+            }
           }
-        }
 
-        final city = (raw['city'] ?? '').toString().trim();
-        final country = (raw['country'] ?? '').toString().trim();
-        final address = (raw['address'] ?? raw['location'] ?? '')
-            .toString()
-            .trim();
-        String loc = '';
-        if (city.isNotEmpty && country.isNotEmpty) {
-          loc = '$city, $country';
-        } else if (address.isNotEmpty) {
-          loc = address;
-        } else if (city.isNotEmpty) {
-          loc = city;
-        }
-        if (loc.isNotEmpty) {
-          _greetLocation = loc;
-        }
+          final city = (raw['city'] ?? '').toString().trim();
+          final country = (raw['country'] ?? '').toString().trim();
+          final address = (raw['address'] ?? raw['location'] ?? '')
+              .toString()
+              .trim();
+          String loc = '';
+          if (city.isNotEmpty && country.isNotEmpty) {
+            loc = '$city, $country';
+          } else if (address.isNotEmpty) {
+            loc = address;
+          } else if (city.isNotEmpty) {
+            loc = city;
+          }
+          if (loc.isNotEmpty) {
+            _greetLocation = loc;
+          }
 
-        final avatarRaw = (raw['profile_photo_path'] ??
-                raw['avatar'] ??
-                raw['photo'] ??
-                raw['profile_photo_url'] ??
-                raw['profile_image'] ??
-                raw['image'])
-            ?.toString();
-        final resolvedAvatar = Api.resolveImageUrl(avatarRaw);
-        _avatarUrl = resolvedAvatar.isEmpty ? null : resolvedAvatar;
-      }
+          final avatarRaw =
+              (raw['profile_photo_path'] ??
+                      raw['avatar'] ??
+                      raw['photo'] ??
+                      raw['profile_photo_url'] ??
+                      raw['profile_image'] ??
+                      raw['image'])
+                  ?.toString();
+          final resolvedAvatar = Api.resolveImageUrl(avatarRaw);
+          _avatarUrl = resolvedAvatar.isEmpty ? null : resolvedAvatar;
+        }
         _categoryList = cats;
         _services = srvs;
-      // unread detection compatible with various API shapes
-      bool anyUnread = false;
-      for (final n in notifs) {
-        final readVal = n['read'] ?? n['read_at'] ?? n['is_read'];
-        bool read;
-        if (readVal is bool) {
-          read = readVal;
-        } else if (readVal is num) {
-          read = readVal != 0; // 1 => read, 0 => unread
-        } else if (readVal is String) {
-          final v = readVal.trim().toLowerCase();
-          read = v.isNotEmpty && v != '0' && v != 'false';
-        } else {
-          read = false;
+        // unread detection compatible with various API shapes
+        bool anyUnread = false;
+        for (final n in notifs) {
+          final readVal = n['read'] ?? n['read_at'] ?? n['is_read'];
+          bool read;
+          if (readVal is bool) {
+            read = readVal;
+          } else if (readVal is num) {
+            read = readVal != 0; // 1 => read, 0 => unread
+          } else if (readVal is String) {
+            final v = readVal.trim().toLowerCase();
+            read = v.isNotEmpty && v != '0' && v != 'false';
+          } else {
+            read = false;
+          }
+          if (!read) {
+            anyUnread = true;
+            break;
+          }
         }
-        if (!read) {
-          anyUnread = true;
-          break;
-        }
-      }
-      // Show badge only when there are truly unread notifications
+        // Show badge only when there are truly unread notifications
         _hasUnread = anyUnread;
         _loading = false;
         _fixersFuture ??= _svc.fetchFixers();
       });
       // After data + notifications, check for pending bills and prompt nicely
       await _checkPendingBills();
+    } catch (err) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = err.toString();
+      });
     } finally {
       _refreshing = false;
     }
@@ -496,8 +497,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark, // Android: white icons
-        statusBarBrightness: Brightness.dark, // iOS: white icons
+        statusBarIconBrightness:
+            Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: Colors.white,
@@ -509,6 +511,13 @@ class _DashboardScreenState extends State<DashboardScreen>
             if (_tabIndex == 2) return const FavoritesScreen();
             if (_loading) {
               return const Center(child: CircularProgressIndicator());
+            }
+            if (_error != null) {
+              return _ErrorState(
+                message: 'We couldn\'t load the dashboard right now.',
+                detail: _error!,
+                onRetry: () => _loadData(),
+              );
             }
             return SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -532,6 +541,63 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             );
           }(),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final String? detail;
+  final VoidCallback onRetry;
+
+  const _ErrorState({
+    required this.message,
+    required this.detail,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.black38),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.urbanist(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+            if (detail != null && detail!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                detail!,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.urbanist(color: Colors.black54),
+              ),
+            ],
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF1592A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Try again'),
+            ),
+          ],
         ),
       ),
     );
