@@ -1,214 +1,105 @@
+import 'dart:async';
+
+import 'package:fixitzed_app/screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/home_service.dart';
+
 import '../core/api.dart';
-import 'profile_screen.dart';
-import 'profile/my_booking_screen.dart';
-import '../services/notification_service.dart';
+import '../data/models/bookings_snapshot.dart';
+import '../data/models/dashboard_snapshot.dart';
+import '../data/models/user_summary.dart';
+import '../state/bookings_controller.dart';
+import '../state/dashboard_controller.dart';
+import '../state/user_controller.dart';
+import 'booking_sheet.dart';
 import 'dashboard_widgets.dart';
 import 'favorites_screen.dart';
-import 'booking_sheet.dart';
-import '../services/service_request_service.dart';
-import '../services/payment_service.dart';
 import 'payment_sheet.dart';
+import 'profile/my_booking_screen.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
-  final Color orange = const Color(0xFFF1592A);
-  // Data
-  final _svc = HomeService();
-  String _greetName = '';
-  String _greetLocation = '';
-  String? _avatarUrl;
-  List<dynamic> _categoryList = const [];
-  List<dynamic> _services = const [];
-  bool _loading = true;
-  bool _hasUnread = false;
-  Future<List<dynamic>>? _fixersFuture;
-  String? _error;
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  int _tabIndex = 0;
+  int? _activePaymentPrompt;
+  bool _paymentDialogVisible = false;
 
-  bool _refreshing = false;
+  bool _didSetupListener = false;
 
-  @override
   void initState() {
     super.initState();
-    _fixersFuture = _svc.fetchFixers();
-    _loadData();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
+  void _handleBookingUpdates(
+    AsyncValue<BookingsSnapshot>? previous,
+    AsyncValue<BookingsSnapshot> next,
+  ) {
+    next.whenData((snapshot) async {
+      if (!mounted || _paymentDialogVisible) return;
+      final due = _findOutstandingBooking(snapshot);
+      if (due == null) return;
+      if (_activePaymentPrompt == due.requestId) return;
 
-  Future<void> _loadData() async {
-    if (_refreshing) return;
-    _refreshing = true;
-    try {
-      if (mounted) {
-        setState(() {
-          _loading = true;
-          _error = null;
-        });
+      _activePaymentPrompt = due.requestId;
+      _paymentDialogVisible = true;
+
+      final paid = await _showPayNowSheet(due.requestId);
+      _paymentDialogVisible = false;
+      _activePaymentPrompt = null;
+
+      if (paid) {
+        await Future.wait([
+          ref.read(bookingsControllerProvider.notifier).refresh(silent: true),
+          ref.read(dashboardControllerProvider.notifier).refresh(silent: true),
+        ]);
       }
-      final meF = _svc.fetchMe();
-      final catF = _svc.fetchCategories();
-      final srvF = _svc.fetchServices();
-      final me = await meF;
-      final cats = await catF;
-      final srvs = await srvF;
-      // Fetch notifications to know if there are unread
-      final notifs = await NotificationService().fetch(page: 1);
+    });
+  }
 
-      if (!mounted) return;
-      setState(() {
-        if (me != null) {
-          final raw = (me['user'] is Map) ? me['user'] as Map : me;
-          final first = (raw['first_name'] ?? '').toString().trim();
-          final last = (raw['last_name'] ?? '').toString().trim();
-          final combined = [first, last].where((s) => s.isNotEmpty).join(' ');
-          if (combined.isNotEmpty) {
-            _greetName = combined;
-          } else {
-            final name = raw['name'] ?? raw['full_name'] ?? raw['username'];
-            if (name is String && name.trim().isNotEmpty) {
-              _greetName = name.trim();
-            }
-          }
+  _PaymentDue? _findOutstandingBooking(BookingsSnapshot snapshot) {
+    for (final booking in snapshot.bookings) {
+      final id = (booking['id'] as num?)?.toInt();
+      if (id == null) continue;
+      final status = (booking['status'] ?? '').toString().toLowerCase();
+      if (status == 'completed') continue;
 
-          final city = (raw['city'] ?? '').toString().trim();
-          final country = (raw['country'] ?? '').toString().trim();
-          final address = (raw['address'] ?? raw['location'] ?? '')
-              .toString()
-              .trim();
-          String loc = '';
-          if (city.isNotEmpty && country.isNotEmpty) {
-            loc = '$city, $country';
-          } else if (address.isNotEmpty) {
-            loc = address;
-          } else if (city.isNotEmpty) {
-            loc = city;
-          }
-          if (loc.isNotEmpty) {
-            _greetLocation = loc;
-          }
+      final payment = snapshot.payments[id];
+      if (payment == null) continue;
+      final paymentStatus = (payment['status'] ?? '').toString().toLowerCase();
+      if (paymentStatus == 'paid') continue;
 
-          final avatarRaw =
-              (raw['profile_photo_path'] ??
-                      raw['avatar'] ??
-                      raw['photo'] ??
-                      raw['profile_photo_url'] ??
-                      raw['profile_image'] ??
-                      raw['image'])
-                  ?.toString();
-          final resolvedAvatar = Api.resolveImageUrl(avatarRaw);
-          _avatarUrl = resolvedAvatar.isEmpty ? null : resolvedAvatar;
-        }
-        _categoryList = cats;
-        _services = srvs;
-        // unread detection compatible with various API shapes
-        bool anyUnread = false;
-        for (final n in notifs) {
-          final readVal = n['read'] ?? n['read_at'] ?? n['is_read'];
-          bool read;
-          if (readVal is bool) {
-            read = readVal;
-          } else if (readVal is num) {
-            read = readVal != 0; // 1 => read, 0 => unread
-          } else if (readVal is String) {
-            final v = readVal.trim().toLowerCase();
-            read = v.isNotEmpty && v != '0' && v != 'false';
-          } else {
-            read = false;
-          }
-          if (!read) {
-            anyUnread = true;
-            break;
-          }
-        }
-        // Show badge only when there are truly unread notifications
-        _hasUnread = anyUnread;
-        _loading = false;
-        _fixersFuture ??= _svc.fetchFixers();
-      });
-      // After data + notifications, check for pending bills and prompt nicely
-      await _checkPendingBills();
-    } catch (err) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = err.toString();
-      });
-    } finally {
-      _refreshing = false;
+      final amountRaw = payment['amount'];
+      final amount = amountRaw is num
+          ? amountRaw.toDouble()
+          : double.tryParse(amountRaw?.toString() ?? '');
+
+      return _PaymentDue(
+        requestId: id,
+        booking: booking,
+        payment: payment,
+        amount: amount,
+      );
     }
+    return null;
   }
 
-  bool _billPromptShown = false;
-  Future<void> _checkPendingBills() async {
-    if (_billPromptShown) return;
-    try {
-      final list = await ServiceRequestService().listRequests();
-      for (final r in list) {
-        final id = (r['id'] as num?)?.toInt();
-        final status = (r['status'] ?? '').toString();
-        if (id == null || status == 'completed') continue;
-        final p = await PaymentService().get(id);
-        if (p == null) continue;
-        final paid = ((p['status'] ?? '').toString().toLowerCase() == 'paid');
-        final amount = p['amount'];
-        if (!paid && amount != null) {
-          if (!mounted) return;
-          _billPromptShown = true;
-          await _showPayNowSheet(
-            r,
-            (amount is num)
-                ? amount.toDouble()
-                : double.tryParse(amount.toString()) ?? 0,
-          );
-          break;
-        }
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _showPayNowSheet(
-    Map<String, dynamic> request,
-    double amount,
-  ) async {
-    final id = (request['id'] as num?)?.toInt();
-    if (id == null) return;
-    final paid = await Navigator.of(context).push<bool>(
+  Future<bool> _showPayNowSheet(int requestId) async {
+    final paid = await Navigator.of(context, rootNavigator: true).push<bool>(
       MaterialPageRoute(
-        builder: (_) => PaymentScreen(requestId: id),
+        builder: (_) => PaymentScreen(requestId: requestId),
         fullscreenDialog: true,
       ),
     );
-    if (paid == true && mounted) {
-      _billPromptShown = false;
-      await _loadData();
-    }
+    return paid ?? false;
   }
 
-  Widget _greeting() => DashboardGreeting(
-    name: _greetName,
-    location: _greetLocation,
-    avatarUrl: _avatarUrl,
-    hasUnread: _hasUnread,
-    onNotificationsTap: () async {
-      await Navigator.of(context).pushNamed('/notifications');
-      if (mounted) _loadData();
-    },
-  );
-
-  Widget _search() => const DashboardSearchField();
   Future<void> _openBookingSheet({Map<String, dynamic>? service}) async {
     await showModalBottomSheet(
       context: context,
@@ -220,7 +111,138 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _bookingHero() {
+  Future<void> _onRefresh() async {
+    await Future.wait([
+      ref.read(dashboardControllerProvider.notifier).refresh(),
+      ref.read(bookingsControllerProvider.notifier).refresh(),
+      ref.read(userControllerProvider.notifier).refresh(),
+    ]);
+  }
+
+  Widget build(BuildContext context) {
+    // ✅ register the listener once during build
+    if (!_didSetupListener) {
+      _didSetupListener = true;
+
+      ref.listen<AsyncValue<BookingsSnapshot>>(
+        bookingsControllerProvider,
+        _handleBookingUpdates, // (prev, next)
+      );
+
+      // replace fireImmediately: trigger once with current value
+      Future.microtask(() {
+        if (!mounted) return;
+        final current = ref.read(bookingsControllerProvider);
+        _handleBookingUpdates(null, current);
+      });
+    }
+
+    final theme = Theme.of(context);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        bottomNavigationBar: DashboardBottomNav(
+          currentIndex: _tabIndex,
+          onTap: (index) => setState(() => _tabIndex = index),
+          onBookTap: () => _openBookingSheet(),
+        ),
+        body: SafeArea(
+          child: switch (_tabIndex) {
+            1 => const MyBookingScreen(),
+            2 => const FavoritesScreen(),
+            3 => const ProfileScreen(),
+            _ => _HomeTab(onRefresh: _onRefresh, onBookTap: _openBookingSheet),
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeTab extends ConsumerWidget {
+  const _HomeTab({required this.onRefresh, required this.onBookTap});
+
+  final Future<void> Function() onRefresh;
+  final Future<void> Function({Map<String, dynamic>? service}) onBookTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboardState = ref.watch(dashboardControllerProvider);
+    final userState = ref.watch(userControllerProvider);
+
+    return dashboardState.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => _ErrorState(
+        message: 'We couldn\'t load the dashboard right now.',
+        detail: error?.toString(),
+        onRetry: () {
+          ref.read(dashboardControllerProvider.notifier).refresh();
+        },
+      ),
+      data: (snapshot) {
+        final userSummary = userState.when(
+          data: (user) => user ?? snapshot.user,
+          error: (_, __) => snapshot.user,
+          loading: () => snapshot.user,
+        );
+
+        return RefreshIndicator(
+          onRefresh: onRefresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DashboardGreeting(
+                  name: userSummary?.displayName ?? 'there',
+                  location: userSummary?.location ?? 'Welcome',
+                  avatarUrl: userSummary?.avatarUrl,
+                  hasUnread: snapshot.hasUnreadNotifications,
+                  onNotificationsTap: () async {
+                    await Navigator.of(context).pushNamed('/notifications');
+                    ref
+                        .read(dashboardControllerProvider.notifier)
+                        .refresh(silent: true);
+                  },
+                ),
+                const SizedBox(height: 16),
+                _BookingHero(onBookTap: onBookTap),
+                const SizedBox(height: 20),
+                const DashboardSearchField(),
+                const SizedBox(height: 20),
+                _QuickCategories(categories: snapshot.categories),
+                const SizedBox(height: 24),
+                _ServiceSpotlight(
+                  onBookTap: onBookTap,
+                  services: snapshot.services,
+                ),
+                const SizedBox(height: 24),
+                TopFixersStrip(
+                  fixers: snapshot.fixers,
+                  isLoading: dashboardState.isLoading,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BookingHero extends StatelessWidget {
+  const _BookingHero({required this.onBookTap});
+
+  final Future<void> Function({Map<String, dynamic>? service}) onBookTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -261,7 +283,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _openBookingSheet,
+                  onPressed: onBookTap,
                   icon: const Icon(Icons.flash_on_rounded),
                   label: const Text('Book a service'),
                   style: ElevatedButton.styleFrom(
@@ -297,10 +319,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+}
 
-  Widget _quickCategories() {
-    if (_categoryList.isEmpty) return const SizedBox.shrink();
-    final items = _categoryList.take(8).toList();
+class _QuickCategories extends StatelessWidget {
+  const _QuickCategories({required this.categories});
+
+  final List<dynamic> categories;
+
+  @override
+  Widget build(BuildContext context) {
+    if (categories.isEmpty) return const SizedBox.shrink();
+    final items = categories.take(8).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -336,8 +365,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (ctx, i) {
               final cat = items[i];
-              final name = (cat['name'] ?? cat['title'] ?? 'Category')
-                  .toString();
+              final name = (cat is Map && cat['name'] != null)
+                  ? cat['name'].toString()
+                  : (cat is Map && cat['title'] != null)
+                  ? cat['title'].toString()
+                  : 'Category';
               return GestureDetector(
                 onTap: () =>
                     Navigator.pushNamed(context, '/services', arguments: cat),
@@ -365,10 +397,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ],
     );
   }
+}
 
-  Widget _serviceSpotlight() {
-    if (_services.isEmpty) return const SizedBox.shrink();
-    final items = _services.take(4).toList();
+class _ServiceSpotlight extends StatelessWidget {
+  const _ServiceSpotlight({required this.services, required this.onBookTap});
+
+  final List<dynamic> services;
+  final Future<void> Function({Map<String, dynamic>? service}) onBookTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (services.isEmpty) return const SizedBox.shrink();
+    final items = services.take(4).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -402,7 +442,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final desc = (map['description'] ?? map['summary'] ?? '').toString();
           final image = Api.resolveImageUrl(map['image'] ?? map['icon']);
           return GestureDetector(
-            onTap: () => _openBookingSheet(service: map.isEmpty ? null : map),
+            onTap: () => onBookTap(service: map.isEmpty ? null : map),
             child: Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
@@ -473,90 +513,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ],
     );
   }
+}
 
-  Map<String, dynamic> _normalizeMap(dynamic value) {
-    if (value is Map<String, dynamic>) return Map<String, dynamic>.from(value);
-    if (value is Map) {
-      return value.map((key, val) => MapEntry(key.toString(), val));
-    }
-    return <String, dynamic>{};
+class _PaymentDue {
+  const _PaymentDue({
+    required this.requestId,
+    required this.booking,
+    required this.payment,
+    required this.amount,
+  });
+
+  final int requestId;
+  final Map<String, dynamic> booking;
+  final Map<String, dynamic> payment;
+  final double? amount;
+}
+
+Map<String, dynamic> _normalizeMap(dynamic value) {
+  if (value is Map<String, dynamic>) return Map<String, dynamic>.from(value);
+  if (value is Map) {
+    return value.map((key, val) => MapEntry(key.toString(), val));
   }
-
-  int _tabIndex = 0;
-
-  Widget _bottomNav() => DashboardBottomNav(
-    currentIndex: _tabIndex,
-    onTap: (i) => setState(() => _tabIndex = i),
-    onBookTap: () async {
-      await _openBookingSheet();
-    },
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness:
-            Brightness.dark,
-        statusBarBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        bottomNavigationBar: _bottomNav(),
-        body: SafeArea(
-          child: () {
-            if (_tabIndex == 3) return const ProfileScreen();
-            if (_tabIndex == 1) return const MyBookingScreen();
-            if (_tabIndex == 2) return const FavoritesScreen();
-            if (_loading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (_error != null) {
-              return _ErrorState(
-                message: 'We couldn\'t load the dashboard right now.',
-                detail: _error!,
-                onRetry: () => _loadData(),
-              );
-            }
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _greeting(),
-                  const SizedBox(height: 16),
-                  _bookingHero(),
-                  const SizedBox(height: 20),
-                  _search(),
-                  const SizedBox(height: 20),
-                  _quickCategories(),
-                  const SizedBox(height: 24),
-                  _serviceSpotlight(),
-                  const SizedBox(height: 24),
-                  TopFixersStrip(
-                    fixersFuture: _fixersFuture ?? _svc.fetchFixers(),
-                  ),
-                ],
-              ),
-            );
-          }(),
-        ),
-      ),
-    );
-  }
+  return <String, dynamic>{};
 }
 
 class _ErrorState extends StatelessWidget {
-  final String message;
-  final String? detail;
-  final VoidCallback onRetry;
-
   const _ErrorState({
     required this.message,
     required this.detail,
     required this.onRetry,
   });
+
+  final String message;
+  final String? detail;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {

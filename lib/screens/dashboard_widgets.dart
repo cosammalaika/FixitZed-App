@@ -181,77 +181,92 @@ class DashboardBottomNav extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(items.length, (i) {
-            final sel = i == currentIndex;
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onTap(i),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: sel
-                    ? BoxDecoration(
-                        color: const Color(0x1AF1592A),
-                        borderRadius: BorderRadius.circular(20),
-                      )
-                    : null,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      items[i]['icon'] as IconData,
-                      color: sel ? brand : Colors.black38,
-                      size: sel ? 26 : 24,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      items[i]['label'] as String,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                        color: sel ? brand : Colors.black45,
+          children:
+              List.generate(items.length, (i) {
+                  final sel = i == currentIndex;
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onTap(i),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: sel
+                          ? BoxDecoration(
+                              color: const Color(0x1AF1592A),
+                              borderRadius: BorderRadius.circular(20),
+                            )
+                          : null,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            items[i]['icon'] as IconData,
+                            color: sel ? brand : Colors.black38,
+                            size: sel ? 26 : 24,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            items[i]['label'] as String,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: sel
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: sel ? brand : Colors.black45,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            );
-          })
-            // Insert a prominent center 'Book' button between item 1 and 2
-            ..insert(
-              2,
-              GestureDetector(
-                onTap: onBookTap,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 76,
-                        height: 50,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1592A),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: const [
-                            BoxShadow(color: Color(0x33000000), blurRadius: 12, offset: Offset(0, 6)),
-                          ],
-                        ),
-                        child: const Icon(Icons.event_available_rounded, color: Colors.white, size: 28),
+                  );
+                })
+                // Insert a prominent center 'Book' button between item 1 and 2
+                ..insert(
+                  2,
+                  GestureDetector(
+                    onTap: onBookTap,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 76,
+                            height: 50,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1592A),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x33000000),
+                                  blurRadius: 12,
+                                  offset: Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.event_available_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Book',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFF1592A),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Book',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFF1592A)),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
         ),
       ),
     );
@@ -259,14 +274,17 @@ class DashboardBottomNav extends StatelessWidget {
 }
 
 class TopFixersStrip extends StatelessWidget {
-  final Future<List<dynamic>>? fixersFuture;
-  const TopFixersStrip({super.key, required this.fixersFuture});
+  const TopFixersStrip({
+    super.key,
+    required this.fixers,
+    this.isLoading = false,
+  });
+
+  final List<dynamic> fixers;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
-    // Reuse the same list item UI as the full Fixers list for consistency
-    // so Top Rated Fixers look identical to the main list style.
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -294,30 +312,26 @@ class TopFixersStrip extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        FutureBuilder<List<dynamic>>(
-          future: fixersFuture,
-          builder: (ctx, snap) {
-            if (snap.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final items = (snap.data ?? const []);
-            if (items.isEmpty) {
-              return const Center(child: Text('No fixers yet'));
-            }
-
-            // Use same card item as the Fixers list
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 8),
-              itemCount: items.length.clamp(0, 5),
-              itemBuilder: (ctx, i) {
-                final f = items[i] as Map;
-                return FixerListItem(fixer: f);
-              },
-            );
-          },
-        ),
+        if (isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (fixers.isEmpty)
+          const Center(child: Text('No fixers yet'))
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 8),
+            itemCount: fixers.length.clamp(0, 5),
+            itemBuilder: (ctx, i) {
+              final raw = fixers[i];
+              final fixer = raw is Map<String, dynamic>
+                  ? raw
+                  : (raw is Map
+                        ? raw.cast<String, dynamic>()
+                        : <String, dynamic>{});
+              return FixerListItem(fixer: fixer);
+            },
+          ),
       ],
     );
   }
@@ -379,21 +393,35 @@ class CategoriesBlock extends StatelessWidget {
                 List<Map> data;
                 if (categories.isEmpty) {
                   data = [
-                    {'icon': Icons.cleaning_services_rounded, 'name': 'Cleaning'},
+                    {
+                      'icon': Icons.cleaning_services_rounded,
+                      'name': 'Cleaning',
+                    },
                     {'icon': Icons.build_rounded, 'name': 'Repairing'},
                     {'icon': Icons.format_paint_rounded, 'name': 'Painting'},
                     {'icon': Icons.grid_view_rounded, 'name': 'More'},
                   ];
                   for (final c in data) {
                     if (items.isNotEmpty) items.add(const SizedBox(width: 16));
-                    items.add(CategoryIconLabel(icon: c['icon'] as IconData, label: c['name'] as String));
+                    items.add(
+                      CategoryIconLabel(
+                        icon: c['icon'] as IconData,
+                        label: c['name'] as String,
+                      ),
+                    );
                   }
                 } else {
                   for (var i = 0; i < categories.length; i++) {
                     final c = categories[i] as Map;
-                    final label = (c['name'] ?? c['title'] ?? 'Category').toString();
+                    final label = (c['name'] ?? c['title'] ?? 'Category')
+                        .toString();
                     if (items.isNotEmpty) items.add(const SizedBox(width: 16));
-                    items.add(CategoryIconLabel(icon: Icons.handyman_rounded, label: label));
+                    items.add(
+                      CategoryIconLabel(
+                        icon: Icons.handyman_rounded,
+                        label: label,
+                      ),
+                    );
                   }
                 }
                 return items;
