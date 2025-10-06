@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import 'package:fixitzed_app/screens/splash_screen.dart';
 import 'package:fixitzed_app/screens/onboarding_screen.dart';
 import 'package:fixitzed_app/screens/sign_in_screen.dart';
@@ -35,7 +34,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFFF1592A);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: AppTheme.mode,
       builder: (context, mode, _) => MaterialApp(

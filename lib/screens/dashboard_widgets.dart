@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/fixer_list_item.dart';
 
-import '../core/api.dart';
-import '../core/fixer_utils.dart';
+import '../widgets/fixer_list_item.dart';
 
 class DashboardGreeting extends StatelessWidget {
   final String name;
@@ -93,22 +92,55 @@ class DashboardGreeting extends StatelessWidget {
   }
 }
 
-class DashboardSearchField extends StatelessWidget {
-  const DashboardSearchField({super.key});
+class DashboardSearchField extends StatefulWidget {
+  final ValueChanged<String>? onSubmitted;
+  final ValueChanged<Map<String, dynamic>?>? onFilterSelected;
+  final List<dynamic> categories;
+
+  const DashboardSearchField({
+    super.key,
+    this.onSubmitted,
+    this.onFilterSelected,
+    this.categories = const [],
+  });
+
+  @override
+  State<DashboardSearchField> createState() => _DashboardSearchFieldState();
+}
+
+class _DashboardSearchFieldState extends State<DashboardSearchField> {
+  late final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return TextField(
+      controller: _controller,
       style: TextStyle(color: theme.colorScheme.onSurface),
       cursorColor: const Color(0xFFF1592A),
+      textInputAction: TextInputAction.search,
+      onSubmitted: (value) {
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return;
+        widget.onSubmitted?.call(trimmed);
+      },
       decoration: InputDecoration(
-        hintText: 'Search...',
+        hintText: 'Search services, fixers, categories...',
         hintStyle: TextStyle(color: theme.hintColor),
         filled: true,
         fillColor: theme.cardColor,
-        prefixIcon: Icon(Icons.search, color: theme.hintColor),
-        suffixIcon: Icon(Icons.tune_rounded, color: theme.hintColor),
+        prefixIcon: Icon(Icons.search_rounded, color: theme.hintColor),
+        suffixIcon: IconButton(
+          icon: Icon(Icons.tune_rounded, color: theme.hintColor),
+          onPressed: () => _openFilterSheet(context),
+          tooltip: 'Filter',
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: theme.dividerColor),
@@ -118,6 +150,86 @@ class DashboardSearchField extends StatelessWidget {
           borderSide: BorderSide(color: Color(0xFFF1592A), width: 1.2),
         ),
       ),
+    );
+  }
+
+  Future<void> _openFilterSheet(BuildContext context) async {
+    final options = widget.categories
+        .whereType<Map>()
+        .map<Map<String, dynamic>>((raw) => raw.map(
+              (key, value) => MapEntry(key.toString(), value),
+            ))
+        .toList();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.black12,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Filter by category',
+                  style: GoogleFonts.urbanist(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.grid_view_rounded),
+                  title: const Text('All services'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    widget.onFilterSelected?.call(null);
+                  },
+                ),
+                if (options.isNotEmpty)
+                  ...options.map(
+                    (cat) {
+                      final label = (cat['name'] ?? cat['title'] ?? 'Category').toString();
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.label_rounded),
+                        title: Text(label),
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          widget.onFilterSelected?.call(cat);
+                        },
+                      );
+                    },
+                  ),
+                if (options.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'No categories available yet. Try refreshing the dashboard.',
+                      style: GoogleFonts.urbanist(color: Colors.black54),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -274,14 +386,8 @@ class DashboardBottomNav extends StatelessWidget {
 }
 
 class TopFixersStrip extends StatelessWidget {
-  const TopFixersStrip({
-    super.key,
-    required this.fixers,
-    this.isLoading = false,
-  });
-
-  final List<dynamic> fixers;
-  final bool isLoading;
+  final AsyncValue<List<dynamic>> fixers;
+  const TopFixersStrip({super.key, required this.fixers});
 
   @override
   Widget build(BuildContext context) {
@@ -312,26 +418,41 @@ class TopFixersStrip extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        if (isLoading)
-          const Center(child: CircularProgressIndicator())
-        else if (fixers.isEmpty)
-          const Center(child: Text('No fixers yet'))
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 8),
-            itemCount: fixers.length.clamp(0, 5),
-            itemBuilder: (ctx, i) {
-              final raw = fixers[i];
-              final fixer = raw is Map<String, dynamic>
-                  ? raw
-                  : (raw is Map
-                        ? raw.cast<String, dynamic>()
-                        : <String, dynamic>{});
-              return FixerListItem(fixer: fixer);
-            },
-          ),
+        fixers.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) =>
+              const Center(child: Text('Unable to load top fixers right now.')),
+          data: (items) {
+            final mapped = items
+                .whereType<Object>()
+                .map<Map<String, dynamic>>((item) {
+                  if (item is Map<String, dynamic>)
+                    return Map<String, dynamic>.from(item);
+                  if (item is Map) {
+                    return item.map(
+                      (key, value) => MapEntry(key.toString(), value),
+                    );
+                  }
+                  return <String, dynamic>{};
+                })
+                .where((map) => map.isNotEmpty)
+                .toList();
+
+            if (mapped.isEmpty) {
+              return const Center(child: Text('No fixers yet'));
+            }
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 8),
+              itemCount: mapped.length.clamp(0, 5),
+              itemBuilder: (ctx, i) {
+                return FixerListItem(fixer: mapped[i]);
+              },
+            );
+          },
+        ),
       ],
     );
   }

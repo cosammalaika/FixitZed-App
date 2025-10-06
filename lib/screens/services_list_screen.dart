@@ -12,16 +12,21 @@ class ServicesListScreen extends StatefulWidget {
 
 class _ServicesListScreenState extends State<ServicesListScreen> {
   final _svc = HomeService();
+  late final TextEditingController _searchCtrl;
   bool _loading = true;
-  List<dynamic> _services = const [];
+  List<Map<String, dynamic>> _allServices = const [];
+  List<Map<String, dynamic>> _services = const [];
   Set<String> _fav = {};
   Map<String, dynamic>? _category;
   String? _categoryName;
   bool _initialized = false;
+  String _searchTerm = '';
+  List<Map<String, dynamic>> _categoryOptions = const [];
 
   @override
   void initState() {
     super.initState();
+    _searchCtrl = TextEditingController();
   }
 
   @override
@@ -30,11 +35,50 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
     if (_initialized) return;
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is Map) {
-      _category = Map<String, dynamic>.from(args);
-      _categoryName = (_category!['name'] ?? _category!['title'] ?? 'Services').toString();
+      if (args.containsKey('category') ||
+          args.containsKey('query') ||
+          args.containsKey('categories')) {
+        final rawCategory = args['category'];
+        if (rawCategory is Map) {
+          _category = Map<String, dynamic>.from(rawCategory as Map);
+          _categoryName =
+              (_category!['name'] ?? _category!['title'] ?? 'Services').toString();
+        } else if (rawCategory is Map<String, dynamic>) {
+          _category = Map<String, dynamic>.from(rawCategory);
+          _categoryName =
+              (_category!['name'] ?? _category!['title'] ?? 'Services').toString();
+        }
+
+        final query = args['query'];
+        if (query is String && query.trim().isNotEmpty) {
+          _searchTerm = query.trim();
+          _searchCtrl.text = _searchTerm;
+        }
+
+        final categories = args['categories'];
+        if (categories is List) {
+          _categoryOptions = categories
+              .whereType<Map>()
+              .map((e) => e.map((key, value) => MapEntry(key.toString(), value)))
+              .toList();
+        }
+      } else {
+        _category = Map<String, dynamic>.from(args);
+        _categoryName =
+            (_category!['name'] ?? _category!['title'] ?? 'Services').toString();
+      }
+    }
+    if (_categoryName == null) {
+      _categoryName = 'Services';
     }
     _initialized = true;
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -46,32 +90,15 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
         .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
         .toList();
 
-    List<Map<String, dynamic>> filtered = services;
-    if (_category != null) {
-      final targetId = _extractCategoryId(_category!);
-      final targetName = (_category!['name'] ?? _category!['title'])?.toString().toLowerCase();
-      filtered = services.where((s) {
-        final cat = s['category'];
-        final serviceCatId = _extractCategoryId(s);
-        if (targetId != null && serviceCatId != null && targetId == serviceCatId) {
-          return true;
-        }
-        if (targetName != null && targetName.isNotEmpty) {
-          final serviceCatName = (() {
-            if (cat is Map) return (cat['name'] ?? cat['title'] ?? '').toString();
-            return (s['category_name'] ?? '').toString();
-          })()
-              .toLowerCase();
-          if (serviceCatName.contains(targetName)) return true;
-        }
-        return false;
-      }).toList();
+    if (_categoryOptions.isEmpty) {
+      _categoryOptions = _deriveCategoryOptions(services);
     }
+
     setState(() {
-      _services = filtered;
+      _allServices = services;
       _fav = fav;
-      _loading = false;
     });
+    _applyFilters();
   }
 
   int? _extractCategoryId(Map<dynamic, dynamic> source) {
@@ -95,6 +122,44 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
           style: GoogleFonts.urbanist(color: Theme.of(context).colorScheme.onBackground, fontWeight: FontWeight.w700),
         ),
         centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(68),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    textInputAction: TextInputAction.search,
+                    onChanged: (value) {
+                      setState(() {
+                        _searchTerm = value.trim();
+                      });
+                      _applyFilters();
+                    },
+                    onSubmitted: (_) => _applyFilters(),
+                    decoration: InputDecoration(
+                      hintText: 'Search services',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      filled: true,
+                      fillColor: Theme.of(context).cardColor,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _FilterButton(
+                  onTap: _openFilterSheet,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _loading
@@ -103,7 +168,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               itemCount: _services.length,
               itemBuilder: (ctx, i) {
-                final s = _services[i] as Map;
+                final s = _services[i];
                 final id = (s['id'] ?? s['uuid'] ?? '$i').toString();
                 final title = (s['name'] ?? s['title'] ?? 'Service').toString();
                 final subtitle = (s['description'] ?? s['summary'] ?? '').toString();
@@ -169,6 +234,31 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
                 );
               },
             ),
+    );
+  }
+}
+
+class _FilterButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _FilterButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(color: Color(0x11000000), blurRadius: 8, offset: Offset(0, 4)),
+          ],
+        ),
+        child: const Icon(Icons.tune_rounded),
+      ),
     );
   }
 }

@@ -19,10 +19,10 @@ class PaymentResult {
 
 class PaymentService {
   Map<String, String> _headers(String token) => {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      };
+    'Accept': 'application/json',
+    'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json',
+  };
 
   Uri _uri(String path) => Uri.parse('${Api.baseUrl}/$path');
 
@@ -34,10 +34,14 @@ class PaymentService {
   Future<Map<String, dynamic>?> get(int requestId) async {
     final token = await _token();
     if (token == null) return null;
-    final res = await http.get(_uri('requests/$requestId/payment'), headers: _headers(token));
+    final res = await http.get(
+      _uri('requests/$requestId/payment'),
+      headers: _headers(token),
+    );
     if (res.statusCode == 200) {
       final root = jsonDecode(res.body);
-      if (root is Map && root['data'] is Map) return Map<String, dynamic>.from(root['data'] as Map);
+      if (root is Map && root['data'] is Map)
+        return Map<String, dynamic>.from(root['data'] as Map);
       if (root is Map) return Map<String, dynamic>.from(root);
     }
     return null;
@@ -54,15 +58,22 @@ class PaymentService {
   }) async {
     final token = await _token();
     if (token == null) {
-      return const PaymentResult(success: false, message: 'You need to sign in again.');
+      return const PaymentResult(
+        success: false,
+        message: 'You need to sign in again.',
+      );
     }
+    final paidAt = DateTime.now().toUtc().toIso8601String();
     final payload = {
       'amount': amount,
       'status': 'paid',
       'payment_method': method,
       'transaction_id': transactionId,
+      'payment_date': paidAt,
+      'paid_at': paidAt,
       if (originalAmount != null) 'original_amount': originalAmount,
-      if (couponCode != null && couponCode.trim().isNotEmpty) 'coupon_code': couponCode.trim(),
+      if (couponCode != null && couponCode.trim().isNotEmpty)
+        'coupon_code': couponCode.trim(),
       if (loyaltyPoints > 0) 'loyalty_points': loyaltyPoints,
     };
 
@@ -97,9 +108,11 @@ class PaymentService {
       if (body is Map) {
         if (body['message'] != null) {
           errorMessage = body['message'].toString();
-        } else if (body['errors'] is Map && (body['errors'] as Map).isNotEmpty) {
+        } else if (body['errors'] is Map &&
+            (body['errors'] as Map).isNotEmpty) {
           final first = (body['errors'] as Map).values.first;
-          if (first is List && first.isNotEmpty) errorMessage = first.first.toString();
+          if (first is List && first.isNotEmpty)
+            errorMessage = first.first.toString();
         }
       }
     } catch (_) {}
