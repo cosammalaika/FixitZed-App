@@ -39,41 +39,45 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     },
   );
 
-  Widget _searchField() => DashboardSearchField(
-        categories: _categoryList,
-        onSubmitted: (term) {
-          final query = term.trim();
-          if (query.isEmpty) return;
+  Widget _searchField(List<dynamic> categories) {
+    final normalizedCategories = categories
+        .whereType<Map>()
+        .map<Map<String, dynamic>>(
+          (cat) => cat.map((key, value) => MapEntry(key.toString(), value)),
+        )
+        .toList();
+
+    return DashboardSearchField(
+      categories: normalizedCategories,
+      onSubmitted: (term) {
+        final query = term.trim();
+        if (query.isEmpty) return;
+        Navigator.pushNamed(
+          context,
+          '/services',
+          arguments: {'query': query, 'categories': normalizedCategories},
+        );
+      },
+      onFilterSelected: (category) {
+        if (category == null) {
+          Navigator.pushNamed(
+            context,
+            '/services',
+            arguments: {'categories': normalizedCategories},
+          );
+        } else {
           Navigator.pushNamed(
             context,
             '/services',
             arguments: {
-              'query': query,
-              'categories': _categoryList,
+              'category': category,
+              'categories': normalizedCategories,
             },
           );
-        },
-        onFilterSelected: (category) {
-          if (category == null) {
-            Navigator.pushNamed(
-              context,
-              '/services',
-              arguments: {
-                'categories': _categoryList,
-              },
-            );
-          } else {
-            Navigator.pushNamed(
-              context,
-              '/services',
-              arguments: {
-                'category': category,
-                'categories': _categoryList,
-              },
-            );
-          }
-        },
-      );
+        }
+      },
+    );
+  }
 
   Future<void> _openBookingSheet({Map<String, dynamic>? service}) async {
     await showModalBottomSheet(
@@ -166,6 +170,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _quickCategories(List<dynamic> categories) {
     if (categories.isEmpty) return const SizedBox.shrink();
+    final normalizedCategories = categories
+        .whereType<Map>()
+        .map((cat) => cat.map((key, value) => MapEntry(key.toString(), value)))
+        .toList();
     final items = categories.take(8).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,12 +209,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (ctx, i) {
-              final cat = items[i];
-              final name = (cat['name'] ?? cat['title'] ?? 'Category')
+              final rawCat = items[i];
+              Map<String, dynamic> category = {};
+              if (rawCat is Map<String, dynamic>) {
+                category = Map<String, dynamic>.from(rawCat);
+              } else if (rawCat is Map) {
+                category = rawCat.map(
+                  (key, value) => MapEntry(key.toString(), value),
+                );
+              }
+              if (category.isEmpty && rawCat != null) {
+                category = {'name': rawCat.toString()};
+              }
+              final name = (category['name'] ?? category['title'] ?? 'Category')
                   .toString();
               return GestureDetector(
-                onTap: () =>
-                    Navigator.pushNamed(context, '/services', arguments: cat),
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  '/services',
+                  arguments: {
+                    'category': category,
+                    'categories': normalizedCategories,
+                  },
+                ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -467,7 +492,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   const SizedBox(height: 16),
                   _bookingHero(),
                   const SizedBox(height: 20),
-                  _searchField(),
+                  _searchField(state.categories),
                   const SizedBox(height: 20),
                   _quickCategories(state.categories),
                   const SizedBox(height: 24),

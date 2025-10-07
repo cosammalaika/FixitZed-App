@@ -71,6 +71,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (result.success) {
         // Optional: clear remembered email on a fresh sign-up
         final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('remember_identifier');
         await prefs.remove('remember_email');
 
         Navigator.pushReplacementNamed(context, '/home');

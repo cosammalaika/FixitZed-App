@@ -86,10 +86,10 @@ class AuthService {
   }
 
   /// Returns true if authenticated and token saved.
-  Future<bool> login(String email, String password) async {
+  Future<bool> login(String identifier, String password) async {
     try {
       final res = await _postJson('login', {
-        'email': email,
+        'identifier': identifier,
         'password': password,
       });
 

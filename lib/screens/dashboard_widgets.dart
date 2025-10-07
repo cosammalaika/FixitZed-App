@@ -95,7 +95,7 @@ class DashboardGreeting extends StatelessWidget {
 class DashboardSearchField extends StatefulWidget {
   final ValueChanged<String>? onSubmitted;
   final ValueChanged<Map<String, dynamic>?>? onFilterSelected;
-  final List<dynamic> categories;
+  final List<Map<String, dynamic>> categories;
 
   const DashboardSearchField({
     super.key,
@@ -128,10 +128,11 @@ class _DashboardSearchFieldState extends State<DashboardSearchField> {
       onSubmitted: (value) {
         final trimmed = value.trim();
         if (trimmed.isEmpty) return;
+        FocusScope.of(context).unfocus();
         widget.onSubmitted?.call(trimmed);
       },
       decoration: InputDecoration(
-        hintText: 'Search services, fixers, categories...',
+        hintText: 'Search services, categories...',
         hintStyle: TextStyle(color: theme.hintColor),
         filled: true,
         fillColor: theme.cardColor,
@@ -154,12 +155,7 @@ class _DashboardSearchFieldState extends State<DashboardSearchField> {
   }
 
   Future<void> _openFilterSheet(BuildContext context) async {
-    final options = widget.categories
-        .whereType<Map>()
-        .map<Map<String, dynamic>>((raw) => raw.map(
-              (key, value) => MapEntry(key.toString(), value),
-            ))
-        .toList();
+    final options = widget.categories;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -199,24 +195,25 @@ class _DashboardSearchFieldState extends State<DashboardSearchField> {
                   title: const Text('All services'),
                   onTap: () {
                     Navigator.of(ctx).pop();
+                    FocusScope.of(context).unfocus();
                     widget.onFilterSelected?.call(null);
                   },
                 ),
                 if (options.isNotEmpty)
-                  ...options.map(
-                    (cat) {
-                      final label = (cat['name'] ?? cat['title'] ?? 'Category').toString();
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.label_rounded),
-                        title: Text(label),
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          widget.onFilterSelected?.call(cat);
-                        },
-                      );
-                    },
-                  ),
+                  ...options.map((cat) {
+                    final label = (cat['name'] ?? cat['title'] ?? 'Category')
+                        .toString();
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.label_rounded),
+                      title: Text(label),
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        FocusScope.of(context).unfocus();
+                        widget.onFilterSelected?.call(cat);
+                      },
+                    );
+                  }),
                 if (options.isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -426,8 +423,9 @@ class TopFixersStrip extends StatelessWidget {
             final mapped = items
                 .whereType<Object>()
                 .map<Map<String, dynamic>>((item) {
-                  if (item is Map<String, dynamic>)
+                  if (item is Map<String, dynamic>) {
                     return Map<String, dynamic>.from(item);
+                  }
                   if (item is Map) {
                     return item.map(
                       (key, value) => MapEntry(key.toString(), value),
@@ -442,11 +440,12 @@ class TopFixersStrip extends StatelessWidget {
               return const Center(child: Text('No fixers yet'));
             }
 
+            final displayCount = mapped.length > 5 ? 5 : mapped.length;
             return ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 8),
-              itemCount: mapped.length.clamp(0, 5),
+              itemCount: displayCount,
               itemBuilder: (ctx, i) {
                 return FixerListItem(fixer: mapped[i]);
               },

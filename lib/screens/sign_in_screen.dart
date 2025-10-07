@@ -15,7 +15,7 @@ class SignInScreen extends StatefulWidget {
 
 class _SignInScreenState extends State<SignInScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
+  final _identifierCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
 
   bool _rememberMe = false;
@@ -27,22 +27,22 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   void initState() {
     super.initState();
-    _loadRememberedEmail();
+    _loadRememberedIdentifier();
     // Biometrics removed
   }
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
+    _identifierCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _loadRememberedEmail() async {
+  Future<void> _loadRememberedIdentifier() async {
     final prefs = await SharedPreferences.getInstance();
-    final remembered = prefs.getString('remember_email');
+    final remembered = prefs.getString('remember_identifier') ?? prefs.getString('remember_email');
     if (remembered != null && remembered.isNotEmpty) {
-      _emailCtrl.text = remembered;
+      _identifierCtrl.text = remembered;
       setState(() => _rememberMe = true);
     }
   }
@@ -56,7 +56,7 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() => _loading = true);
     try {
       final ok = await AuthService().login(
-        _emailCtrl.text.trim(),
+        _identifierCtrl.text.trim(),
         _passCtrl.text,
       );
 
@@ -66,13 +66,15 @@ class _SignInScreenState extends State<SignInScreen> {
         // Persist remembered email if opted in.
         final prefs = await SharedPreferences.getInstance();
         if (_rememberMe) {
-          await prefs.setString('remember_email', _emailCtrl.text.trim());
+          await prefs.setString('remember_identifier', _identifierCtrl.text.trim());
+          await prefs.remove('remember_email');
         } else {
+          await prefs.remove('remember_identifier');
           await prefs.remove('remember_email');
         }
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
-        _showAlert('Sign in failed', 'Invalid email or password');
+        _showAlert('Sign in failed', 'Invalid email/phone or password');
       }
     } catch (_) {
       if (!mounted) return;
@@ -262,11 +264,11 @@ class _SignInScreenState extends State<SignInScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                // Email
+                                // Email / Phone
                                 SizedBox(height: 8),
                                 TextFormField(
-                                  controller: _emailCtrl,
-                                  keyboardType: TextInputType.text,
+                                  controller: _identifierCtrl,
+                                  keyboardType: TextInputType.emailAddress,
                                   textInputAction: TextInputAction.next,
                                   style: TextStyle(
                                     color: Theme.of(
@@ -276,8 +278,8 @@ class _SignInScreenState extends State<SignInScreen> {
                                   ),
                                   cursorColor: const Color(0xFFF1592A),
                                   decoration: InputDecoration(
-                                    labelText: "Email Address",
-                                    hintText: "Enter your email",
+                                    labelText: "Email or phone number",
+                                    hintText: "Enter your email or phone number",
                                     filled: true,
                                     fillColor: Theme.of(context)
                                         .colorScheme
@@ -329,10 +331,9 @@ class _SignInScreenState extends State<SignInScreen> {
                                     final isPhone =
                                         digits.length >= 7 &&
                                         digits.length <= 15;
-                                    final isUsername = s.length >= 3;
-                                    return (isEmail || isPhone || isUsername)
+                                    return (isEmail || isPhone)
                                         ? null
-                                        : 'Enter email, phone or username';
+                                        : 'Enter a valid email or phone number';
                                   },
                                 ),
                                 const SizedBox(height: 16),
