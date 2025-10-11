@@ -9,7 +9,11 @@ class AuthResult {
   final String? message;
   final List<String> errors;
 
-  const AuthResult({required this.success, this.message, this.errors = const []});
+  const AuthResult({
+    required this.success,
+    this.message,
+    this.errors = const [],
+  });
 
   String? get displayMessage {
     if (message != null && message!.trim().isNotEmpty) {
@@ -27,10 +31,10 @@ class AuthService {
 
   /// WHY: Ensure Laravel returns JSON validation; send JSON bodies for consistency.
   Map<String, String> _headers({String? token}) => {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-      };
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+  };
 
   Uri _uri(String path) => Uri.parse('${Api.baseUrl}/$path');
 
@@ -252,6 +256,30 @@ class AuthService {
     }
   }
 
+  Future<bool> updateProfilePhoto(String path) async {
+    try {
+      final trimmed = path.trim();
+      if (trimmed.isEmpty) return false;
+      final token = await _getToken();
+      if (token == null || token.isEmpty) return false;
+
+      final request = http.MultipartRequest('POST', _uri('me'))
+        ..headers['Accept'] = 'application/json'
+        ..headers['Authorization'] = 'Bearer $token'
+        ..fields['_method'] = 'PATCH';
+
+      request.files.add(
+        await http.MultipartFile.fromPath('profile_photo', trimmed),
+      );
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Changes the authenticated user's password. Tries common API shapes.
   Future<bool> changePassword({
     required String currentPassword,
@@ -301,7 +329,8 @@ class AuthService {
 
       final authorisation = data['authorisation'];
       if (authorisation is Map) {
-        final authToken = authorisation['token'] ?? authorisation['access_token'];
+        final authToken =
+            authorisation['token'] ?? authorisation['access_token'];
         if (authToken is String && authToken.isNotEmpty) return authToken;
       }
     }
@@ -330,7 +359,11 @@ class AuthService {
         if (err is Map) {
           err.forEach((_, value) {
             if (value is List) {
-              errors.addAll(value.map((e) => e.toString()).where((e) => e.trim().isNotEmpty));
+              errors.addAll(
+                value
+                    .map((e) => e.toString())
+                    .where((e) => e.trim().isNotEmpty),
+              );
             } else if (value != null) {
               final text = value.toString();
               if (text.trim().isNotEmpty) errors.add(text);

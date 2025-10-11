@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../services/home_service.dart';
+
 import '../../services/auth_service.dart';
+import '../../services/home_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -91,36 +92,39 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   InputDecoration _dec(String label) => InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.18),
-        labelStyle: TextStyle(color: Theme.of(context).hintColor),
-        hintStyle: TextStyle(color: Theme.of(context).hintColor),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).dividerColor, width: 1),
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).dividerColor, width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.2),
-        ),
-      );
+    labelText: label,
+    filled: true,
+    fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.18),
+    labelStyle: TextStyle(color: Theme.of(context).hintColor),
+    hintStyle: TextStyle(color: Theme.of(context).hintColor),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+    ),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(
+        color: Theme.of(context).colorScheme.primary,
+        width: 1.2,
+      ),
+    ),
+  );
 
   Widget _sectionTitle(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8, top: 16),
-        child: Text(
-          text,
-          style: GoogleFonts.urbanist(
-            fontWeight: FontWeight.w800,
-            fontSize: 14,
-            color: Theme.of(context).hintColor,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 8, top: 16),
+    child: Text(
+      text,
+      style: GoogleFonts.urbanist(
+        fontWeight: FontWeight.w800,
+        fontSize: 14,
+        color: Theme.of(context).hintColor,
+      ),
+    ),
+  );
 
   Future<void> _changePassword() async {
     final cur = _currentCtrl.text;
@@ -145,14 +149,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
     if (neu.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('New password must be at least 6 characters')),
+        const SnackBar(
+          content: Text('New password must be at least 6 characters'),
+        ),
       );
       return;
     }
     if (neu != conf) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
       return;
     }
 
@@ -164,7 +170,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!mounted) return;
     setState(() => _savingPassword = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'Password updated' : 'Failed to update password')),
+      SnackBar(
+        content: Text(ok ? 'Password updated' : 'Failed to update password'),
+      ),
     );
     if (ok) {
       _currentCtrl.clear();
@@ -181,10 +189,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onBackground),
+        iconTheme: IconThemeData(
+          color: Theme.of(context).colorScheme.onBackground,
+        ),
         title: Text(
           'Edit Profile',
-          style: GoogleFonts.urbanist(color: Theme.of(context).colorScheme.onBackground, fontWeight: FontWeight.w700),
+          style: GoogleFonts.urbanist(
+            color: Theme.of(context).colorScheme.onBackground,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         centerTitle: true,
       ),
@@ -193,7 +206,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           : SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -259,7 +273,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Save Changes'),
                       ),
@@ -269,12 +285,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       TextFormField(
                         controller: _currentCtrl,
                         obscureText: !_showCurrent,
-                        decoration: _dec(
-                          'Current Password',
-                        ).copyWith(
+                        decoration: _dec('Current Password').copyWith(
                           suffixIcon: IconButton(
-                            icon: Icon(_showCurrent ? Icons.visibility : Icons.visibility_off),
-                            onPressed: () => setState(() => _showCurrent = !_showCurrent),
+                            icon: Icon(
+                              _showCurrent
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () =>
+                                setState(() => _showCurrent = !_showCurrent),
                           ),
                         ),
                         cursorColor: brand,
@@ -289,8 +308,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         obscureText: !_showNew,
                         decoration: _dec('New Password').copyWith(
                           suffixIcon: IconButton(
-                            icon: Icon(_showNew ? Icons.visibility : Icons.visibility_off),
-                            onPressed: () => setState(() => _showNew = !_showNew),
+                            icon: Icon(
+                              _showNew
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () =>
+                                setState(() => _showNew = !_showNew),
                           ),
                         ),
                         cursorColor: brand,
@@ -305,8 +329,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         obscureText: !_showConfirm,
                         decoration: _dec('Confirm New Password').copyWith(
                           suffixIcon: IconButton(
-                            icon: Icon(_showConfirm ? Icons.visibility : Icons.visibility_off),
-                            onPressed: () => setState(() => _showConfirm = !_showConfirm),
+                            icon: Icon(
+                              _showConfirm
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () =>
+                                setState(() => _showConfirm = !_showConfirm),
                           ),
                         ),
                         cursorColor: brand,
@@ -330,11 +359,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Update Password'),
                       ),
-                      SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
+                      SizedBox(
+                        height: MediaQuery.of(context).viewInsets.bottom,
+                      ),
                     ],
                   ),
                 ),
