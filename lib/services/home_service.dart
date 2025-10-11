@@ -85,7 +85,20 @@ class HomeService {
 
   Future<List<dynamic>> fetchFixers({int limit = 10}) async {
     try {
-      // Prefer new compact top-fixers endpoint when available
+      final topList = await _fetchTopFixersRaw(limit: limit);
+      if (topList.isNotEmpty) {
+        final enriched = await _enrichFixers(topList);
+        return enriched.isNotEmpty ? enriched : topList;
+      }
+      // Fallback to legacy /fixers
+      final raw = await _fetchAllFixersRaw();
+      if (raw.isNotEmpty) return raw;
+    } catch (_) {}
+    return [];
+  }
+
+  Future<List<dynamic>> _fetchTopFixersRaw({int limit = 10}) async {
+    try {
       final res = await http.get(
         _uri('fixers/top', {'limit': limit}),
         headers: _headers(),
@@ -93,15 +106,24 @@ class HomeService {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = _extractList(data);
-        if (list.isNotEmpty) {
-          // Enrich with details from the full fixers endpoint when the
-          // compact payload lacks avatar/rating/services.
-          final enriched = await _enrichFixers(list);
-          return enriched.isNotEmpty ? enriched : list;
-        }
+        if (list.isNotEmpty) return list;
       }
-      // Fallback to legacy /fixers
-      final res2 = await http.get(_uri('fixers'), headers: _headers());
+    } catch (_) {}
+    return [];
+  }
+
+  Future<List<dynamic>> _fetchAllFixersRaw() async {
+    try {
+      final res = await http.get(_uri('fixers'), headers: _headers());
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final list = _extractList(data);
+        if (list.isNotEmpty) return list;
+      }
+      final res2 = await http.get(
+        _uri('users', {'role': 'fixer'}),
+        headers: _headers(),
+      );
       if (res2.statusCode == 200) {
         final data = jsonDecode(res2.body);
         final list = _extractList(data);
@@ -111,11 +133,168 @@ class HomeService {
     return [];
   }
 
+  Map<String, dynamic>? _normalizeMap(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(value);
+    }
+    if (value is Map) {
+      return value.map((key, val) => MapEntry(key.toString(), val));
+    }
+    return null;
+  }
+
+  void _mergeFixerRatings(List<dynamic> base, List<dynamic> candidates) {
+    if (base.isEmpty || candidates.isEmpty) return;
+
+    final byUserId = <String, Map<String, dynamic>>{};
+    final byFixerId = <String, Map<String, dynamic>>{};
+
+    for (final raw in candidates) {
+      final map = _normalizeMap(raw);
+      if (map == null || map.isEmpty) continue;
+      final userId = map['user_id']?.toString();
+      final fixerId = map['id']?.toString();
+      if (userId != null && userId.isNotEmpty) {
+        byUserId[userId] = map;
+      }
+      if (fixerId != null && fixerId.isNotEmpty) {
+        byFixerId[fixerId] = map;
+      }
+    }
+
+    double? parseToDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toDouble();
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return null;
+        return double.tryParse(trimmed);
+      }
+      return null;
+    }
+
+    bool shouldOverwrite(dynamic current) {
+      if (current == null) return true;
+      if (current is num) return current.toDouble() <= 0;
+      if (current is String) return current.trim().isEmpty;
+      return false;
+    }
+
+    void applyRating(Map<String, dynamic> target, Map<String, dynamic> source) {
+      const ratingKeys = [
+        'rating',
+        'avg_rating',
+        'average_rating',
+        'rating_avg',
+        'ratings_avg',
+        'ratings_average',
+        'reviews_average',
+        'rating_percentage',
+        'rating_percent',
+      ];
+
+      for (final key in ratingKeys) {
+        final fromSource = source[key];
+        if (fromSource == null) continue;
+        if (shouldOverwrite(target[key])) {
+          target[key] = fromSource;
+        }
+      }
+
+      const countKeys = [
+        'ratings_count',
+        'reviews_count',
+        'rating_count',
+        'ratings_total',
+      ];
+
+      for (final key in countKeys) {
+        final fromSource = source[key];
+        if (fromSource == null) continue;
+        if (shouldOverwrite(target[key])) {
+          target[key] = fromSource;
+        }
+      }
+
+      final user = _normalizeMap(target['user']) ?? <String, dynamic>{};
+      final sourceUser = _normalizeMap(source['user']);
+      if (sourceUser != null) {
+        final userRatingKeys = [
+          'rating',
+          'avg_rating',
+          'average_rating',
+        ];
+        for (final key in userRatingKeys) {
+          final val = sourceUser[key] ?? source[key];
+          if (val == null) continue;
+          if (shouldOverwrite(user[key])) {
+            user[key] = val;
+          }
+          if (shouldOverwrite(user['average_rating'])) {
+            user['average_rating'] = val;
+          }
+        }
+
+        if (shouldOverwrite(user['ratings_count'])) {
+          user['ratings_count'] =
+              sourceUser['ratings_count'] ?? source['ratings_count'];
+        }
+      }
+      if (user.isNotEmpty) {
+        target['user'] = user;
+      }
+
+      final stats = _normalizeMap(target['stats']);
+      final sourceStats = _normalizeMap(source['stats']);
+      if (sourceStats != null) {
+        final mergedStats = stats ?? <String, dynamic>{};
+        sourceStats.forEach((key, value) {
+          if (shouldOverwrite(mergedStats[key])) {
+            mergedStats[key] = value;
+          }
+        });
+        target['stats'] = mergedStats;
+      }
+
+      // Guard against lingering numeric strings by normalizing `rating` to a double string
+      final ratingValue = parseToDouble(target['rating'] ?? target['avg_rating']);
+      if (ratingValue != null) {
+        target['rating'] = ratingValue;
+        target['avg_rating'] ??= ratingValue;
+        target['average_rating'] ??= ratingValue;
+        final userMap = _normalizeMap(target['user']);
+        if (userMap != null) {
+          userMap['average_rating'] = ratingValue;
+          userMap['rating'] ??= ratingValue;
+          userMap['avg_rating'] ??= ratingValue;
+          target['user'] = userMap;
+        }
+      }
+    }
+
+    for (var i = 0; i < base.length; i++) {
+      final baseMap = _normalizeMap(base[i]);
+      if (baseMap == null) continue;
+      final fixerId = baseMap['id']?.toString();
+      final userId = baseMap['user_id']?.toString() ??
+          _normalizeMap(baseMap['user'])?['id']?.toString();
+      Map<String, dynamic>? match;
+      if (userId != null && userId.isNotEmpty) {
+        match = byUserId[userId];
+      }
+      match ??= (fixerId != null ? byFixerId[fixerId] : null);
+      if (match != null) {
+        applyRating(baseMap, match);
+        base[i] = baseMap;
+      }
+    }
+  }
+
   Future<List<dynamic>> _enrichFixers(List<dynamic> compact) async {
     try {
       final needsEnrichment = compact.any((e) {
         if (e is! Map) return false;
-        final map = e as Map;
+        final Map map = e;
         final hasServices = map['services'] is List && (map['services'] as List).isNotEmpty;
         final hasAvatar = (map['avatar'] ?? map['image_url'] ?? map['photo'] ?? '')
             .toString()
@@ -129,7 +308,7 @@ class HomeService {
         return compact;
       }
 
-      final full = await fetchAllFixers();
+      final full = await _fetchAllFixersRaw();
       if (full.isEmpty) return compact;
 
       Map<String, Map> index = {};
@@ -178,26 +357,15 @@ class HomeService {
   /// Fetches the full list of fixers (not just top),
   /// attempting to include service/skills data when the API provides it.
   Future<List<dynamic>> fetchAllFixers() async {
-    try {
-      // Primary: generic list
-      final res = await http.get(_uri('fixers'), headers: _headers());
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final list = _extractList(data);
-        if (list.isNotEmpty) return list;
-      }
-      // Fallback: sometimes exposed under /users?role=fixer
-      final res2 = await http.get(
-        _uri('users', {'role': 'fixer'}),
-        headers: _headers(),
-      );
-      if (res2.statusCode == 200) {
-        final data = jsonDecode(res2.body);
-        final list = _extractList(data);
-        if (list.isNotEmpty) return list;
-      }
-    } catch (_) {}
-    return [];
+    final raw = await _fetchAllFixersRaw();
+    if (raw.isEmpty) return [];
+
+    final top =
+        await _fetchTopFixersRaw(limit: raw.length > 10 ? raw.length : 10);
+    if (top.isNotEmpty) {
+      _mergeFixerRatings(raw, top);
+    }
+    return raw;
   }
 
   /// Best-effort: if your API exposes a list endpoint e.g. GET /coupons
@@ -208,15 +376,16 @@ class HomeService {
         final res = await http.get(_uri(path), headers: _headers());
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body);
-          if (data is List && data.isNotEmpty)
+          if (data is List && data.isNotEmpty) {
             return Map<String, dynamic>.from(data.first as Map);
+          }
           if (data is Map) {
             if (data['data'] is List && (data['data'] as List).isNotEmpty) {
               return Map<String, dynamic>.from(
                 (data['data'] as List).first as Map,
               );
             }
-            return Map<String, dynamic>.from(data as Map);
+            return Map<String, dynamic>.from(data);
           }
         }
       } catch (_) {

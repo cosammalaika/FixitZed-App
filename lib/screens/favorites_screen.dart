@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/home_service.dart';
 import '../services/favorites_service.dart';
+import '../utils/service_utils.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -77,86 +78,97 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       final s = _favoriteServices[i];
                       final id = (s['id'] ?? s['uuid'] ?? '$i').toString();
                       final title = (s['name'] ?? s['title'] ?? 'Service').toString();
-                      final subtitle = (s['description'] ?? s['summary'] ?? '').toString();
+                      final description =
+                          (s['description'] ?? s['summary'] ?? '')
+                              .toString()
+                              .trim();
+                      final category = serviceCategoryLabel(s);
+                      final subtitle = category ??
+                          (description.isEmpty
+                              ? 'Tap to book quickly'
+                              : description);
                       final img = (s['image'] ?? s['image_url'] ?? '').toString();
                       final liked = _favIds.contains(id);
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F5F7),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: img.isNotEmpty
-                                  ? Image(
-                                      image: img.startsWith('http')
-                                          ? NetworkImage(img) as ImageProvider
-                                          : AssetImage(img),
-                                      width: 56,
-                                      height: 56,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Container(
-                                      width: 56,
-                                      height: 56,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
+                      return GestureDetector(
+                        onTap: () => showBookingSheet(context, service: s),
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F5F7),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: img.isNotEmpty
+                                    ? Image(
+                                        image: img.startsWith('http')
+                                            ? NetworkImage(img) as ImageProvider
+                                            : AssetImage(img),
+                                        width: 56,
+                                        height: 56,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Container(
+                                        width: 56,
+                                        height: 56,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: const Icon(
+                                          Icons.handyman_rounded,
+                                          color: Colors.grey,
+                                        ),
                                       ),
-                                      child: const Icon(
-                                        Icons.handyman_rounded,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          title,
-                                          style: GoogleFonts.urbanist(
-                                            fontWeight: FontWeight.w700,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            title,
+                                            style: GoogleFonts.urbanist(
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(
-                                          liked
-                                              ? Icons.favorite
-                                              : Icons.favorite_border,
-                                          color: liked ? Colors.red : Colors.grey,
+                                        IconButton(
+                                          icon: Icon(
+                                            liked
+                                                ? Icons.favorite
+                                                : Icons.favorite_border,
+                                            color: liked ? Colors.red : Colors.grey,
+                                          ),
+                                          onPressed: () async {
+                                            await FavoritesService.toggle(id);
+                                            await _load();
+                                          },
                                         ),
-                                        onPressed: () async {
-                                          await FavoritesService.toggle(id);
-                                          await _load();
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                  if (subtitle.isNotEmpty)
-                                    Text(
-                                      subtitle,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.urbanist(
-                                        color: Colors.black54,
-                                      ),
+                                      ],
                                     ),
-                                ],
+                                    if (subtitle.isNotEmpty)
+                                      Text(
+                                        subtitle,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.urbanist(
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -193,4 +205,3 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 }
-

@@ -7,7 +7,7 @@ import '../core/api.dart';
 import '../state/dashboard_controller.dart';
 import '../state/fixers_providers.dart';
 import '../state/service_providers.dart';
-import 'booking_sheet.dart';
+import '../utils/service_utils.dart';
 import 'dashboard_widgets.dart';
 import 'favorites_screen.dart';
 import 'payment_sheet.dart';
@@ -80,14 +80,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Future<void> _openBookingSheet({Map<String, dynamic>? service}) async {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => BookingSheet(initialService: service),
-    );
+    await showBookingSheet(context, service: service);
   }
 
   Widget _bookingHero() {
@@ -290,7 +283,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ...items.map((service) {
           final map = _normalizeMap(service);
           final name = (map['name'] ?? map['title'] ?? 'Service').toString();
-          final desc = (map['description'] ?? map['summary'] ?? '').toString();
+          final desc = (map['description'] ?? map['summary'] ?? '')
+              .toString()
+              .trim();
+          final category = serviceCategoryLabel(map);
+          final subtitle =
+              category ?? (desc.isEmpty ? 'Tap to book quickly' : desc);
           final image = Api.resolveImageUrl(map['image'] ?? map['icon']);
           return GestureDetector(
             onTap: () => _openBookingSheet(service: map.isEmpty ? null : map),
@@ -344,7 +342,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          desc.isEmpty ? 'Tap to book quickly' : desc,
+                          subtitle,
                           style: GoogleFonts.urbanist(color: Colors.black54),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
