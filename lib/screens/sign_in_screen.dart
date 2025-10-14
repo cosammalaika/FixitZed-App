@@ -40,7 +40,9 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _loadRememberedIdentifier() async {
     final prefs = await SharedPreferences.getInstance();
-    final remembered = prefs.getString('remember_identifier') ?? prefs.getString('remember_email');
+    final remembered =
+        prefs.getString('remember_identifier') ??
+        prefs.getString('remember_email');
     if (remembered != null && remembered.isNotEmpty) {
       _identifierCtrl.text = remembered;
       setState(() => _rememberMe = true);
@@ -55,18 +57,21 @@ class _SignInScreenState extends State<SignInScreen> {
 
     setState(() => _loading = true);
     try {
-      final ok = await AuthService().login(
+      final result = await AuthService().login(
         _identifierCtrl.text.trim(),
         _passCtrl.text,
       );
 
       if (!mounted) return;
 
-      if (ok) {
+      if (result.success) {
         // Persist remembered email if opted in.
         final prefs = await SharedPreferences.getInstance();
         if (_rememberMe) {
-          await prefs.setString('remember_identifier', _identifierCtrl.text.trim());
+          await prefs.setString(
+            'remember_identifier',
+            _identifierCtrl.text.trim(),
+          );
           await prefs.remove('remember_email');
         } else {
           await prefs.remove('remember_identifier');
@@ -74,7 +79,10 @@ class _SignInScreenState extends State<SignInScreen> {
         }
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
-        _showAlert('Sign in failed', 'Invalid email/phone or password');
+        _showAlert(
+          'Sign in failed',
+          result.displayMessage ?? 'Invalid email/phone or password',
+        );
       }
     } catch (_) {
       if (!mounted) return;
@@ -279,7 +287,8 @@ class _SignInScreenState extends State<SignInScreen> {
                                   cursorColor: const Color(0xFFF1592A),
                                   decoration: InputDecoration(
                                     labelText: "Email or phone number",
-                                    hintText: "Enter your email or phone number",
+                                    hintText:
+                                        "Enter your email or phone number",
                                     filled: true,
                                     fillColor: Theme.of(context)
                                         .colorScheme

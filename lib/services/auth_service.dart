@@ -89,8 +89,8 @@ class AuthService {
     await prefs.remove(_tokenKey);
   }
 
-  /// Returns true if authenticated and token saved.
-  Future<bool> login(String identifier, String password) async {
+  /// Logs in with identifier/email/phone and returns the outcome.
+  Future<AuthResult> login(String identifier, String password) async {
     try {
       final res = await _postJson('login', {
         'identifier': identifier,
@@ -102,12 +102,22 @@ class AuthService {
         final token = _extractToken(data);
         if (token != null && token.isNotEmpty) {
           await _saveToken(token);
-          return true;
+          final msg = _extractMessage(data);
+          return AuthResult(success: true, message: msg);
         }
       }
-      return false;
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return const AuthResult(
+          success: false,
+          message: 'Login succeeded but no access token was returned.',
+        );
+      }
+      return _mapError(res);
     } catch (_) {
-      return false;
+      return const AuthResult(
+        success: false,
+        message: 'Unable to reach the server. Please try again.',
+      );
     }
   }
 

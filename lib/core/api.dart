@@ -1,19 +1,13 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 
 class Api {
-  /// Resolve a sensible default API base per platform.
-  /// - Android emulator: 10.0.2.2
-  /// - iOS simulator/Web/desktop: localhost
-  /// You can override at build time: --dart-define=API_BASE_URL=https://your.host/api
+  /// Resolve the API base URL.
+  /// Override at build time with: --dart-define=API_BASE_URL=https://your.host/api
   static String get baseUrl {
     const fromEnv = String.fromEnvironment('API_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
-    if (kIsWeb) return 'http://localhost:8000/api';
-    try {
-      if (Platform.isAndroid) return 'http://10.0.2.2:8000/api';
-    } catch (_) {}
-    return 'http://localhost:8000/api';
+    return 'https://admin.fixitzed.com/api';
   }
 
   /// Converts a possibly relative media path into an absolute URL that can be
@@ -28,7 +22,9 @@ class Api {
     }
 
     final base = baseUrl;
-    final origin = base.endsWith('/api') ? base.substring(0, base.length - 4) : base;
+    final origin = base.endsWith('/api')
+        ? base.substring(0, base.length - 4)
+        : base;
     final normalized = value.startsWith('/') ? value.substring(1) : value;
     if (normalized.startsWith('storage/')) {
       return '$origin/$normalized';
@@ -42,7 +38,7 @@ class Api {
       final host = uri.host;
       if ((host == 'localhost' || host == '127.0.0.1') && !kIsWeb) {
         try {
-          if (Platform.isAndroid) {
+          if (defaultTargetPlatform == TargetPlatform.android) {
             return uri.replace(host: '10.0.2.2').toString();
           }
         } catch (_) {}
