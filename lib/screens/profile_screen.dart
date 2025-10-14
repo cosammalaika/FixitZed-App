@@ -460,6 +460,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   onTap: () => Navigator.pushNamed(context, '/profile/faqs'),
                 ),
                 _menuItem(
+                  Icons.info_rounded,
+                  'About FixitZed',
+                  onTap: () => Navigator.pushNamed(context, '/about'),
+                ),
+                _menuItem(
                   Icons.flag_outlined,
                   'Report a Fixer',
                   onTap: () => _showReportSheet(type: 'fixer'),

@@ -1,10 +1,8 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../core/date_utils.dart';
 import '../services/home_service.dart';
 import '../services/local_notification_service.dart';
 import '../services/service_request_service.dart';
@@ -23,16 +21,14 @@ class _BookingSheetState extends State<BookingSheet> {
   final _req = ServiceRequestService();
 
   List<Map<String, dynamic>> _services = const [];
-  List<Map<String, dynamic>> _fixers = const [];
   String? _serviceId;
   String? _serviceName;
-  String? _fixerId;
-  DateTime? _scheduledAt;
   bool _submitting = false;
   final _locationCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  String? _fixerNameSelected;
   List<Map<String, dynamic>> _savedLocations = const [];
+  double? _locationLat;
+  double? _locationLng;
   bool _locating = false;
 
   @override
@@ -81,20 +77,14 @@ class _BookingSheetState extends State<BookingSheet> {
 
   Future<void> _load() async {
     final servicesRaw = await _svc.fetchServices();
-    final fixersRaw = await _svc.fetchAllFixers();
     final locsRaw = await LocationsService().list();
     final services = servicesRaw
-        .whereType<Map>()
-        .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
-        .toList();
-    final fixers = fixersRaw
         .whereType<Map>()
         .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
         .toList();
     if (!mounted) return;
     setState(() {
       _services = services;
-      _fixers = fixers;
       _savedLocations = locsRaw;
       if (_serviceId != null) {
         final match = _services.firstWhere(
@@ -176,13 +166,6 @@ class _BookingSheetState extends State<BookingSheet> {
             children: [
               if (_serviceName != null)
                 _heroChip(Icons.handyman_outlined, _serviceName!),
-              if (_scheduledAt != null)
-                _heroChip(
-                  Icons.schedule_rounded,
-                  _formatDateTime(_scheduledAt!),
-                ),
-              if (_fixerNameSelected != null)
-                _heroChip(Icons.engineering_rounded, _fixerNameSelected!),
             ],
           ),
         ],
@@ -403,91 +386,6 @@ class _BookingSheetState extends State<BookingSheet> {
     return (s['name'] ?? s['title'] ?? 'Service').toString();
   }
 
-  List<Map<String, dynamic>> get _filteredFixers {
-    if (_serviceId == null) return _fixers;
-    bool fixerOffers(Map f, String sid) {
-      final services = f['services'] ?? f['skills'] ?? f['offerings'];
-      if (services is List) {
-        for (final s in services) {
-          if (s is Map) {
-            final id = (s['id'] ?? s['uuid'] ?? s['service_id'] ?? '')
-                .toString();
-            if (id == sid) return true;
-          } else if (s is String) {
-            if (s == sid) return true;
-          }
-        }
-      }
-      return false;
-    }
-
-    return _fixers.where((f) => fixerOffers(f, _serviceId!)).toList();
-  }
-
-  Future<void> _pickDateTime() async {
-    final now = DateTime.now();
-    final initial = (() {
-      final base = _scheduledAt ?? now.add(const Duration(hours: 1));
-      if (base.isBefore(now)) {
-        return now.add(const Duration(minutes: 15));
-      }
-      return base;
-    })();
-    DateTime tempValue = initial;
-    final picked = await showCupertinoModalPopup<DateTime>(
-      context: context,
-      builder: (ctx) {
-        return Container(
-          height: 320,
-          color: Colors.white,
-          child: SafeArea(
-            top: false,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () => Navigator.of(ctx).pop(tempValue),
-                        child: const Text('Done'),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: CupertinoDatePicker(
-                    mode: CupertinoDatePickerMode.dateAndTime,
-                    minimumDate: now,
-                    maximumDate: DateTime(now.year + 2),
-                    initialDateTime: initial,
-                    use24hFormat: true,
-                    minuteInterval: 1,
-                    onDateTimeChanged: (value) => tempValue = value,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    if (picked == null) return;
-    if (!mounted) return;
-    setState(() => _scheduledAt = picked);
-  }
-
   Future<void> _submit() async {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) {
@@ -504,20 +402,15 @@ class _BookingSheetState extends State<BookingSheet> {
       );
       return;
     }
-    if (_scheduledAt == null) {
-      _showSnack(
-        message: 'Please choose a date and time for the service',
-        success: false,
-      );
-      return;
-    }
     FocusScope.of(context).unfocus();
+    final scheduledAt = DateTime.now();
     setState(() => _submitting = true);
     final ok = await _req.createRequest(
       serviceId: _serviceId!,
-      fixerId: _fixerId, // optional per backend
-      scheduledAt: _scheduledAt!,
+      scheduledAt: scheduledAt,
       location: _locationCtrl.text.trim(),
+      locationLat: _locationLat,
+      locationLng: _locationLng,
       status: 'pending',
     );
     if (!mounted) return;
@@ -525,7 +418,7 @@ class _BookingSheetState extends State<BookingSheet> {
     if (ok) {
       LocalNotificationService.instance.notifyBookingCreated(
         serviceName: _serviceName ?? 'Service booking',
-        scheduledAt: _scheduledAt!,
+        scheduledAt: scheduledAt,
         location: _locationCtrl.text.trim(),
       );
       Navigator.of(context).pop(true);
@@ -601,31 +494,6 @@ class _BookingSheetState extends State<BookingSheet> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      FormField<String>(
-                        validator: (_) => null,
-                        builder: (_) => _selectTile(
-                          label: 'Preferred fixer',
-                          value: _fixerNameSelected ?? 'Any available fixer',
-                          icon: Icons.engineering_outlined,
-                          onTap: _serviceId == null ? null : _pickFixer,
-                          helper: _serviceId == null
-                              ? 'Pick a service to see available fixers'
-                              : (_filteredFixers.isEmpty
-                                    ? 'No fixer is free right now — we will assign one for you'
-                                    : 'Optional · ${_filteredFixers.length} available fixers'),
-                        ),
-                      ),
-                      if (_serviceId != null && _filteredFixers.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: _infoBanner(
-                            message:
-                                'No fixer is free for this service right now. Place the request and we\'ll assign one once available.',
-                            icon: Icons.report_gmailerrorred_rounded,
-                            background: const Color(0x1AD32F2F),
-                            foreground: const Color(0xFFB00020),
-                          ),
-                        ),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -644,6 +512,12 @@ class _BookingSheetState extends State<BookingSheet> {
                               icon: const Icon(Icons.location_on_outlined),
                             ),
                             textInputAction: TextInputAction.next,
+                            onChanged: (_) {
+                              if (_locationLat != null || _locationLng != null) {
+                                _locationLat = null;
+                                _locationLng = null;
+                              }
+                            },
                             validator: (v) => (v == null || v.trim().isEmpty)
                                 ? 'Location is required'
                                 : null,
@@ -724,18 +598,6 @@ class _BookingSheetState extends State<BookingSheet> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
-                      _selectTile(
-                        label: 'Scheduled for',
-                        value: _scheduledAt == null
-                            ? 'Pick date & time'
-                            : _formatDateTime(_scheduledAt!),
-                        icon: Icons.schedule_rounded,
-                        onTap: _pickDateTime,
-                        helper: _scheduledAt == null
-                            ? 'Choose when you want us to come through'
-                            : null,
-                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -780,43 +642,6 @@ class _BookingSheetState extends State<BookingSheet> {
       ),
     );
   }
-
-  String _fixerName(Map f) {
-    String fromMap(Map m) {
-      final first = (m['first_name'] ?? m['firstName'] ?? '').toString().trim();
-      final last = (m['last_name'] ?? m['lastName'] ?? '').toString().trim();
-      if (first.isNotEmpty || last.isNotEmpty) {
-        return [first, last].where((e) => e.isNotEmpty).join(' ');
-      }
-      final name =
-          (m['name'] ??
-                  m['full_name'] ??
-                  m['display_name'] ??
-                  m['username'] ??
-                  '')
-              .toString()
-              .trim();
-      return name.isNotEmpty ? name : 'Fixer';
-    }
-
-    if (f['user'] is Map) {
-      final u = Map<String, dynamic>.from(f['user'] as Map);
-      final nm = fromMap(u);
-      if (nm != 'Fixer') return nm;
-    }
-    return fromMap(f);
-  }
-
-  String? _extractFixerId(Map<dynamic, dynamic> f) {
-    final dynamic raw = f['fixer_id'] ?? f['id'] ?? f['uuid'];
-    if (raw == null) return null;
-    if (raw is num) return raw.toInt().toString();
-    if (raw is String) return raw.trim().isEmpty ? null : raw.trim();
-    return null;
-  }
-
-  String _formatDateTime(DateTime dt) =>
-      formatAppDateTime(dt, pattern: 'd MMM yyyy • HH:mm');
 
   void _showSnack({required String message, required bool success}) {
     final color = success ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);
@@ -976,143 +801,12 @@ class _BookingSheetState extends State<BookingSheet> {
       setState(() {
         _serviceId = selected['id'];
         _serviceName = selected['name'];
-        _fixerId = null;
-        _fixerNameSelected = null;
-      });
-    }
-  }
-
-  Future<void> _pickFixer() async {
-    final selected = await showModalBottomSheet<Map<String, String>>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        final queryCtrl = TextEditingController();
-        List<Map<String, dynamic>> filtered = List.of(_filteredFixers);
-        void applyFilter(String q) {
-          final qq = q.trim().toLowerCase();
-          filtered = _filteredFixers.where((f) {
-            final nm = _fixerName(f).toLowerCase();
-            final svc = (f['services'] ?? f['skills'] ?? '')
-                .toString()
-                .toLowerCase();
-            return nm.contains(qq) || svc.contains(qq);
-          }).toList();
-        }
-
-        return StatefulBuilder(
-          builder: (ctx, setSt) => SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-                top: 12,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 44,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Choose Fixer',
-                    style: GoogleFonts.urbanist(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: queryCtrl,
-                    autofocus: true,
-                    decoration: _fieldDecoration(
-                      label: 'Search fixers',
-                      icon: const Icon(Icons.search_rounded),
-                      hint: 'Type to filter…',
-                    ),
-                    onChanged: (v) => setSt(() {
-                      applyFilter(v);
-                    }),
-                  ),
-                  const SizedBox(height: 12),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 420),
-                    child: filtered.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24.0),
-                              child: Text(
-                                'No fixers match your search',
-                                style: GoogleFonts.urbanist(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            shrinkWrap: true,
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, __) =>
-                                const Divider(height: 1),
-                            itemBuilder: (ctx, i) {
-                              final f = filtered[i];
-                              final id =
-                                  (f['id'] ?? f['user_id'] ?? f['uuid'] ?? '$i')
-                                      .toString();
-                              final name = _fixerName(f);
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: Color(0xFFF1592A),
-                                  child: Icon(
-                                    Icons.engineering_rounded,
-                                    color: Color(0xFFFFFFFF),
-                                  ),
-                                ),
-                                title: Text(
-                                  name,
-                                  style: GoogleFonts.urbanist(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                onTap: () => Navigator.of(
-                                  ctx,
-                                ).pop({'id': id, 'name': name}),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-    if (!mounted) return;
-    if (selected != null) {
-      setState(() {
-        _fixerId = selected['id'];
-        _fixerNameSelected = selected['name'];
       });
     }
   }
 
   Future<void> _pickSavedLocation() async {
-    final selected = await showModalBottomSheet<String>(
+    final selected = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1172,7 +866,11 @@ class _BookingSheetState extends State<BookingSheet> {
                         ),
                       ),
                       subtitle: city.isNotEmpty ? Text(city) : null,
-                      onTap: () => Navigator.of(ctx).pop(detail),
+                      onTap: () => Navigator.of(ctx).pop({
+                        'label': detail,
+                        'latitude': m['latitude'],
+                        'longitude': m['longitude'],
+                      }),
                     );
                   },
                 ),
@@ -1183,7 +881,21 @@ class _BookingSheetState extends State<BookingSheet> {
       ),
     );
     if (selected != null) {
-      setState(() => _locationCtrl.text = selected);
+      final label = (selected['label'] ?? '').toString();
+      final latRaw = selected['latitude'];
+      final lngRaw = selected['longitude'];
+      double? toDouble(dynamic value) {
+        if (value == null) return null;
+        if (value is num) return value.toDouble();
+        if (value is String) return double.tryParse(value);
+        return null;
+      }
+
+      setState(() {
+        _locationCtrl.text = label;
+        _locationLat = toDouble(latRaw);
+        _locationLng = toDouble(lngRaw);
+      });
     }
   }
 
@@ -1230,7 +942,11 @@ class _BookingSheetState extends State<BookingSheet> {
       } catch (_) {}
 
       if (!mounted) return;
-      _locationCtrl.text = formatted;
+      setState(() {
+        _locationCtrl.text = formatted;
+        _locationLat = position.latitude;
+        _locationLng = position.longitude;
+      });
     } catch (_) {
       if (!mounted) return;
       _showSnack(message: 'Could not fetch current location', success: false);

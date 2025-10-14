@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/payment_service.dart';
+import '../../services/service_request_service.dart';
 import '../payment_sheet.dart';
 import '../../core/date_utils.dart';
 import 'e_receipt_screen.dart';
@@ -51,11 +52,205 @@ class BookingDetailContent extends StatefulWidget {
 class _BookingDetailContentState extends State<BookingDetailContent> {
   Map<String, dynamic>? _payment;
   bool _paymentLoading = false;
+  bool _cancelling = false;
 
   @override
   void initState() {
     super.initState();
     _loadPayment();
+  }
+
+  bool _canCancelBooking({
+    required String status,
+    required Map<String, dynamic> request,
+    Map<String, dynamic>? fixer,
+  }) {
+    if (status.toLowerCase() != 'pending') return false;
+    return !_hasFixerAssigned(request, fixer);
+  }
+
+  bool _hasFixerAssigned(
+    Map<String, dynamic> request,
+    Map<String, dynamic>? fixer,
+  ) {
+    if (fixer != null && fixer.isNotEmpty) return true;
+    for (final key in const [
+      'fixer_id',
+      'fixerId',
+      'assigned_fixer_id',
+      'assignedFixerId',
+    ]) {
+      final value = request[key];
+      if (value is num && value > 0) return true;
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isNotEmpty && trimmed != '0') return true;
+      }
+    }
+    return false;
+  }
+
+  Widget _buildPendingActions({
+    required BuildContext context,
+    required Color brand,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.white, const Color(0xFFFFEFE7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: brand.withOpacity(0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Waiting for a fixer',
+            style: GoogleFonts.urbanist(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: brand,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'No fixer has accepted yet. You can cancel now or keep the booking active.',
+            style: GoogleFonts.urbanist(
+              color: Colors.black87,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: _cancelling ? null : () => _cancelBooking(context),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                side: const BorderSide(color: Colors.redAccent, width: 1.1),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: _cancelling
+                    ? const SizedBox(
+                        key: ValueKey('cancel-progress'),
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text(
+                        'Cancel booking',
+                        key: ValueKey('cancel-label'),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelBooking(BuildContext context) async {
+    final id = (widget.request['id'] as num?)?.toInt();
+    if (id == null) return;
+
+    const brand = Color(0xFFF1592A);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: brand.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.warning_rounded, color: brand),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Cancel booking',
+                  style: GoogleFonts.urbanist(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: const Color(0xFF1F1F1F),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Are you sure you want to cancel this booking? This action cannot be undone.',
+            style: GoogleFonts.urbanist(
+              color: Colors.black87,
+              height: 1.45,
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.black87,
+                side: BorderSide(color: brand.withOpacity(0.25)),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text('Keep booking'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: brand,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text('Cancel booking'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _cancelling = true);
+    final success = await ServiceRequestService().cancelRequest(id);
+    if (!mounted) return;
+    setState(() => _cancelling = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success ? 'Booking cancelled.' : 'Failed to cancel booking. Please try again.',
+        ),
+      ),
+    );
+
+    if (success) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   Future<void> _loadPayment() async {
@@ -100,6 +295,11 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     final price = _toDouble(r['price'] ?? r['amount'] ?? r['total']);
     final discount = _toDouble(r['discount'] ?? r['discount_amount']);
     final total = _toDouble(r['total'] ?? ((price ?? 0) - (discount ?? 0)));
+    final canCancel = _canCancelBooking(
+      status: status,
+      request: r,
+      fixer: fixer,
+    );
 
     return SingleChildScrollView(
       controller: widget.scrollController,
@@ -135,6 +335,10 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
               total: total ?? price,
               brand: brand,
             ),
+          ],
+          if (canCancel) ...[
+            const SizedBox(height: 20),
+            _buildPendingActions(context: context, brand: brand),
           ],
           const SizedBox(height: 20),
           _buildPaymentAction(context: context, brand: brand, status: status),
