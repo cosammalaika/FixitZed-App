@@ -130,29 +130,39 @@ double _percentToFive(num percent) {
   return normalized.toDouble() / 20;
 }
 
+double? _normalizeRatingToFive(num value, {String? hint}) {
+  final doubleValue = value.toDouble();
+  if (doubleValue.isNaN || doubleValue.isInfinite) return null;
+  var candidate = doubleValue;
+  if (candidate < 0) candidate = 0;
+
+  double adjust(double raw) {
+    if (_hintSuggestsPercent(hint)) {
+      return _percentToFive(raw);
+    }
+    if (raw <= 5) return raw;
+    if (raw <= 10) return raw / 2;
+    if (raw <= 100) return _percentToFive(raw);
+    var scaled = raw;
+    for (var i = 0; i < 10 && scaled > 100; i++) {
+      scaled /= 10;
+      if (scaled <= 5) return scaled;
+      if (scaled <= 10) return scaled / 2;
+      if (scaled <= 100) return _percentToFive(scaled);
+    }
+    return 5.0;
+  }
+
+  final normalized = adjust(candidate);
+  if (normalized.isNaN || normalized.isNegative) return 0;
+  if (normalized > 5) return 5.0;
+  return normalized;
+}
+
 double? _parseRatingValue(dynamic value, Set<int> seen, {String? hint}) {
   if (value == null) return null;
   if (value is num) {
-    var doubleValue = value.toDouble();
-    if (doubleValue.isNaN || doubleValue.isInfinite) return null;
-    if (doubleValue < 0) doubleValue = 0;
-    if (_hintSuggestsPercent(hint)) {
-      return _percentToFive(doubleValue);
-    }
-    if (doubleValue <= 5) {
-      return doubleValue;
-    }
-    if (doubleValue <= 10) {
-      return doubleValue / 2;
-    }
-    var normalized = doubleValue;
-    for (var i = 0; i < 6 && normalized > 100; i++) {
-      normalized /= 10;
-    }
-    if (normalized <= 100) {
-      return _percentToFive(normalized);
-    }
-    return doubleValue > 5 ? 5.0 : doubleValue;
+    return _normalizeRatingToFive(value, hint: hint);
   }
   if (value is String) {
     final trimmed = value.trim();
@@ -169,15 +179,13 @@ double? _parseRatingValue(dynamic value, Set<int> seen, {String? hint}) {
     }
     if (parsed != null) {
       if (!percentHint && withoutPercent.contains('/100')) {
-        return _percentToFive(parsed);
+        return _normalizeRatingToFive(parsed, hint: 'percent');
       }
       if (!percentHint && withoutPercent.contains('/10')) {
-        return parsed / 2;
+        return _normalizeRatingToFive(parsed / 2, hint: hint);
       }
-      if (percentHint) {
-        return _percentToFive(parsed);
-      }
-      return parsed;
+      final effectiveHint = percentHint ? 'percent' : hint;
+      return _normalizeRatingToFive(parsed, hint: effectiveHint);
     }
     return null;
   }
@@ -301,7 +309,7 @@ double? _parseRatingValue(dynamic value, Set<int> seen, {String? hint}) {
     }
     if (sum != null && count != null && count > 0) {
       final avg = sum / count;
-      return avg;
+      return _normalizeRatingToFive(avg, hint: 'average') ?? avg;
     }
 
     double bucketSum = 0;
@@ -326,7 +334,8 @@ double? _parseRatingValue(dynamic value, Set<int> seen, {String? hint}) {
       }
     }
     if (bucketFound && bucketCount > 0) {
-      return bucketSum / bucketCount;
+      final avg = bucketSum / bucketCount;
+      return _normalizeRatingToFive(avg, hint: 'average') ?? avg;
     }
 
     for (final entry in value.entries) {
@@ -351,7 +360,8 @@ double? _parseRatingValue(dynamic value, Set<int> seen, {String? hint}) {
       }
     }
     if (count > 0) {
-      return sum / count;
+      final avg = sum / count;
+      return _normalizeRatingToFive(avg, hint: 'average') ?? avg;
     }
   }
 

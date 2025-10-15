@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/fixer_utils.dart';
 import 'service_providers.dart';
 
-final topFixersProvider = FutureProvider.autoDispose<List<dynamic>>((
+final topFixersProvider = FutureProvider<List<dynamic>>((
   ref,
 ) async {
   final service = ref.read(homeServiceProvider);
@@ -26,7 +26,7 @@ final topFixersProvider = FutureProvider.autoDispose<List<dynamic>>((
       : List<dynamic>.from(mapped.take(maxItems));
 });
 
-final allFixersProvider = FutureProvider.autoDispose<List<dynamic>>((
+final allFixersProvider = FutureProvider<List<dynamic>>((
   ref,
 ) async {
   final service = ref.read(homeServiceProvider);

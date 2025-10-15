@@ -45,7 +45,7 @@ class DashboardState {
   }
 }
 
-class DashboardController extends AutoDisposeAsyncNotifier<DashboardState> {
+class DashboardController extends AsyncNotifier<DashboardState> {
   @override
   FutureOr<DashboardState> build() {
     return _fetch();
@@ -173,6 +173,6 @@ class DashboardController extends AutoDisposeAsyncNotifier<DashboardState> {
 }
 
 final dashboardControllerProvider =
-    AutoDisposeAsyncNotifierProvider<DashboardController, DashboardState>(
+    AsyncNotifierProvider<DashboardController, DashboardState>(
       DashboardController.new,
     );

@@ -466,42 +466,59 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         backgroundColor: Colors.white,
         bottomNavigationBar: _bottomNav(),
         body: SafeArea(
-          child: () {
-            if (_tabIndex == 3) return const ProfileScreen();
-            if (_tabIndex == 1) return const MyBookingScreen();
-            if (_tabIndex == 2) return const FavoritesScreen();
-            if (isInitialLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (errorText != null) {
-              return _ErrorState(
-                message: 'We couldn\'t load the dashboard right now.',
-                detail: errorText,
-                onRetry: () =>
-                    ref.read(dashboardControllerProvider.notifier).refresh(),
-              );
-            }
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _greeting(state),
-                  const SizedBox(height: 16),
-                  _bookingHero(),
-                  const SizedBox(height: 20),
-                  _searchField(state.categories),
-                  const SizedBox(height: 20),
-                  _quickCategories(state.categories),
-                  const SizedBox(height: 24),
-                  _serviceSpotlight(state.services),
-                  const SizedBox(height: 24),
-                  TopFixersStrip(fixers: topFixers),
-                ],
+          child: IndexedStack(
+            index: _tabIndex,
+            children: [
+              _buildHomeTab(
+                state: state,
+                isInitialLoading: isInitialLoading,
+                errorText: errorText,
+                topFixers: topFixers,
               ),
-            );
-          }(),
+              const MyBookingScreen(),
+              const FavoritesScreen(),
+              const ProfileScreen(),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildHomeTab({
+    required DashboardState state,
+    required bool isInitialLoading,
+    required String? errorText,
+    required AsyncValue<List<dynamic>> topFixers,
+  }) {
+    if (isInitialLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (errorText != null) {
+      return _ErrorState(
+        message: 'We couldn\'t load the dashboard right now.',
+        detail: errorText,
+        onRetry: () =>
+            ref.read(dashboardControllerProvider.notifier).refresh(),
+      );
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _greeting(state),
+          const SizedBox(height: 16),
+          _bookingHero(),
+          const SizedBox(height: 20),
+          _searchField(state.categories),
+          const SizedBox(height: 20),
+          _quickCategories(state.categories),
+          const SizedBox(height: 24),
+          _serviceSpotlight(state.services),
+          const SizedBox(height: 24),
+          TopFixersStrip(fixers: topFixers),
+        ],
       ),
     );
   }

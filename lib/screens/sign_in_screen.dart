@@ -2,11 +2,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import 'sign_up_screen.dart';
+import '../state/dashboard_controller.dart';
+import '../state/fixers_providers.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -51,6 +54,20 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
+  Future<void> _preloadAppData() async {
+    if (!mounted) return;
+    final container = ProviderScope.containerOf(context, listen: false);
+    final futures = <Future<void>>[
+      container
+          .read(dashboardControllerProvider.future)
+          .then((_) {}, onError: (_) {}),
+      container
+          .read(topFixersProvider.future)
+          .then((_) {}, onError: (_) {}),
+    ];
+    await Future.wait(futures);
+  }
+
   // Biometrics removed
 
   Future<void> _submit() async {
@@ -79,6 +96,8 @@ class _SignInScreenState extends State<SignInScreen> {
           await prefs.remove('remember_identifier');
           await prefs.remove('remember_email');
         }
+        await _preloadAppData();
+        if (!mounted) return;
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
         _showAlert(
