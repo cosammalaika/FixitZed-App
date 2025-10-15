@@ -173,7 +173,7 @@ class _SignInScreenState extends State<SignInScreen> {
               return Stack(
                 children: [
                   Container(
-                    height: constraints.maxHeight * 0.43,
+                    height: constraints.maxHeight * 0.55,
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         colors: [Color(0xFF111111), Color(0xFF1F1F1F)],
@@ -282,7 +282,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurface,
-                                    fontSize: 14,
+                                    fontSize: 15,
                                   ),
                                   cursorColor: const Color(0xFFF1592A),
                                   decoration: InputDecoration(
@@ -357,7 +357,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurface,
-                                    fontSize: 14,
+                                    fontSize: 15,
                                   ),
                                   cursorColor: const Color(0xFFF1592A),
                                   decoration: InputDecoration(
@@ -478,7 +478,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                       : Text(
                                           "Sign In",
                                           style: GoogleFonts.urbanist(
-                                            fontSize: 16,
+                                            fontSize: 15,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -495,54 +495,54 @@ class _SignInScreenState extends State<SignInScreen> {
                                 //     _socialButton("assets/images/facebook.png"),
                                 //   ],
                                 // ),
-                                const SizedBox(height: 14),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Divider(
-                                        color: Theme.of(context).dividerColor,
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      child: Text(
-                                        'Or continue with',
-                                        style: GoogleFonts.urbanist(
-                                          color: Theme.of(context).hintColor,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Divider(
-                                        color: Theme.of(context).dividerColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
-                                    CircleAvatar(
-                                      backgroundColor: Colors.white,
-                                      child: Icon(
-                                        Icons.facebook,
-                                        color: Colors.blue,
-                                      ),
-                                    ),
-                                    SizedBox(width: 16),
-                                    CircleAvatar(
-                                      backgroundColor: Colors.white,
-                                      child: Icon(
-                                        Icons.g_mobiledata,
-                                        color: Colors.red,
-                                        size: 28,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                // const SizedBox(height: 14),
+                                // Row(
+                                //   children: [
+                                //     Expanded(
+                                //       child: Divider(
+                                //         color: Theme.of(context).dividerColor,
+                                //       ),
+                                //     ),
+                                //     Padding(
+                                //       padding: const EdgeInsets.symmetric(
+                                //         horizontal: 8,
+                                //       ),
+                                //       child: Text(
+                                //         'Or continue with',
+                                //         style: GoogleFonts.urbanist(
+                                //           color: Theme.of(context).hintColor,
+                                //         ),
+                                //       ),
+                                //     ),
+                                //     Expanded(
+                                //       child: Divider(
+                                //         color: Theme.of(context).dividerColor,
+                                //       ),
+                                //     ),
+                                //   ],
+                                // ),
+                                // const SizedBox(height: 12),
+                                // Row(
+                                //   mainAxisAlignment: MainAxisAlignment.center,
+                                //   children: const [
+                                //     CircleAvatar(
+                                //       backgroundColor: Colors.white,
+                                //       child: Icon(
+                                //         Icons.facebook,
+                                //         color: Colors.blue,
+                                //       ),
+                                //     ),
+                                //     SizedBox(width: 16),
+                                //     CircleAvatar(
+                                //       backgroundColor: Colors.white,
+                                //       child: Icon(
+                                //         Icons.g_mobiledata,
+                                //         color: Colors.red,
+                                //         size: 28,
+                                //       ),
+                                //     ),
+                                //   ],
+                                // ),
                                 const SizedBox(height: 14),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -565,6 +565,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                       child: Text(
                                         'Create one',
                                         style: GoogleFonts.urbanist(
+                                          fontSize: 15,
                                           color: orange,
                                           fontWeight: FontWeight.w700,
                                         ),

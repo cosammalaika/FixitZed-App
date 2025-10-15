@@ -93,12 +93,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (!mounted) return;
       await _showErrorDialog(
         title: 'Sign up failed',
-        message: 'We couldn\'t reach our servers. Please check your internet connection and try again.',
+        message:
+            'We couldn\'t reach our servers. Please check your internet connection and try again.',
       );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
+
   Future<void> _showErrorDialog({
     required String title,
     required String message,
@@ -151,7 +153,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('• ', style: TextStyle(color: Colors.black54)),
+                        const Text(
+                          '• ',
+                          style: TextStyle(color: Colors.black54),
+                        ),
                         Expanded(
                           child: Text(
                             line,
@@ -264,7 +269,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           'Create your account',
                           style: GoogleFonts.urbanist(
                             color: Colors.white.withOpacity(0.9),
-                            fontSize: 16,
+                            fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -300,7 +305,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                       color: Theme.of(
                                         context,
                                       ).colorScheme.onSurface,
-                                      fontSize: 14,
+                                      fontSize: 15,
                                     ),
                                     cursorColor: brand,
                                     decoration: _dec('First Name'),
@@ -316,7 +321,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                       color: Theme.of(
                                         context,
                                       ).colorScheme.onSurface,
-                                      fontSize: 14,
+                                      fontSize: 15,
                                     ),
                                     cursorColor: brand,
                                     decoration: _dec('Last Name'),
@@ -331,7 +336,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurface,
-                                    fontSize: 14,
+                                    fontSize: 15,
                                   ),
                                   cursorColor: brand,
                                   decoration: _dec('Email Address'),
@@ -345,6 +350,39 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   },
                                 ),
                                 const SizedBox(height: 12),
+
+                                _row2(
+                                  context,
+                                  TextFormField(
+                                    controller: phoneCtrl,
+                                    textInputAction: TextInputAction.next,
+                                    keyboardType: TextInputType.phone,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                      fontSize: 15,
+                                    ),
+                                    cursorColor: brand,
+                                    decoration: _dec('Contact Number'),
+                                    validator: (v) => (v ?? '').trim().isEmpty
+                                        ? 'Contact number is required'
+                                        : null,
+                                  ),
+                                  TextFormField(
+                                    controller: addressCtrl,
+                                    textInputAction: TextInputAction.next,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                      fontSize: 15,
+                                    ),
+                                    cursorColor: brand,
+                                    decoration: _dec('Address (optional)'),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
                                 TextFormField(
                                   controller: passCtrl,
                                   obscureText: !_pwVisible,
@@ -353,7 +391,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurface,
-                                    fontSize: 14,
+                                    fontSize: 15,
                                   ),
                                   cursorColor: brand,
                                   decoration: _dec(
@@ -389,7 +427,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurface,
-                                    fontSize: 14,
+                                    fontSize: 15,
                                   ),
                                   cursorColor: brand,
                                   decoration: _dec(
@@ -412,46 +450,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                       : null,
                                 ),
                                 const SizedBox(height: 12),
-                                _row2(
-                                  context,
-                                  TextFormField(
-                                    controller: phoneCtrl,
-                                    textInputAction: TextInputAction.next,
-                                    keyboardType: TextInputType.phone,
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                      fontSize: 14,
-                                    ),
-                                    cursorColor: brand,
-                                    decoration: _dec('Contact Number'),
-                                    validator: (v) => (v ?? '').trim().isEmpty
-                                        ? 'Contact number is required'
-                                        : null,
-                                  ),
-                                  TextFormField(
-                                    controller: addressCtrl,
-                                    textInputAction: TextInputAction.next,
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                      fontSize: 14,
-                                    ),
-                                    cursorColor: brand,
-                                    decoration: _dec('Address (optional)'),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
                                 // Remember + forgot row
                                 Row(
                                   children: [
-                                    Checkbox(value: false, onChanged: (_) {}),
-                                    Text(
-                                      'Remember me',
-                                      style: GoogleFonts.urbanist(),
-                                    ),
+                                    // Checkbox(value: false, onChanged: (_) {}),
+                                    // Text(
+                                    //   'Remember me',
+                                    //   style: GoogleFonts.urbanist(),
+                                    // ),
                                     const Spacer(),
                                     Text(
                                       'Forgot Password ?',
@@ -486,54 +492,54 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                         )
                                       : const Text('Sign Up'),
                                 ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Divider(
-                                        color: Theme.of(context).dividerColor,
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      child: Text(
-                                        'Or login with',
-                                        style: GoogleFonts.urbanist(
-                                          color: Theme.of(context).hintColor,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Divider(
-                                        color: Theme.of(context).dividerColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
-                                    CircleAvatar(
-                                      backgroundColor: Colors.white,
-                                      child: Icon(
-                                        Icons.facebook,
-                                        color: Colors.blue,
-                                      ),
-                                    ),
-                                    SizedBox(width: 16),
-                                    CircleAvatar(
-                                      backgroundColor: Colors.white,
-                                      child: Icon(
-                                        Icons.g_mobiledata,
-                                        color: Colors.red,
-                                        size: 28,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                // const SizedBox(height: 16),
+                                // Row(
+                                //   children: [
+                                //     Expanded(
+                                //       child: Divider(
+                                //         color: Theme.of(context).dividerColor,
+                                //       ),
+                                //     ),
+                                //     Padding(
+                                //       padding: const EdgeInsets.symmetric(
+                                //         horizontal: 8,
+                                //       ),
+                                //       child: Text(
+                                //         'Or login with',
+                                //         style: GoogleFonts.urbanist(
+                                //           color: Theme.of(context).hintColor,
+                                //         ),
+                                //       ),
+                                //     ),
+                                //     Expanded(
+                                //       child: Divider(
+                                //         color: Theme.of(context).dividerColor,
+                                //       ),
+                                //     ),
+                                //   ],
+                                // ),
+                                // const SizedBox(height: 10),
+                                // Row(
+                                //   mainAxisAlignment: MainAxisAlignment.center,
+                                //   children: const [
+                                //     CircleAvatar(
+                                //       backgroundColor: Colors.white,
+                                //       child: Icon(
+                                //         Icons.facebook,
+                                //         color: Colors.blue,
+                                //       ),
+                                //     ),
+                                //     SizedBox(width: 16),
+                                //     CircleAvatar(
+                                //       backgroundColor: Colors.white,
+                                //       child: Icon(
+                                //         Icons.g_mobiledata,
+                                //         color: Colors.red,
+                                //         size: 28,
+                                //       ),
+                                //     ),
+                                //   ],
+                                // ),
                                 const SizedBox(height: 12),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -557,6 +563,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                       child: Text(
                                         'Login',
                                         style: GoogleFonts.urbanist(
+                                          fontSize: 15,
                                           color: brand,
                                           fontWeight: FontWeight.w600,
                                         ),
