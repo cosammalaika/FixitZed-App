@@ -425,7 +425,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(width: 14),
                       Expanded(
                         child: Text(
-                          'Manage your bookings and keep your details up to date.',
+                          'Manage your requests and keep your details up to date.',
                           style: GoogleFonts.urbanist(
                             color: Colors.white,
                             fontSize: 13,

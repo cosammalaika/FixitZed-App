@@ -8,8 +8,8 @@ class FaqsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final faqs = <Map<String, String>>[
       {
-        'q': 'How do I book a service?',
-        'a': 'From the home screen, choose a category, pick a service, and select a time that works for you. Confirm your booking and you are set.'
+        'q': 'How do I request a service?',
+        'a': 'From the home screen, choose a category, pick a service, and select a time that works for you. Confirm your request and you are set.'
       },
       {
         'q': 'How do I become a fixer?',

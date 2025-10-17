@@ -170,10 +170,10 @@ class ServiceRequestService {
           final normalized = _normalizeStatus(status);
           if (normalized != null) {
             final title = normalized == 'accepted'
-                ? 'Booking accepted'
+                ? 'Request accepted'
                 : 'Fixer sent a bill';
             final body = normalized == 'accepted'
-                ? 'Your $service booking is confirmed${when != null ? ' for $when' : ''}.'
+                ? 'Your $service request is confirmed${when != null ? ' for $when' : ''}.'
                 : 'A payment request has been issued${when != null ? ' • due $when' : ''}.';
 
             await LocalNotificationService.instance.showInstant(
@@ -191,7 +191,7 @@ class ServiceRequestService {
             id: id.hashCode ^ fixerId.hashCode,
             title: 'Fixer found',
             body:
-                'We matched your $service booking${when != null ? ' for $when' : ''}. Waiting for the fixer to accept.',
+                'We matched your $service request${when != null ? ' for $when' : ''}. Waiting for the fixer to accept.',
             payload: 'booking_status:$id:fixer_pending_acceptance',
           );
         }

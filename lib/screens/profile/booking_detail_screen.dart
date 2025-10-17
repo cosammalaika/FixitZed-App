@@ -118,7 +118,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
           ),
           const SizedBox(height: 8),
           Text(
-            'No fixer has accepted yet. You can cancel now or keep the booking active.',
+            'No fixer has accepted yet. You can cancel now or keep the request active.',
             style: GoogleFonts.urbanist(
               color: Colors.black87,
               height: 1.4,
@@ -147,7 +147,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text(
-                        'Cancel booking',
+                        'Cancel request',
                         key: ValueKey('cancel-label'),
                       ),
               ),
@@ -185,7 +185,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Cancel booking',
+                  'Cancel request',
                   style: GoogleFonts.urbanist(
                     fontWeight: FontWeight.w800,
                     fontSize: 18,
@@ -196,7 +196,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
             ],
           ),
           content: Text(
-            'Are you sure you want to cancel this booking? This action cannot be undone.',
+            'Are you sure you want to cancel this request? This action cannot be undone.',
             style: GoogleFonts.urbanist(
               color: Colors.black87,
               height: 1.45,
@@ -214,7 +214,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: const Text('Keep booking'),
+              child: const Text('Keep request'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(ctx).pop(true),
@@ -226,7 +226,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: const Text('Cancel booking'),
+              child: const Text('Cancel request'),
             ),
           ],
         );
@@ -243,7 +243,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          success ? 'Booking cancelled.' : 'Failed to cancel booking. Please try again.',
+          success ? 'Request cancelled.' : 'Failed to cancel request. Please try again.',
         ),
       ),
     );

@@ -533,7 +533,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final serviceId = _serviceId;
     if (serviceId == null) {
       _showSnack(
-        message: 'Service details are unavailable for this booking',
+        message: 'Service details are unavailable for this request',
         success: false,
       );
       return;
@@ -911,7 +911,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     base <= 0
                         ? 'You will be able to redeem points on the next bill.'
                         : _loyaltyBalance <= 0
-                        ? 'Earn points by completing bookings to unlock rewards.'
+                        ? 'Earn points by completing requests to unlock rewards.'
                         : 'Insufficient points for this amount. Keep earning to redeem.',
                     style: GoogleFonts.urbanist(color: Colors.black54),
                   ),

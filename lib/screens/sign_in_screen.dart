@@ -267,7 +267,7 @@ class _SignInScreenState extends State<SignInScreen> {
                             ),
                             const SizedBox(height: 14),
                             Text(
-                              'Sign in to book trusted services',
+                              'Sign in to request trusted services',
                               style: GoogleFonts.urbanist(
                                 color: Colors.white,
                                 fontSize: 26,
@@ -276,7 +276,7 @@ class _SignInScreenState extends State<SignInScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Track your bookings, pay securely and stay updated.',
+                              'Track your requests, pay securely and stay updated.',
                               style: GoogleFonts.urbanist(
                                 color: Colors.white.withOpacity(0.85),
                               ),

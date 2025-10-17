@@ -397,7 +397,7 @@ class _BookingSheetState extends State<BookingSheet> {
     }
     if (_serviceId == null || _serviceId!.isEmpty) {
       _showSnack(
-        message: 'Pick the service you need before booking',
+        message: 'Pick the service you need before requesting',
         success: false,
       );
       return;
@@ -417,17 +417,17 @@ class _BookingSheetState extends State<BookingSheet> {
     setState(() => _submitting = false);
     if (ok) {
       LocalNotificationService.instance.notifyBookingCreated(
-        serviceName: _serviceName ?? 'Service booking',
+        serviceName: _serviceName ?? 'Service request',
         scheduledAt: scheduledAt,
         location: _locationCtrl.text.trim(),
       );
       Navigator.of(context).pop(true);
       _showSnack(
-        message: 'Booking submitted — pending approval',
+        message: 'Request submitted — pending approval',
         success: true,
       );
     } else {
-      _showSnack(message: 'Failed to submit booking', success: false);
+      _showSnack(message: 'Failed to submit request', success: false);
     }
   }
 

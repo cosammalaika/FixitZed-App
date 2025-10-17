@@ -18,7 +18,7 @@ class LocalNotificationService {
       AndroidNotificationChannel(
         'fixitzed_default',
         'General Notifications',
-        description: 'Booking updates, reminders and promotions from FixitZED.',
+        description: 'Request updates, reminders and promotions from FixitZED.',
         importance: Importance.high,
       );
 
@@ -118,10 +118,10 @@ class LocalNotificationService {
   }) async {
     final formatted = DateFormat('EEE, MMM d • HH:mm').format(scheduledAt);
     final body = location == null || location.isEmpty
-        ? '$serviceName is booked for $formatted.'
-        : '$serviceName is booked for $formatted at $location.';
+        ? '$serviceName is requested for $formatted.'
+        : '$serviceName is requested for $formatted at $location.';
     await showInstant(
-      title: 'Booking scheduled',
+      title: 'Request scheduled',
       body: body,
       payload: 'booking_created',
     );

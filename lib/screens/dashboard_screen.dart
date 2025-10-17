@@ -124,7 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Book a trusted fixer in seconds and track every job from this screen.',
+            'Request a trusted fixer in seconds and track every job from this screen.',
             style: GoogleFonts.urbanist(
               color: Colors.white.withValues(alpha: 0.9),
             ),
@@ -136,7 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _openBookingSheet,
                   icon: const Icon(Icons.flash_on_rounded),
-                  label: const Text('Book a service'),
+                  label: const Text('Request a service'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: const Color(0xFFF1592A),
@@ -162,7 +162,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Text('Track bookings'),
+                child: const Text('Track requests'),
               ),
             ],
           ),

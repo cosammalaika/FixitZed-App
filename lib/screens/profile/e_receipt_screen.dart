@@ -340,7 +340,7 @@ class _EReceiptScreenState extends State<EReceiptScreen> {
       }
       final tempDir = await getTemporaryDirectory();
       final file = File(
-        '${tempDir.path}/receipt_${_request['id'] ?? 'booking'}.png',
+        '${tempDir.path}/receipt_${_request['id'] ?? 'request'}.png',
       );
       await file.writeAsBytes(bytes, flush: true);
       await Share.shareXFiles([
@@ -367,7 +367,7 @@ class _EReceiptScreenState extends State<EReceiptScreen> {
       }
       final dir = await getApplicationDocumentsDirectory();
       final filename =
-          'FixitZed_receipt_${_request['id'] ?? 'booking'}_${DateTime.now().millisecondsSinceEpoch}.png';
+          'FixitZed_receipt_${_request['id'] ?? 'request'}_${DateTime.now().millisecondsSinceEpoch}.png';
       final file = File('${dir.path}/$filename');
       await file.writeAsBytes(bytes, flush: true);
       _showSnack('Receipt saved to ${file.path}');
