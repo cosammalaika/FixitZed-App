@@ -7,14 +7,15 @@ import '../services/profile_photo_service.dart';
 import '../services/report_service.dart';
 import '../state/profile_controller.dart';
 
-class ProfileScreen extends ConsumerStatefulWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> {
+  WidgetRef? _ref;
   final Color brand = const Color(0xFFF1592A);
   bool _uploadingPhoto = false;
   int _avatarVersion = 0;
@@ -74,6 +75,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _openEditProfile() async {
     final res = await Navigator.pushNamed(context, '/profile/edit');
     if (res == true) {
+      final ref = _ref;
+      if (ref == null) return;
       await ref.read(profileControllerProvider.notifier).refresh();
     }
   }
@@ -163,7 +166,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
     if (success) {
-      await ref.read(profileControllerProvider.notifier).refresh();
+      final ref = _ref;
+      if (ref != null) {
+        await ref.read(profileControllerProvider.notifier).refresh();
+      }
       if (mounted) {
         _avatarVersion++;
         setState(() {});
@@ -198,79 +204,84 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profileAsync = ref.watch(profileControllerProvider);
+    return Consumer(
+      builder: (context, ref, _) {
+        _ref = ref;
+        final profileAsync = ref.watch(profileControllerProvider);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9F4F1),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: Navigator.of(context).canPop()
-            ? IconButton(
-                icon: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: Colors.black,
-                ),
-                onPressed: () => Navigator.of(context).pop(),
-              )
-            : null,
-        centerTitle: true,
-        title: Text(
-          'Profile',
-          style: GoogleFonts.urbanist(
-            color: const Color(0xFF2C2C2C),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-      body: profileAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.wifi_off_rounded,
-                  size: 48,
-                  color: Colors.black38,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'We couldn\'t load your profile.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.urbanist(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  err.toString(),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.urbanist(color: Colors.black54),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  onPressed: () =>
-                      ref.read(profileControllerProvider.notifier).refresh(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF1592A),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+        return Scaffold(
+          backgroundColor: const Color(0xFFF9F4F1),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: Navigator.of(context).canPop()
+                ? IconButton(
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.black,
                     ),
-                  ),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Try again'),
-                ),
-              ],
+                    onPressed: () => Navigator.of(context).pop(),
+                  )
+                : null,
+            centerTitle: true,
+            title: Text(
+              'Profile',
+              style: GoogleFonts.urbanist(
+                color: const Color(0xFF2C2C2C),
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-        ),
-        data: _buildBody,
-      ),
+          body: profileAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.wifi_off_rounded,
+                      size: 48,
+                      color: Colors.black38,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "We couldn't load your profile.",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.urbanist(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      err.toString(),
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.urbanist(color: Colors.black54),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: () =>
+                          ref.read(profileControllerProvider.notifier).refresh(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF1592A),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Try again'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            data: _buildBody,
+          ),
+        );
+      },
     );
   }
 

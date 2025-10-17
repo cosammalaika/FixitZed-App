@@ -14,18 +14,26 @@ import 'payment_sheet.dart';
 import 'profile/my_booking_screen.dart';
 import 'profile_screen.dart';
 
-class DashboardScreen extends ConsumerStatefulWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> {
+  WidgetRef? _ref;
   bool _billPromptShown = false;
   bool _checkingBills = false;
   int _tabIndex = 0;
   bool _dashboardListenerAttached = false;
+
+  int? _parseId(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
+  }
 
   Widget _greeting(DashboardState state) => DashboardGreeting(
     name: state.name,
@@ -35,6 +43,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     onNotificationsTap: () async {
       await Navigator.of(context).pushNamed('/notifications');
       if (!mounted) return;
+      final ref = _ref;
+      if (ref == null) return;
       ref.read(dashboardControllerProvider.notifier).refresh();
     },
   );
@@ -159,6 +169,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _refreshDashboard() async {
+    final ref = _ref;
+    if (ref == null) return;
+    await ref.read(dashboardControllerProvider.notifier).refresh();
   }
 
   Widget _quickCategories(List<dynamic> categories) {
@@ -379,7 +395,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     },
   );
 
-  Future<void> _checkPendingBills() async {
+  Future<void> _checkPendingBills(WidgetRef ref) async {
     if (_billPromptShown || _checkingBills || !mounted) return;
     _checkingBills = true;
     try {
@@ -387,7 +403,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final paymentService = ref.read(paymentServiceProvider);
       final list = await requestService.listRequests();
       for (final r in list) {
-        final id = (r['id'] as num?)?.toInt();
+        final id = _parseId(r['id']);
         final status = (r['status'] ?? '').toString();
         if (id == null || status == 'completed') continue;
         final payment = await paymentService.get(id);
@@ -401,7 +417,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               : double.tryParse(amount.toString()) ?? 0;
           if (!mounted) return;
           _billPromptShown = true;
-          await _showPayNowSheet(r, parsedAmount);
+          await _showPayNowSheet(ref, r, parsedAmount);
           break;
         }
       }
@@ -413,10 +429,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Future<void> _showPayNowSheet(
+    WidgetRef ref,
     Map<String, dynamic> request,
     double amount,
   ) async {
-    final id = (request['id'] as num?)?.toInt();
+    final id = _parseId(request['id']);
     if (id == null) return;
     final paid = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -432,56 +449,61 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_dashboardListenerAttached) {
-      _dashboardListenerAttached = true;
-      ref.listen<AsyncValue<DashboardState>>(dashboardControllerProvider, (
-        previous,
-        next,
-      ) {
-        next.whenOrNull(
-          data: (_) {
-            if (!mounted) return;
-            _checkPendingBills();
-          },
-        );
-      });
-    }
+    return Consumer(
+      builder: (context, ref, _) {
+        _ref = ref;
+        if (!_dashboardListenerAttached) {
+          _dashboardListenerAttached = true;
+          ref.listen<AsyncValue<DashboardState>>(dashboardControllerProvider, (
+            previous,
+            next,
+          ) {
+            next.whenOrNull(
+              data: (_) {
+                if (!mounted) return;
+        _checkPendingBills(ref);
+              },
+            );
+          });
+        }
 
-    final dashboardAsync = ref.watch(dashboardControllerProvider);
-    final state = dashboardAsync.valueOrNull ?? const DashboardState();
-    final isInitialLoading =
-        dashboardAsync.isLoading && dashboardAsync.valueOrNull == null;
-    final errorText =
-        state.error ??
-        dashboardAsync.whenOrNull(error: (err, _) => err.toString());
-    final topFixers = ref.watch(topFixersProvider);
+        final dashboardAsync = ref.watch(dashboardControllerProvider);
+        final state = dashboardAsync.valueOrNull ?? const DashboardState();
+        final isInitialLoading =
+            dashboardAsync.isLoading && dashboardAsync.valueOrNull == null;
+        final errorText =
+            state.error ??
+            dashboardAsync.whenOrNull(error: (err, _) => err.toString());
+        final topFixers = ref.watch(topFixersProvider);
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        bottomNavigationBar: _bottomNav(),
-        body: SafeArea(
-          child: IndexedStack(
-            index: _tabIndex,
-            children: [
-              _buildHomeTab(
-                state: state,
-                isInitialLoading: isInitialLoading,
-                errorText: errorText,
-                topFixers: topFixers,
-              ),
-              const MyBookingScreen(),
-              const FavoritesScreen(),
-              const ProfileScreen(),
-            ],
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
           ),
-        ),
-      ),
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            bottomNavigationBar: _bottomNav(),
+            body: SafeArea(
+              child: IndexedStack(
+                index: _tabIndex,
+                children: [
+                  _buildHomeTab(
+                    state: state,
+                    isInitialLoading: isInitialLoading,
+                    errorText: errorText,
+                    topFixers: topFixers,
+                  ),
+                  const MyBookingScreen(),
+                  const FavoritesScreen(),
+                  const ProfileScreen(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -498,8 +520,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return _ErrorState(
         message: 'We couldn\'t load the dashboard right now.',
         detail: errorText,
-        onRetry: () =>
-            ref.read(dashboardControllerProvider.notifier).refresh(),
+        onRetry: () =>[]
+            
       );
     }
     return SingleChildScrollView(
