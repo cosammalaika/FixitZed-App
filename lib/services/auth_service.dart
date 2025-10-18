@@ -102,6 +102,18 @@ class AuthService {
         final token = _extractToken(data);
         if (token != null && token.isNotEmpty) {
           await _saveToken(token);
+          final Map<String, dynamic>? user = data['user'] is Map<String, dynamic>
+              ? Map<String, dynamic>.from(data['user'] as Map)
+              : null;
+          final statusRaw = user?['status'] ?? user?['account_status'] ?? user?['accountStatus'];
+          final status = statusRaw is String ? statusRaw.trim().toLowerCase() : null;
+          if (status != null && status.isNotEmpty && status != 'active') {
+            await _clearToken();
+            return const AuthResult(
+              success: false,
+              message: 'inactive',
+            );
+          }
           final msg = _extractMessage(data);
           return AuthResult(success: true, message: msg);
         }
@@ -187,6 +199,58 @@ class AuthService {
       // WHY: Network/API failures shouldn't block local logout.
     } finally {
       await _clearToken();
+    }
+  }
+
+  Future<AuthResult> forgotPassword(String identifier) async {
+    try {
+      final res = await _postJson('password/forgot', {
+        'identifier': identifier,
+      });
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final data = jsonDecode(res.body);
+        final msg = _extractMessage(data) ??
+            'If we find a matching account, a reset code will be emailed shortly.';
+        return AuthResult(success: true, message: msg);
+      }
+
+      return _mapError(res);
+    } catch (_) {
+      return const AuthResult(
+        success: false,
+        message: 'Unable to reach the server. Please try again.',
+      );
+    }
+  }
+
+  Future<AuthResult> resetPassword({
+    required String identifier,
+    required String token,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    try {
+      final res = await _postJson('password/reset', {
+        'identifier': identifier,
+        'token': token,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      });
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final data = jsonDecode(res.body);
+        final msg = _extractMessage(data) ??
+            'Password updated successfully. You can now sign in.';
+        return AuthResult(success: true, message: msg);
+      }
+
+      return _mapError(res);
+    } catch (_) {
+      return const AuthResult(
+        success: false,
+        message: 'Unable to reach the server. Please try again.',
+      );
     }
   }
 

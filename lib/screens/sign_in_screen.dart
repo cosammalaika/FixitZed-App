@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import 'sign_up_screen.dart';
+import 'auth/forgot_password_sheet.dart';
 import '../state/dashboard_controller.dart';
 import '../state/fixers_providers.dart';
 
@@ -99,6 +100,10 @@ class _SignInScreenState extends State<SignInScreen> {
         await _preloadAppData();
         if (!mounted) return;
         Navigator.of(context).pushReplacementNamed('/home');
+      } else if (result.message == 'inactive') {
+        await AuthService().logout();
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed('/account_blocked');
       } else {
         _showAlert(
           'Sign in failed',
@@ -173,6 +178,26 @@ class _SignInScreenState extends State<SignInScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _showForgotPassword() async {
+    final seed = _identifierCtrl.text.trim();
+    final completed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      builder: (ctx) => ForgotPasswordSheet(
+        initialIdentifier: seed.isEmpty ? null : seed,
+      ),
+    );
+
+    if (!mounted || completed != true) return;
+    _passCtrl.clear();
+    await _showAlert(
+      'Password updated',
+      'Your password was reset successfully. Sign in with the new password you created.',
     );
   }
 
@@ -498,15 +523,13 @@ class _SignInScreenState extends State<SignInScreen> {
                                         const Text("Remember Me"),
                                         const Spacer(),
                                         TextButton(
-                                          onPressed: _loading
-                                              ? null
-                                              : () {
-                                                  // TODO: push Forgot Password screen
-                                                },
+                                          onPressed:
+                                              _loading ? null : _showForgotPassword,
                                           child: Text(
-                                            "Forgot Password?",
+                                            "Forgot password?",
                                             style: GoogleFonts.urbanist(
                                               color: orange,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                         ),
