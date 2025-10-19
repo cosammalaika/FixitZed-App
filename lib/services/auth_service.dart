@@ -133,32 +133,38 @@ class AuthService {
     }
   }
 
-  /// Registers a user. Always sends required fields and
-  /// conditionally includes optional fields like address/username when provided.
-  Future<AuthResult> register(
-    String name,
-    String email,
-    String phone,
-    String password, {
-    String? address,
+  /// Registers a user with province/district selections and optional username.
+  Future<AuthResult> register({
+    required String firstName,
+    String? lastName,
+    required String email,
+    required String phone,
+    required String password,
+    required String province,
+    required String district,
     String? username,
   }) async {
     try {
+      final trimmedLast = lastName?.trim();
+      final trimmedUser = username?.trim();
+      final displayName = [
+        firstName.trim(),
+        if (trimmedLast != null && trimmedLast.isNotEmpty) trimmedLast,
+      ].where((part) => part.isNotEmpty).join(' ');
+
       final body = <String, dynamic>{
-        'name': name,
+        'first_name': firstName.trim(),
+        if (trimmedLast != null && trimmedLast.isNotEmpty) 'last_name': trimmedLast,
+        if (displayName.isNotEmpty) 'name': displayName,
         'email': email,
         'contact_number': phone,
         'password': password,
+        'province': province,
+        'district': district,
       };
 
-      final addr = address?.trim();
-      if (addr != null && addr.isNotEmpty) {
-        body['address'] = addr;
-      }
-
-      final user = username?.trim();
-      if (user != null && user.isNotEmpty) {
-        body['username'] = user;
+      if (trimmedUser != null && trimmedUser.isNotEmpty) {
+        body['username'] = trimmedUser;
       }
 
       final res = await _postJson('register', body);

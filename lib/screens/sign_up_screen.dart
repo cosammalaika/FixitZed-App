@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../data/province_districts.dart';
 import '../services/auth_service.dart';
+import '../services/location_service.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -23,9 +25,61 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final usernameCtrl = TextEditingController();
   final emailCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
-  final addressCtrl = TextEditingController();
   final passCtrl = TextEditingController();
   final confirmPassCtrl = TextEditingController();
+
+  final _locationService = LocationService();
+  Map<String, List<String>> _provinceMap = ProvinceData.asMutable();
+  String? _selectedProvince;
+  String? _selectedDistrict;
+  List<String> _districtOptions = [];
+  bool _loadingProvinces = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _districtOptions = [];
+    _loadProvinceData();
+  }
+
+  Future<void> _loadProvinceData() async {
+    setState(() => _loadingProvinces = true);
+    try {
+      final data = await _locationService.fetchProvinceDistricts();
+      if (!mounted) return;
+      setState(() {
+        _provinceMap = data;
+        if (_selectedProvince != null &&
+            !_provinceMap.containsKey(_selectedProvince)) {
+          _selectedProvince = null;
+        }
+        _districtOptions = _selectedProvince != null
+            ? List<String>.from(
+                _provinceMap[_selectedProvince!] ?? const <String>[],
+              )
+            : <String>[];
+        if (!_districtOptions.contains(_selectedDistrict)) {
+          _selectedDistrict = null;
+        }
+        _loadingProvinces = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingProvinces = false);
+    }
+  }
+
+  void _onProvinceChanged(String? province) {
+    setState(() {
+      _selectedProvince = province;
+      _districtOptions = province != null
+          ? List<String>.from(_provinceMap[province] ?? const <String>[])
+          : <String>[];
+      if (!_districtOptions.contains(_selectedDistrict)) {
+        _selectedDistrict = null;
+      }
+    });
+  }
 
   bool _loading = false;
   bool _pwVisible = false;
@@ -38,7 +92,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     usernameCtrl.dispose();
     emailCtrl.dispose();
     phoneCtrl.dispose();
-    addressCtrl.dispose();
     passCtrl.dispose();
     confirmPassCtrl.dispose();
     super.dispose();
@@ -48,22 +101,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => _submitted = true);
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final name = '${firstNameCtrl.text.trim()} ${lastNameCtrl.text.trim()}'
-        .trim();
+    final firstName = firstNameCtrl.text.trim();
+    final lastName = lastNameCtrl.text.trim();
     final email = emailCtrl.text.trim();
     final phone = phoneCtrl.text.trim();
-    final address = addressCtrl.text.trim();
     final username = usernameCtrl.text.trim();
     final password = passCtrl.text;
+    final province = _selectedProvince;
+    final district = _selectedDistrict;
+
+    if (province == null || district == null) {
+      await _showErrorDialog(
+        title: 'Missing location',
+        message: 'Select your province and district before continuing.',
+      );
+      return;
+    }
 
     setState(() => _loading = true);
     try {
       final result = await AuthService().register(
-        name,
-        email,
-        phone,
-        password,
-        address: address.isEmpty ? null : address,
+        firstName: firstName,
+        lastName: lastName.isEmpty ? null : lastName,
+        email: email,
+        phone: phone,
+        password: password,
+        province: province,
+        district: district,
         username: username.isEmpty ? null : username,
       );
       if (!mounted) return;
@@ -356,7 +420,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   TextFormField(
                                     controller: phoneCtrl,
                                     textInputAction: TextInputAction.next,
-                                    keyboardType: TextInputType.phone,
+                                    keyboardType: TextInputType.number,
                                     style: TextStyle(
                                       color: Theme.of(
                                         context,
@@ -364,24 +428,101 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                       fontSize: 15,
                                     ),
                                     cursorColor: brand,
-                                    decoration: _dec('Contact Number'),
-                                    validator: (v) => (v ?? '').trim().isEmpty
-                                        ? 'Contact number is required'
-                                        : null,
+                                    decoration: _dec('Contact Number').copyWith(
+                                      prefixText: '+260 ', // fixed country code
+                                      prefixStyle: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter
+                                          .digitsOnly, // only digits allowed
+                                      LengthLimitingTextInputFormatter(
+                                        9,
+                                      ), // Zambian numbers are 9 digits after +260
+                                    ],
+                                    validator: (v) {
+                                      final value = (v ?? '').trim();
+                                      if (value.isEmpty)
+                                        return 'Contact number is required';
+                                      if (value.length != 9)
+                                        return 'Enter a valid 9-digit number';
+                                      return null;
+                                    },
                                   ),
-                                  TextFormField(
-                                    controller: addressCtrl,
-                                    textInputAction: TextInputAction.next,
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                      fontSize: 15,
-                                    ),
-                                    cursorColor: brand,
-                                    decoration: _dec('Address (optional)'),
+                                  DropdownButtonFormField<String>(
+                                    value: _selectedProvince,
+                                    items: _provinceMap.keys
+                                        .map(
+                                          (province) => DropdownMenuItem(
+                                            value: province,
+                                            child: Text(province),
+                                          ),
+                                        )
+                                        .toList(),
+                                    decoration: _dec('Province'),
+                                    isExpanded: true,
+                                    onChanged: (_loading || _loadingProvinces)
+                                        ? null
+                                        : (value) => _onProvinceChanged(value),
+                                    validator: (value) {
+                                      if (_loadingProvinces) {
+                                        return null;
+                                      }
+                                      if (_provinceMap.isEmpty) {
+                                        return 'Provinces unavailable';
+                                      }
+                                      if (value == null || value.isEmpty) {
+                                        return 'Province is required';
+                                      }
+                                      return null;
+                                    },
                                   ),
                                 ),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<String>(
+                                  value: _selectedDistrict,
+                                  items: _districtOptions
+                                      .map(
+                                        (district) => DropdownMenuItem(
+                                          value: district,
+                                          child: Text(district),
+                                        ),
+                                      )
+                                      .toList(),
+                                  decoration: _dec('Area'),
+                                  isExpanded: true,
+                                  onChanged:
+                                      (_selectedProvince == null ||
+                                          _districtOptions.isEmpty ||
+                                          _loading ||
+                                          _loadingProvinces)
+                                      ? null
+                                      : (value) => setState(
+                                          () => _selectedDistrict = value,
+                                        ),
+                                  validator: (value) {
+                                    if (_loadingProvinces) {
+                                      return null;
+                                    }
+                                    if (_selectedProvince == null ||
+                                        _selectedProvince!.isEmpty) {
+                                      return 'Select a province first';
+                                    }
+                                    if (_districtOptions.isEmpty) {
+                                      return 'No areas available';
+                                    }
+                                    if (value == null || value.isEmpty) {
+                                      return 'Area is required';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                if (_loadingProvinces) ...[
+                                  const SizedBox(height: 8),
+                                  const LinearProgressIndicator(minHeight: 2),
+                                ],
                                 const SizedBox(height: 16),
                                 TextFormField(
                                   controller: passCtrl,
@@ -448,25 +589,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   validator: (v) => v != passCtrl.text
                                       ? 'Passwords do not match'
                                       : null,
-                                ),
-                                const SizedBox(height: 12),
-                                // Remember + forgot row
-                                Row(
-                                  children: [
-                                    // Checkbox(value: false, onChanged: (_) {}),
-                                    // Text(
-                                    //   'Remember me',
-                                    //   style: GoogleFonts.urbanist(),
-                                    // ),
-                                    const Spacer(),
-                                    Text(
-                                      'Forgot Password ?',
-                                      style: GoogleFonts.urbanist(
-                                        color: brand,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
                                 ),
                                 const SizedBox(height: 8),
                                 // CTA

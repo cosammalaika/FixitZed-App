@@ -89,7 +89,17 @@ class ProfileController extends AutoDisposeAsyncNotifier<ProfileState> {
   }
 
   String _resolveLocation(Map<String, dynamic> raw) {
-    return (raw['address'] ?? raw['location'] ?? '').toString().trim();
+    final address =
+        (raw['address'] ?? raw['location'] ?? '').toString().trim();
+    if (address.isNotEmpty) return address;
+
+    final province = (raw['province'] ?? raw['province_name'] ?? '')
+        .toString()
+        .trim();
+    final district =
+        (raw['district'] ?? raw['district_name'] ?? '').toString().trim();
+    final parts = [province, district].where((s) => s.isNotEmpty).toList();
+    return parts.isEmpty ? '' : parts.join(', ');
   }
 
   String _resolvePhone(Map<String, dynamic> raw) {

@@ -131,9 +131,16 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     final city = (raw['city'] ?? '').toString().trim();
     final country = (raw['country'] ?? '').toString().trim();
     final address = (raw['address'] ?? raw['location'] ?? '').toString().trim();
+    final province = (raw['province'] ?? raw['province_name'] ?? '')
+        .toString()
+        .trim();
+    final district =
+        (raw['district'] ?? raw['district_name'] ?? '').toString().trim();
 
     if (city.isNotEmpty && country.isNotEmpty) return '$city, $country';
     if (address.isNotEmpty) return address;
+    final parts = [province, district].where((s) => s.isNotEmpty).toList();
+    if (parts.isNotEmpty) return parts.join(', ');
     if (city.isNotEmpty) return city;
     return '';
   }
