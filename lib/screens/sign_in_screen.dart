@@ -62,9 +62,7 @@ class _SignInScreenState extends State<SignInScreen> {
       container
           .read(dashboardControllerProvider.future)
           .then((_) {}, onError: (_) {}),
-      container
-          .read(topFixersProvider.future)
-          .then((_) {}, onError: (_) {}),
+      container.read(topFixersProvider.future).then((_) {}, onError: (_) {}),
     ];
     await Future.wait(futures);
   }
@@ -188,9 +186,8 @@ class _SignInScreenState extends State<SignInScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.white,
-      builder: (ctx) => ForgotPasswordSheet(
-        initialIdentifier: seed.isEmpty ? null : seed,
-      ),
+      builder: (ctx) =>
+          ForgotPasswordSheet(initialIdentifier: seed.isEmpty ? null : seed),
     );
 
     if (!mounted || completed != true) return;
@@ -235,7 +232,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     child: Container(
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF111111), Color(0xFF1F1F1F)],
+                          colors: [Color(0xFFF1592A), Color(0xFF1F1F1F)],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         ),
@@ -523,8 +520,9 @@ class _SignInScreenState extends State<SignInScreen> {
                                         const Text("Remember Me"),
                                         const Spacer(),
                                         TextButton(
-                                          onPressed:
-                                              _loading ? null : _showForgotPassword,
+                                          onPressed: _loading
+                                              ? null
+                                              : _showForgotPassword,
                                           child: Text(
                                             "Forgot password?",
                                             style: GoogleFonts.urbanist(
