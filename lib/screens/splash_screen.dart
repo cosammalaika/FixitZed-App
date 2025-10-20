@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -14,10 +14,17 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Navigate to onboarding after 2 seconds
-    Timer(const Duration(seconds: 2), () {
-      Navigator.of(context).pushReplacementNamed('/onboarding');
-    });
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenOnboarding = prefs.getBool('onboarding_seen') ?? false;
+    final route = hasSeenOnboarding ? '/auth' : '/onboarding';
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed(route);
   }
 
   @override

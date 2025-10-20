@@ -40,6 +40,11 @@ class _BookingSheetState extends State<BookingSheet> {
       _serviceName = _extractServiceName(init);
     }
     _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _prefillLocation();
+      }
+    });
   }
 
   InputDecoration _fieldDecoration({
@@ -96,6 +101,20 @@ class _BookingSheetState extends State<BookingSheet> {
         }
       }
     });
+  }
+
+  Future<void> _prefillLocation() async {
+    if (_locationCtrl.text.trim().isNotEmpty) return;
+    final success = await _useCurrentLocation(
+      showFeedback: false,
+      showIndicator: false,
+    );
+    if (!success && mounted) {
+      _showSnack(
+        message: 'Could not fetch your current location automatically. You can tap “Use current” or enter it manually.',
+        success: false,
+      );
+    }
   }
 
   Widget _buildHeroHeader() {
@@ -499,7 +518,7 @@ class _BookingSheetState extends State<BookingSheet> {
                   const SizedBox(height: 14),
                   _sectionCard(
                     icon: Icons.place_outlined,
-                    title: 'Location & schedule',
+                    title: 'Location',
                     children: [
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -510,6 +529,20 @@ class _BookingSheetState extends State<BookingSheet> {
                               label: 'Service location',
                               hint: 'e.g., Plot 123, Kabwata, Lusaka',
                               icon: const Icon(Icons.location_on_outlined),
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  Icons.my_location_rounded,
+                                  color: _locating
+                                      ? Theme.of(context).colorScheme.outline
+                                      : const Color(0xFFF1592A),
+                                ),
+                                onPressed: _locating
+                                    ? null
+                                    : () async {
+                                        await _useCurrentLocation();
+                                      },
+                              ),
                             ),
                             textInputAction: TextInputAction.next,
                             onChanged: (_) {
@@ -532,7 +565,9 @@ class _BookingSheetState extends State<BookingSheet> {
                                 child: OutlinedButton.icon(
                                   onPressed: _locating
                                       ? null
-                                      : _useCurrentLocation,
+                                      : () async {
+                                          await _useCurrentLocation();
+                                        },
                                   icon: _locating
                                       ? const SizedBox(
                                           width: 14,
@@ -899,16 +934,23 @@ class _BookingSheetState extends State<BookingSheet> {
     }
   }
 
-  Future<void> _useCurrentLocation() async {
-    setState(() => _locating = true);
+  Future<bool> _useCurrentLocation({
+    bool showFeedback = true,
+    bool showIndicator = true,
+  }) async {
+    if (showIndicator && mounted) {
+      setState(() => _locating = true);
+    }
     try {
       final enabled = await Geolocator.isLocationServiceEnabled();
       if (!enabled) {
-        _showSnack(
-          message: 'Turn on location services to use current location',
-          success: false,
-        );
-        return;
+        if (showFeedback) {
+          _showSnack(
+            message: 'Turn on location services to use current location',
+            success: false,
+          );
+        }
+        return false;
       }
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -916,8 +958,10 @@ class _BookingSheetState extends State<BookingSheet> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        _showSnack(message: 'Location permission denied', success: false);
-        return;
+        if (showFeedback) {
+          _showSnack(message: 'Location permission denied', success: false);
+        }
+        return false;
       }
 
       final position = await Geolocator.getCurrentPosition(
@@ -941,17 +985,26 @@ class _BookingSheetState extends State<BookingSheet> {
         }
       } catch (_) {}
 
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _locationCtrl.text = formatted;
         _locationLat = position.latitude;
         _locationLng = position.longitude;
+        if (showIndicator) {
+          _locating = false;
+        }
       });
+      return true;
     } catch (_) {
-      if (!mounted) return;
-      _showSnack(message: 'Could not fetch current location', success: false);
+      if (!mounted) return false;
+      if (showFeedback) {
+        _showSnack(message: 'Could not fetch current location', success: false);
+      }
+      return false;
     } finally {
-      if (mounted) setState(() => _locating = false);
+      if (showIndicator && mounted) {
+        setState(() => _locating = false);
+      }
     }
   }
 }

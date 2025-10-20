@@ -47,6 +47,10 @@
 	<string>FixItZed saves your profile photo to your library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>FixItZed needs photo library access to select a profile photo.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>FixItZed uses your location to auto-fill service addresses and match you with nearby fixers.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>FixItZed needs location access to keep your saved service locations accurate.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -48,15 +49,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  void nextPage() {
+  Future<void> nextPage() async {
     if (currentPage < onboardingData.length - 1) {
       _controller.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
     } else {
-      Navigator.of(context).pushReplacementNamed("/auth");
+      await _completeOnboarding();
     }
+  }
+
+  Future<void> _completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_seen', true);
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed("/auth");
   }
 
   @override
