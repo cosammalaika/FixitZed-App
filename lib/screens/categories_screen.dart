@@ -1,5 +1,6 @@
+import 'package:fixitzed_app/services/category_service.dart';
 import 'package:flutter/material.dart';
-import '../services/category_service.dart';
+import 'package:fixitzed_app/widgets/skeletons.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -36,7 +37,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text("Categories")),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const CategoriesSkeleton()
           : ListView.builder(
               itemCount: categories.length,
               itemBuilder: (context, index) {

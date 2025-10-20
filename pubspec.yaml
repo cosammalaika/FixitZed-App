@@ -39,6 +39,7 @@ dependencies:
   introduction_screen: ^4.0.0
   google_fonts: ^6.3.1
   intl: ^0.20.2
+  shimmer: ^3.0.0
   file_picker: ^10.3.3
   image_picker: ^1.2.0
   geolocator: ^11.0.0
@@ -48,11 +49,13 @@ dependencies:
   path_provider: ^2.1.4
   flutter_local_notifications: ^17.1.2
   flutter_riverpod: ^2.5.1
+  connectivity_plus: ^7.0.0
   meta: ^1.16.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  pedantic: ^1.11.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

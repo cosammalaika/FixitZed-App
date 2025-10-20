@@ -23,6 +23,7 @@ import 'package:fixitzed_app/screens/auth/account_blocked_screen.dart';
 
 import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
+import 'package:fixitzed_app/common/connectivity/connectivity_overlay.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,46 +32,55 @@ Future<void> main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: AppTheme.mode,
-      builder: (context, mode, _) => MaterialApp(
-        title: 'FixItZed',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light().copyWith(
-          textTheme: GoogleFonts.urbanistTextTheme(Theme.of(context).textTheme),
-        ),
-        darkTheme: AppTheme.dark().copyWith(
-          textTheme: GoogleFonts.urbanistTextTheme(Theme.of(context).textTheme),
-        ),
-        themeMode: mode,
-        initialRoute: '/',
-        routes: {
-          '/': (context) => const SplashScreen(),
-          '/onboarding': (context) => const OnboardingScreen(),
-          '/auth': (context) => const SignInScreen(),
-          '/signup': (context) => const SignUpScreen(),
-          '/home': (context) => const DashboardScreen(),
-          '/notifications': (context) => const NotificationsScreen(),
-          '/services': (context) => const ServicesListScreen(),
-          '/fixers': (context) => const FixersListScreen(),
-          '/profile/edit': (context) => const EditProfileScreen(),
-          '/profile/addresses': (context) => const ManageAddressScreen(),
-          '/profile/payments': (context) => const PaymentMethodsScreen(),
-          '/profile/bookings': (context) => const MyBookingScreen(),
-          '/profile/settings': (context) => const SettingsScreen(),
-          '/profile/help': (context) => const HelpCenterScreen(),
-          '/profile/faqs': (context) => const FaqsScreen(),
-          '/profile/password': (context) => const ChangePasswordScreen(),
-          '/about': (context) => const AboutScreen(),
-          '/fixer/apply': (context) => const BecomeFixerScreen(),
-          '/account_blocked': (context) => const AccountBlockedScreen(),
-        },
-      ),
+      builder: (context, mode, _) {
+        return MaterialApp(
+          title: 'FixItZed',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light().copyWith(
+            textTheme:
+                GoogleFonts.urbanistTextTheme(Theme.of(context).textTheme),
+          ),
+          darkTheme: AppTheme.dark().copyWith(
+            textTheme:
+                GoogleFonts.urbanistTextTheme(Theme.of(context).textTheme),
+          ),
+          themeMode: mode,
+          initialRoute: '/',
+          routes: {
+            '/': (context) => const SplashScreen(),
+            '/onboarding': (context) => const OnboardingScreen(),
+            '/auth': (context) => const SignInScreen(),
+            '/signup': (context) => const SignUpScreen(),
+            '/home': (context) => const DashboardScreen(),
+            '/notifications': (context) => const NotificationsScreen(),
+            '/services': (context) => const ServicesListScreen(),
+            '/fixers': (context) => const FixersListScreen(),
+            '/profile/edit': (context) => const EditProfileScreen(),
+            '/profile/addresses': (context) => const ManageAddressScreen(),
+            '/profile/payments': (context) => const PaymentMethodsScreen(),
+            '/profile/bookings': (context) => const MyBookingScreen(),
+            '/profile/settings': (context) => const SettingsScreen(),
+            '/profile/help': (context) => const HelpCenterScreen(),
+            '/profile/faqs': (context) => const FaqsScreen(),
+            '/profile/password': (context) => const ChangePasswordScreen(),
+            '/about': (context) => const AboutScreen(),
+            '/fixer/apply': (context) => const BecomeFixerScreen(),
+            '/account_blocked': (context) =>
+                const AccountBlockedScreen(),
+          },
+          builder: (context, child) {
+            if (child == null) return const SizedBox.shrink();
+            return ConnectivityOverlay(child: child);
+          },
+        );
+      },
     );
   }
 }

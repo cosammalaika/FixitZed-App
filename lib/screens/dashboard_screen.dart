@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-import '../core/api.dart';
-import '../state/dashboard_controller.dart';
-import '../state/fixers_providers.dart';
-import '../state/service_providers.dart';
-import '../utils/service_utils.dart';
-import 'dashboard_widgets.dart';
-import 'favorites_screen.dart';
-import 'payment_sheet.dart';
-import 'profile/my_booking_screen.dart';
-import 'profile_screen.dart';
+import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/state/dashboard_controller.dart';
+import 'package:fixitzed_app/state/fixers_providers.dart';
+import 'package:fixitzed_app/state/service_providers.dart';
+import 'package:fixitzed_app/utils/service_utils.dart';
+import 'package:fixitzed_app/screens/dashboard_widgets.dart';
+import 'package:fixitzed_app/screens/favorites_screen.dart';
+import 'package:fixitzed_app/screens/payment_sheet.dart';
+import 'package:fixitzed_app/screens/profile/my_booking_screen.dart';
+import 'package:fixitzed_app/screens/profile_screen.dart';
+import 'package:fixitzed_app/widgets/skeletons.dart';
+import 'package:fixitzed_app/widgets/skeletons.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -494,6 +495,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     isInitialLoading: isInitialLoading,
                     errorText: errorText,
                     topFixers: topFixers,
+                    onRetry: _refreshDashboard,
                   ),
                   const MyBookingScreen(),
                   const FavoritesScreen(),
@@ -512,16 +514,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required bool isInitialLoading,
     required String? errorText,
     required AsyncValue<List<dynamic>> topFixers,
+    required Future<void> Function() onRetry,
   }) {
     if (isInitialLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const DashboardSkeleton();
     }
     if (errorText != null) {
       return _ErrorState(
         message: 'We couldn\'t load the dashboard right now.',
         detail: errorText,
-        onRetry: () =>[]
-            
+        onRetry: onRetry,
       );
     }
     return SingleChildScrollView(
@@ -549,7 +551,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 class _ErrorState extends StatelessWidget {
   final String message;
   final String? detail;
-  final VoidCallback onRetry;
+  final Future<void> Function() onRetry;
 
   const _ErrorState({
     required this.message,
@@ -585,7 +587,7 @@ class _ErrorState extends StatelessWidget {
             ],
             const SizedBox(height: 20),
             ElevatedButton.icon(
-              onPressed: onRetry,
+              onPressed: () => onRetry(),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFF1592A),
                 foregroundColor: Colors.white,

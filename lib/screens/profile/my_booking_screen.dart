@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/date_utils.dart';
 import '../../state/my_bookings_controller.dart';
 import '../payment_sheet.dart';
+import 'package:fixitzed_app/widgets/skeletons.dart';
 
 import 'booking_detail_screen.dart';
 
@@ -32,7 +33,7 @@ class MyBookingScreen extends ConsumerWidget {
       ),
       backgroundColor: theme.scaffoldBackgroundColor,
       body: bookingsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const BookingListSkeleton(),
         error: (err, _) => Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),

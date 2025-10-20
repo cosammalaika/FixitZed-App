@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/home_service.dart';
 import '../services/favorites_service.dart';
 import '../utils/service_utils.dart';
+import 'package:fixitzed_app/widgets/skeletons.dart';
 
 class ServicesListScreen extends StatefulWidget {
   const ServicesListScreen({super.key});
@@ -212,13 +213,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 220),
-                  Center(child: CircularProgressIndicator()),
-                ],
-              )
+            ? const ServicesListSkeleton()
             : _services.isEmpty
             ? _EmptyServicesState(
                 searchQuery: _searchTerm,

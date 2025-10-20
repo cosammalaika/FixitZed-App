@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../state/fixers_providers.dart';
 import '../widgets/fixer_list_item.dart';
+import 'package:fixitzed_app/widgets/skeletons.dart';
 
 class FixersListScreen extends ConsumerWidget {
   const FixersListScreen({super.key});
@@ -30,7 +31,7 @@ class FixersListScreen extends ConsumerWidget {
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: fixersAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const FixerListSkeleton(),
         error: (err, _) => Center(
           child: Text(
             'Unable to load fixers',
