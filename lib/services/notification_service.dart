@@ -8,8 +8,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
+import 'package:fixitzed_app/state/app_sync.dart';
 
 class NotificationService {
+  NotificationService({AppSync? sync}) : _sync = sync ?? AppSync.instance;
+
+  final AppSync _sync;
+
   Map<String, String> _headers(String token) => {
         'Accept': 'application/json',
         'Authorization': 'Bearer $token',
@@ -58,7 +63,18 @@ class NotificationService {
       final token = await _token();
       if (token == null || token.isEmpty) return false;
       final res = await http.patch(_uri('notifications/$id/read'), headers: _headers(token), body: jsonEncode({}));
-      return res.statusCode == 200;
+      final ok = res.statusCode == 200;
+      if (ok) {
+        _sync.emit(
+          AppSyncTopic.notifications,
+          payload: <String, dynamic>{'action': 'markRead', 'id': id},
+        );
+        _sync.emit(
+          AppSyncTopic.dashboard,
+          payload: <String, dynamic>{'source': 'notifications'},
+        );
+      }
+      return ok;
     } catch (_) {
       return false;
     }
@@ -69,7 +85,18 @@ class NotificationService {
       final token = await _token();
       if (token == null || token.isEmpty) return false;
       final res = await http.post(_uri('notifications/read-all'), headers: _headers(token), body: jsonEncode({}));
-      return res.statusCode == 200;
+      final ok = res.statusCode == 200;
+      if (ok) {
+        _sync.emit(
+          AppSyncTopic.notifications,
+          payload: const <String, dynamic>{'action': 'markAll'},
+        );
+        _sync.emit(
+          AppSyncTopic.dashboard,
+          payload: const <String, dynamic>{'source': 'notifications'},
+        );
+      }
+      return ok;
     } catch (_) {
       return false;
     }

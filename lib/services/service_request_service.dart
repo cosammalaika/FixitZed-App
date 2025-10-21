@@ -8,8 +8,29 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
+import 'package:fixitzed_app/state/app_sync.dart';
+
+class ServiceRequestResult {
+  const ServiceRequestResult.success()
+      : success = true,
+        message = null,
+        statusCode = null;
+
+  const ServiceRequestResult.failure({
+    required this.message,
+    this.statusCode,
+  }) : success = false;
+
+  final bool success;
+  final String? message;
+  final int? statusCode;
+}
 
 class ServiceRequestService {
+  ServiceRequestService({AppSync? sync}) : _sync = sync ?? AppSync.instance;
+
+  final AppSync _sync;
+
   Map<String, String> _headers({String? token}) => {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -23,7 +44,10 @@ class ServiceRequestService {
 
   Uri _uri(String path) => Uri.parse('${Api.baseUrl}/$path');
 
-  Future<bool> _postTo(String path, Map payload) async {
+  Future<ServiceRequestResult> _postTo(
+    String path,
+    Map<String, dynamic> payload,
+  ) async {
     try {
       final token = await _getToken();
       final res = await http.post(
@@ -31,19 +55,29 @@ class ServiceRequestService {
         headers: _headers(token: token),
         body: jsonEncode(payload),
       );
-      return res.statusCode >= 200 && res.statusCode < 300;
+
+      final status = res.statusCode;
+      if (status >= 200 && status < 300) {
+        return const ServiceRequestResult.success();
+      }
+
+      return ServiceRequestResult.failure(
+        message: _extractError(res),
+        statusCode: status,
+      );
     } catch (_) {
-      return false;
+      return const ServiceRequestResult.failure(
+        message: 'Unable to reach the server. Check your connection and try again.',
+      );
     }
   }
 
-  Future<bool> createRequest({
+  Future<ServiceRequestResult> createRequest({
     required String serviceId,
     required DateTime scheduledAt,
     required String location,
     double? locationLat,
     double? locationLng,
-    String status = 'pending',
     String? couponCode,
   }) async {
     // Try common backend paths in order.
@@ -51,24 +85,48 @@ class ServiceRequestService {
       if (v == null) return null;
       return int.tryParse(v);
     }
+    final formattedSchedule =
+        DateFormat('yyyy-MM-dd HH:mm:ss').format(scheduledAt.toLocal());
     final payload = <String, dynamic>{
       'service_id': asInt(serviceId) ?? serviceId,
-      'scheduled_at': scheduledAt.toIso8601String(),
+      'scheduled_at': formattedSchedule,
       'location': location,
-      'status': status,
       if (locationLat != null) 'location_lat': locationLat,
       if (locationLng != null) 'location_lng': locationLng,
       if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
     };
+    var lastResult = const ServiceRequestResult.failure(
+      message: 'Service unavailable.',
+    );
     for (final path in [
       'requests',
       'service-requests',
       'bookings',
     ]) {
-      final ok = await _postTo(path, payload);
-      if (ok) return true;
+      final result = await _postTo(path, payload);
+      if (result.success) {
+        _sync.emit(
+          AppSyncTopic.bookings,
+          payload: <String, dynamic>{
+            'action': 'create',
+            'serviceId': serviceId,
+            'scheduledAt': formattedSchedule,
+            'location': location,
+          },
+        );
+        _sync.emit(
+          AppSyncTopic.dashboard,
+          payload: const <String, dynamic>{'source': 'bookings'},
+        );
+        return result;
+      }
+      if (result.statusCode == 404) {
+        // Ignore missing legacy routes and try the next fallback.
+        continue;
+      }
+      lastResult = result;
     }
-    return false;
+    return lastResult;
   }
 
   Future<bool> cancelRequest(int requestId) async {
@@ -81,7 +139,20 @@ class ServiceRequestService {
       ];
       for (final path in postEndpoints) {
         final res = await http.post(_uri(path), headers: headers);
-        if (res.statusCode >= 200 && res.statusCode < 300) return true;
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          _sync.emit(
+            AppSyncTopic.bookings,
+            payload: <String, dynamic>{
+              'action': 'cancel',
+              'requestId': requestId,
+            },
+          );
+          _sync.emit(
+            AppSyncTopic.dashboard,
+            payload: const <String, dynamic>{'source': 'bookings'},
+          );
+          return true;
+        }
       }
 
       final res = await http.patch(
@@ -89,7 +160,21 @@ class ServiceRequestService {
         headers: headers,
         body: jsonEncode({'status': 'cancelled'}),
       );
-      return res.statusCode >= 200 && res.statusCode < 300;
+      final ok = res.statusCode >= 200 && res.statusCode < 300;
+      if (ok) {
+        _sync.emit(
+          AppSyncTopic.bookings,
+          payload: <String, dynamic>{
+            'action': 'cancel',
+            'requestId': requestId,
+          },
+        );
+        _sync.emit(
+          AppSyncTopic.dashboard,
+          payload: const <String, dynamic>{'source': 'bookings'},
+        );
+      }
+      return ok;
     } catch (_) {
       return false;
     }
@@ -268,6 +353,51 @@ class ServiceRequestService {
         return 'awaiting_payment';
       default:
         return null;
+    }
+  }
+
+  String _extractError(http.Response res) {
+    String? message;
+    try {
+      final data = jsonDecode(res.body);
+      if (data is Map<String, dynamic>) {
+        final msg = data['message'];
+        if (msg is String && msg.trim().isNotEmpty) {
+          message = msg.trim();
+        } else if (data['errors'] is Map) {
+          final errors = data['errors'] as Map;
+          for (final entry in errors.entries) {
+            final value = entry.value;
+            if (value is List && value.isNotEmpty) {
+              message = value.first.toString();
+              break;
+            }
+            if (value != null) {
+              message = value.toString();
+              break;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (message != null && message.isNotEmpty) {
+      return message;
+    }
+
+    switch (res.statusCode) {
+      case 401:
+        return 'Your session expired. Please sign in again.';
+      case 403:
+        return 'Please verify your account before booking a service.';
+      case 404:
+        return 'Booking service is temporarily unavailable.';
+      case 422:
+        return 'We could not validate the booking details. Please review and try again.';
+      case 429:
+        return 'Too many attempts. Wait a moment and try again.';
+      default:
+        return 'The server rejected the booking (status ${res.statusCode}).';
     }
   }
 }

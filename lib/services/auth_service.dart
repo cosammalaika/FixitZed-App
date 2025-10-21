@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/state/app_sync.dart';
 
 class AuthResult {
   final bool success;
@@ -27,6 +28,9 @@ class AuthResult {
 }
 
 class AuthService {
+  AuthService({AppSync? sync}) : _sync = sync ?? AppSync.instance;
+
+  final AppSync _sync;
   static const String _tokenKey = 'auth_token';
 
   /// WHY: Ensure Laravel returns JSON validation; send JSON bodies for consistency.
@@ -115,6 +119,26 @@ class AuthService {
             );
           }
           final msg = _extractMessage(data);
+          _sync.emit(
+            AppSyncTopic.profile,
+            payload: const <String, dynamic>{'action': 'login'},
+          );
+          _sync.emit(
+            AppSyncTopic.dashboard,
+            payload: const <String, dynamic>{'source': 'auth'},
+          );
+          _sync.emit(
+            AppSyncTopic.notifications,
+            payload: const <String, dynamic>{'source': 'auth'},
+          );
+          _sync.emit(
+            AppSyncTopic.bookings,
+            payload: const <String, dynamic>{'source': 'auth'},
+          );
+          _sync.emit(
+            AppSyncTopic.wallet,
+            payload: const <String, dynamic>{'source': 'auth'},
+          );
           return AuthResult(success: true, message: msg);
         }
       }
@@ -180,6 +204,14 @@ class AuthService {
         }
         await _saveToken(token);
         final msg = _extractMessage(data);
+        _sync.emit(
+          AppSyncTopic.profile,
+          payload: const <String, dynamic>{'action': 'register'},
+        );
+        _sync.emit(
+          AppSyncTopic.dashboard,
+          payload: const <String, dynamic>{'source': 'auth'},
+        );
         return AuthResult(success: true, message: msg);
       }
       return _mapError(res);
@@ -205,6 +237,26 @@ class AuthService {
       // WHY: Network/API failures shouldn't block local logout.
     } finally {
       await _clearToken();
+      _sync.emit(
+        AppSyncTopic.profile,
+        payload: const <String, dynamic>{'action': 'logout'},
+      );
+      _sync.emit(
+        AppSyncTopic.dashboard,
+        payload: const <String, dynamic>{'source': 'auth', 'action': 'logout'},
+      );
+      _sync.emit(
+        AppSyncTopic.notifications,
+        payload: const <String, dynamic>{'source': 'auth', 'action': 'logout'},
+      );
+      _sync.emit(
+        AppSyncTopic.bookings,
+        payload: const <String, dynamic>{'source': 'auth', 'action': 'logout'},
+      );
+      _sync.emit(
+        AppSyncTopic.wallet,
+        payload: const <String, dynamic>{'source': 'auth', 'action': 'logout'},
+      );
     }
   }
 
@@ -314,18 +366,21 @@ class AuthService {
         try {
           final resPatch = await _patchJson(path, body, token: token);
           if (resPatch.statusCode >= 200 && resPatch.statusCode < 300) {
+            _announceProfileUpdate();
             return true;
           }
         } catch (_) {}
         try {
           final resPut = await _putJson(path, body, token: token);
           if (resPut.statusCode >= 200 && resPut.statusCode < 300) {
+            _announceProfileUpdate();
             return true;
           }
         } catch (_) {}
         try {
           final resPost = await _postJson(path, body, token: token);
           if (resPost.statusCode >= 200 && resPost.statusCode < 300) {
+            _announceProfileUpdate();
             return true;
           }
         } catch (_) {}
@@ -354,10 +409,26 @@ class AuthService {
 
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
-      return response.statusCode >= 200 && response.statusCode < 300;
+      final ok =
+          response.statusCode >= 200 && response.statusCode < 300;
+      if (ok) {
+        _announceProfileUpdate();
+      }
+      return ok;
     } catch (_) {
       return false;
     }
+  }
+
+  void _announceProfileUpdate() {
+    _sync.emit(
+      AppSyncTopic.profile,
+      payload: const <String, dynamic>{'action': 'profileUpdated'},
+    );
+    _sync.emit(
+      AppSyncTopic.dashboard,
+      payload: const <String, dynamic>{'source': 'profile'},
+    );
   }
 
   /// Changes the authenticated user's password. Tries common API shapes.

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
+import 'package:fixitzed_app/state/app_sync.dart';
 
 class ProfileState {
   const ProfileState({
@@ -41,8 +42,11 @@ class ProfileState {
 }
 
 class ProfileController extends AutoDisposeAsyncNotifier<ProfileState> {
+  bool _syncRegistered = false;
+
   @override
   FutureOr<ProfileState> build() {
+    _registerSync();
     return _fetch();
   }
 
@@ -154,6 +158,16 @@ class ProfileController extends AutoDisposeAsyncNotifier<ProfileState> {
 
     if (raw['fixer_profile'] != null) fixer = true;
     return fixer;
+  }
+
+  void _registerSync() {
+    if (_syncRegistered) return;
+    _syncRegistered = true;
+
+    Future<void> handle(AppSyncEvent _) => refresh();
+
+    ref.onAppSync(AppSyncTopic.profile, handle);
+    ref.onAppSync(AppSyncTopic.dashboard, handle);
   }
 }
 

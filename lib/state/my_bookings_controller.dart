@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fixitzed_app/state/service_providers.dart';
+import 'package:fixitzed_app/state/app_sync.dart';
 
 class MyBookingsState {
   const MyBookingsState({
@@ -15,8 +16,11 @@ class MyBookingsState {
 }
 
 class MyBookingsController extends AutoDisposeAsyncNotifier<MyBookingsState> {
+  bool _syncRegistered = false;
+
   @override
   FutureOr<MyBookingsState> build() {
+    _registerSync();
     return _fetch();
   }
 
@@ -50,6 +54,16 @@ class MyBookingsController extends AutoDisposeAsyncNotifier<MyBookingsState> {
     }
 
     return MyBookingsState(requests: requests, payments: payments);
+  }
+
+  void _registerSync() {
+    if (_syncRegistered) return;
+    _syncRegistered = true;
+
+    Future<void> handle(AppSyncEvent _) => refresh();
+
+    ref.onAppSync(AppSyncTopic.bookings, handle);
+    ref.onAppSync(AppSyncTopic.wallet, handle);
   }
 }
 

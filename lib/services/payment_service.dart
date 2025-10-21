@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/state/app_sync.dart';
 
 class PaymentResult {
   final bool success;
@@ -18,6 +19,10 @@ class PaymentResult {
 }
 
 class PaymentService {
+  PaymentService({AppSync? sync}) : _sync = sync ?? AppSync.instance;
+
+  final AppSync _sync;
+
   Map<String, String> _headers(String token) => {
     'Accept': 'application/json',
     'Authorization': 'Bearer $token',
@@ -93,8 +98,26 @@ class PaymentService {
               ? Map<String, dynamic>.from(body['data'] as Map)
               : Map<String, dynamic>.from(body);
           message = body['message']?.toString();
-        }
+      }
       } catch (_) {}
+      _sync.emit(
+        AppSyncTopic.bookings,
+        payload: <String, dynamic>{
+          'action': 'payment',
+          'requestId': requestId,
+          'amount': amount,
+          'paidAt': paidAt,
+        },
+      );
+      _sync.emit(
+        AppSyncTopic.wallet,
+        payload: <String, dynamic>{
+          'delta': amount,
+          'requestId': requestId,
+          'paidAt': paidAt,
+        },
+      );
+
       return PaymentResult(
         success: true,
         message: message ?? 'Payment successful',

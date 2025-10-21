@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fixitzed_app/services/home_service.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
@@ -20,6 +23,10 @@ class _BookingSheetState extends State<BookingSheet> {
   final _svc = HomeService();
   final _req = ServiceRequestService();
 
+  static const _lastLocationLabelKey = 'booking:last_location_label';
+  static const _lastLocationLatKey = 'booking:last_location_lat';
+  static const _lastLocationLngKey = 'booking:last_location_lng';
+
   List<Map<String, dynamic>> _services = const [];
   String? _serviceId;
   String? _serviceName;
@@ -30,6 +37,7 @@ class _BookingSheetState extends State<BookingSheet> {
   double? _locationLat;
   double? _locationLng;
   bool _locating = false;
+  Future<void>? _initialLoad;
 
   @override
   void initState() {
@@ -39,10 +47,14 @@ class _BookingSheetState extends State<BookingSheet> {
       _serviceId = _extractServiceId(init);
       _serviceName = _extractServiceName(init);
     }
-    _load();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    _initialLoad = _load();
+    _restoreLastLocation().then((_) {
       if (mounted) {
-        _prefillLocation();
+        WidgetsBinding.instance.addPostFrameCallback((__) {
+          if (mounted && _locationCtrl.text.trim().isEmpty) {
+            _prefillLocation();
+          }
+        });
       }
     });
   }
@@ -101,6 +113,16 @@ class _BookingSheetState extends State<BookingSheet> {
         }
       }
     });
+    _initialLoad = null;
+  }
+
+  Future<void> _ensureServicesLoaded() async {
+    _initialLoad ??= _load();
+    try {
+      await _initialLoad;
+    } catch (_) {
+      _initialLoad = null;
+    }
   }
 
   Future<void> _prefillLocation() async {
@@ -424,17 +446,16 @@ class _BookingSheetState extends State<BookingSheet> {
     FocusScope.of(context).unfocus();
     final scheduledAt = DateTime.now();
     setState(() => _submitting = true);
-    final ok = await _req.createRequest(
+    final result = await _req.createRequest(
       serviceId: _serviceId!,
       scheduledAt: scheduledAt,
       location: _locationCtrl.text.trim(),
       locationLat: _locationLat,
       locationLng: _locationLng,
-      status: 'pending',
     );
     if (!mounted) return;
     setState(() => _submitting = false);
-    if (ok) {
+    if (result.success) {
       await LocalNotificationService.instance.notifyBookingCreated(
         serviceName: _serviceName ?? 'Service request',
         scheduledAt: scheduledAt,
@@ -447,7 +468,10 @@ class _BookingSheetState extends State<BookingSheet> {
         success: true,
       );
     } else {
-      _showSnack(message: 'Failed to submit request', success: false);
+      _showSnack(
+        message: result.message ?? 'Failed to submit request',
+        success: false,
+      );
     }
   }
 
@@ -703,6 +727,33 @@ class _BookingSheetState extends State<BookingSheet> {
   }
 
   Future<void> _pickService() async {
+    Future<void>? loader;
+    if (_services.isEmpty && mounted) {
+      loader = showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    await _ensureServicesLoaded();
+
+    if (loader != null && mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      await loader;
+    }
+
+    if (!mounted) return;
+    if (_services.isEmpty) {
+      _showSnack(
+        message: 'Services are still syncing. Please try again in a moment.',
+        success: false,
+      );
+      return;
+    }
+
     final selected = await showModalBottomSheet<Map<String, String>>(
       context: context,
       isScrollControlled: true,
@@ -711,27 +762,29 @@ class _BookingSheetState extends State<BookingSheet> {
       ),
       builder: (ctx) {
         final queryCtrl = TextEditingController();
-        var filtered = List<Map<String, dynamic>>.of(_services);
-        void applyFilter(String q) {
-          final qq = q.trim().toLowerCase();
-          filtered = _services.where((s) {
-            final name = (s['name'] ?? s['title'] ?? 'Service')
-                .toString()
-                .toLowerCase();
-            final desc = (s['description'] ?? s['summary'] ?? '')
-                .toString()
-                .toLowerCase();
-            return name.contains(qq) || desc.contains(qq);
-          }).toList();
-        }
 
         return StatefulBuilder(
-          builder: (ctx, setSt) => SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
+          builder: (ctx, setSt) {
+            List<Map<String, dynamic>> filteredServices() {
+              final query = queryCtrl.text.trim().toLowerCase();
+              if (query.isEmpty) return List<Map<String, dynamic>>.of(_services);
+              return _services.where((s) {
+                final name =
+                    (s['name'] ?? s['title'] ?? 'Service').toString().toLowerCase();
+                final desc =
+                    (s['description'] ?? s['summary'] ?? '').toString().toLowerCase();
+                return name.contains(query) || desc.contains(query);
+              }).map((s) => Map<String, dynamic>.from(s)).toList();
+            }
+
+            final filtered = filteredServices();
+
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
                 bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
                 top: 12,
               ),
@@ -766,9 +819,7 @@ class _BookingSheetState extends State<BookingSheet> {
                       icon: const Icon(Icons.search_rounded),
                       hint: 'Type to filter…',
                     ),
-                    onChanged: (v) => setSt(() {
-                      applyFilter(v);
-                    }),
+                    onChanged: (_) => setSt(() {}),
                   ),
                   const SizedBox(height: 12),
                   ConstrainedBox(
@@ -828,7 +879,8 @@ class _BookingSheetState extends State<BookingSheet> {
                 ],
               ),
             ),
-          ),
+            );
+          },
         );
       },
     );
@@ -928,10 +980,16 @@ class _BookingSheetState extends State<BookingSheet> {
       }
 
       setState(() {
-        _locationCtrl.text = label;
+        final cleaned = _cleanLocationLabel(label);
+        _locationCtrl.text = cleaned;
         _locationLat = toDouble(latRaw);
         _locationLng = toDouble(lngRaw);
       });
+      unawaited(_cacheLocation(
+        _locationCtrl.text.trim(),
+        _locationLat,
+        _locationLng,
+      ));
     }
   }
 
@@ -977,24 +1035,34 @@ class _BookingSheetState extends State<BookingSheet> {
         );
         if (placemarks.isNotEmpty) {
           final p = placemarks.first;
-          final parts =
-              [p.street, p.subLocality, p.locality, p.administrativeArea]
-                  .where((e) => e != null && e.trim().isNotEmpty)
-                  .map((e) => e!.trim());
-          final str = parts.join(', ');
+          final rawParts = [
+            p.street,
+            p.subLocality,
+            p.locality,
+            p.subAdministrativeArea,
+            p.administrativeArea,
+            p.country,
+          ].whereType<String>().map((value) => value.trim()).toList();
+          final str = _cleanLocationLabel(rawParts.join(', '));
           if (str.isNotEmpty) formatted = str;
         }
       } catch (_) {}
 
       if (!mounted) return false;
       setState(() {
-        _locationCtrl.text = formatted;
+        final cleaned = _cleanLocationLabel(formatted);
+        _locationCtrl.text = cleaned;
         _locationLat = position.latitude;
         _locationLng = position.longitude;
         if (showIndicator) {
           _locating = false;
         }
       });
+      unawaited(_cacheLocation(
+        _locationCtrl.text.trim(),
+        _locationLat,
+        _locationLng,
+      ));
       return true;
     } catch (_) {
       if (!mounted) return false;
@@ -1007,5 +1075,102 @@ class _BookingSheetState extends State<BookingSheet> {
         setState(() => _locating = false);
       }
     }
+  }
+
+  bool _isLikelyPlusCode(String value) {
+    final cleaned = value.replaceAll(' ', '');
+    return cleaned.contains('+') &&
+        RegExp(r'^[23456789CFGHJMPQRVWX]{4,}\+\w+$').hasMatch(cleaned);
+  }
+
+  String _cleanLocationLabel(String raw) {
+    final rawSegments = raw
+        .split(',')
+        .map((segment) => segment.trim())
+        .where((segment) => segment.isNotEmpty && !_isLikelyPlusCode(segment))
+        .toList();
+
+    if (rawSegments.isEmpty) {
+      return raw.trim();
+    }
+
+    final seen = <String>{};
+    final uniqueSegments = <String>[];
+    for (final segment in rawSegments) {
+      final normalized = segment.toLowerCase();
+      if (seen.add(normalized)) {
+        uniqueSegments.add(segment);
+      }
+    }
+
+    bool isAdministrative(String value) {
+      final lower = value.toLowerCase();
+      const adminKeywords = <String>[
+        'province',
+        'district',
+        'country',
+        'region',
+        'state',
+        'city',
+        'municipality',
+        'council',
+      ];
+      for (final keyword in adminKeywords) {
+        if (lower.contains(keyword)) return true;
+      }
+      if (lower == 'zambia') return true;
+      return false;
+    }
+
+    bool hasDigits(String value) => RegExp(r'\d').hasMatch(value);
+
+    String? selectBest(List<String> segments) {
+      for (final segment in segments) {
+        if (!isAdministrative(segment) && !hasDigits(segment)) {
+          return segment;
+        }
+      }
+      for (final segment in segments) {
+        if (!isAdministrative(segment)) {
+          return segment;
+        }
+      }
+      return segments.isEmpty ? null : segments.first;
+    }
+
+    return selectBest(uniqueSegments) ?? rawSegments.first;
+  }
+
+  Future<void> _restoreLastLocation() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final label = prefs.getString(_lastLocationLabelKey);
+      final lat = prefs.getDouble(_lastLocationLatKey);
+      final lng = prefs.getDouble(_lastLocationLngKey);
+      if (label == null || label.trim().isEmpty) return;
+      if (!mounted) return;
+      setState(() {
+        _locationCtrl.text = label;
+        _locationLat = lat;
+        _locationLng = lng;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _cacheLocation(String label, double? lat, double? lng) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lastLocationLabelKey, label);
+      if (lat != null) {
+        await prefs.setDouble(_lastLocationLatKey, lat);
+      } else {
+        await prefs.remove(_lastLocationLatKey);
+      }
+      if (lng != null) {
+        await prefs.setDouble(_lastLocationLngKey, lng);
+      } else {
+        await prefs.remove(_lastLocationLngKey);
+      }
+    } catch (_) {}
   }
 }

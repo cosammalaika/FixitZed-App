@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/services/notification_service.dart';
 import 'package:fixitzed_app/screens/payment_sheet.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
+import 'package:fixitzed_app/state/app_sync.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -15,20 +18,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final _svc = NotificationService();
   bool _loading = true;
   List<Map<String, dynamic>> _items = const [];
+  StreamSubscription<AppSyncEvent>? _syncSub;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _syncSub = AppSync.instance
+        .on(AppSyncTopic.notifications)
+        .listen((_) => _load(silent: true));
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _syncSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() => _loading = true);
+    }
     final list = await _svc.fetch();
     if (!mounted) return;
     setState(() {
       _items = list;
-      _loading = false;
+      if (!silent) {
+        _loading = false;
+      }
     });
   }
 

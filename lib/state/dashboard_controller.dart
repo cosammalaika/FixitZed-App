@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
+import 'package:fixitzed_app/state/app_sync.dart';
 
 class DashboardState {
   const DashboardState({
@@ -46,14 +47,31 @@ class DashboardState {
 }
 
 class DashboardController extends AsyncNotifier<DashboardState> {
+  bool _syncRegistered = false;
+
   @override
   FutureOr<DashboardState> build() {
+    _registerSync();
     return _fetch();
   }
 
   Future<void> refresh() async {
     state = const AsyncValue<DashboardState>.loading().copyWithPrevious(state);
     state = await AsyncValue.guard(_fetch);
+  }
+
+  void _registerSync() {
+    if (_syncRegistered) return;
+    _syncRegistered = true;
+
+    void handleEvent(AppSyncEvent _) => unawaited(refresh());
+
+    ref.onAppSync(AppSyncTopic.dashboard, (event) {
+      handleEvent(event);
+    });
+    ref.onAppSync(AppSyncTopic.notifications, (event) {
+      handleEvent(event);
+    });
   }
 
   Future<DashboardState> _fetch() async {

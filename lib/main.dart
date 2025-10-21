@@ -44,12 +44,14 @@ class MyApp extends ConsumerWidget {
           title: 'FixItZed',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light().copyWith(
-            textTheme:
-                GoogleFonts.urbanistTextTheme(Theme.of(context).textTheme),
+            textTheme: GoogleFonts.urbanistTextTheme(
+              Theme.of(context).textTheme,
+            ),
           ),
           darkTheme: AppTheme.dark().copyWith(
-            textTheme:
-                GoogleFonts.urbanistTextTheme(Theme.of(context).textTheme),
+            textTheme: GoogleFonts.urbanistTextTheme(
+              Theme.of(context).textTheme,
+            ),
           ),
           themeMode: mode,
           initialRoute: '/',
@@ -72,8 +74,7 @@ class MyApp extends ConsumerWidget {
             '/profile/password': (context) => const ChangePasswordScreen(),
             '/about': (context) => const AboutScreen(),
             '/fixer/apply': (context) => const BecomeFixerScreen(),
-            '/account_blocked': (context) =>
-                const AccountBlockedScreen(),
+            '/account_blocked': (context) => const AccountBlockedScreen(),
           },
           builder: (context, child) {
             if (child == null) return const SizedBox.shrink();
