@@ -74,7 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: Text(
           'Settings',
           style: GoogleFonts.urbanist(
-            color: Theme.of(context).colorScheme.onBackground,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -91,18 +91,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(colors: [brand, accent], begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(22),
-                    boxShadow: [BoxShadow(color: brand.withOpacity(0.18), blurRadius: 18, offset: const Offset(0, 12))],
+                    boxShadow: [BoxShadow(color: brand.withValues(alpha: 0.18), blurRadius: 18, offset: const Offset(0, 12))],
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle), child: const Icon(Icons.settings_rounded, color: Colors.white)),
+                      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle), child: const Icon(Icons.settings_rounded, color: Colors.white)),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text('Tune your experience', style: GoogleFonts.urbanist(color: Colors.white, fontWeight: FontWeight.w800)),
                           const SizedBox(height: 4),
-                          Text('Control notifications, theme and language.', style: GoogleFonts.urbanist(color: Colors.white.withOpacity(0.9))),
+                          Text('Control notifications, theme and language.', style: GoogleFonts.urbanist(color: Colors.white.withValues(alpha: 0.9))),
                         ]),
                       ),
                     ],
@@ -153,7 +153,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                     if (choice != null) {
                       setState(() => language = choice);
-                      _saveString(_kLanguage, choice);
+                      await _saveString(_kLanguage, choice);
                     }
                   },
                 ),
@@ -161,12 +161,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _sectionTitle('Notifications'),
                 SwitchListTile(
                   value: pushOn,
-                  onChanged: (v) {
+                  onChanged: (v) async {
                     setState(() => pushOn = v);
-                    _saveBool(_kPush, v);
-                    AppSettings.setPushEnabled(v);
+                    await _saveBool(_kPush, v);
+                    await AppSettings.setPushEnabled(v);
                   },
-                  activeColor: brand,
+                  activeThumbColor: brand,
                   title: Text(
                     'Push Notifications',
                     style: GoogleFonts.urbanist(),
@@ -178,11 +178,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SwitchListTile(
                   value: emailOn,
-                  onChanged: (v) {
+                  onChanged: (v) async {
                     setState(() => emailOn = v);
-                    _saveBool(_kEmail, v);
+                    await _saveBool(_kEmail, v);
                   },
-                  activeColor: brand,
+                  activeThumbColor: brand,
                   title: Text(
                     'Email Notifications',
                     style: GoogleFonts.urbanist(),
@@ -196,12 +196,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _sectionTitle('Appearance'),
                 SwitchListTile(
                   value: darkOn,
-                  onChanged: (v) {
+                  onChanged: (v) async {
                     setState(() => darkOn = v);
-                    _saveBool(_kDark, v);
-                    AppTheme.setDark(v);
+                    await _saveBool(_kDark, v);
+                    await AppTheme.setDark(v);
                   },
-                  activeColor: brand,
+                  activeThumbColor: brand,
                   title: Text('Dark Mode', style: GoogleFonts.urbanist()),
                   subtitle: Text(
                     'Reduce eye strain at night',

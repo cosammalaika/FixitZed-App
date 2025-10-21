@@ -122,7 +122,7 @@ class ProfileController extends AutoDisposeAsyncNotifier<ProfileState> {
   }
 
   bool _resolveIsFixer(Map<String, dynamic> raw) {
-    bool fixer = false;
+    var fixer = false;
     final dynamic isFixerFlag = raw['is_fixer'] ?? raw['fixer'];
     if (isFixerFlag is bool) fixer = isFixerFlag;
     if (isFixerFlag is num) fixer = isFixerFlag != 0;
@@ -131,7 +131,7 @@ class ProfileController extends AutoDisposeAsyncNotifier<ProfileState> {
       fixer = v == '1' || v == 'true' || v == 'yes';
     }
 
-    String roleStr =
+    var roleStr =
         (raw['role'] ??
                 raw['user_type'] ??
                 raw['type'] ??

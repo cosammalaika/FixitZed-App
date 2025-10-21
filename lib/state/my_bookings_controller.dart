@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'service_providers.dart';
+import 'package:fixitzed_app/state/service_providers.dart';
 
 class MyBookingsState {
   const MyBookingsState({

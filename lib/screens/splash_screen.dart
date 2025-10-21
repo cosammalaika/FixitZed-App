@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,7 +25,7 @@ class _SplashScreenState extends State<SplashScreen> {
     final hasSeenOnboarding = prefs.getBool('onboarding_seen') ?? false;
     final route = hasSeenOnboarding ? '/auth' : '/onboarding';
     if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed(route);
+    unawaited(Navigator.of(context).pushReplacementNamed(route));
   }
 
   @override
@@ -44,7 +45,7 @@ class _SplashScreenState extends State<SplashScreen> {
             Opacity(
               opacity: 0.08, // make it subtle
               child: Image.asset(
-                "assets/images/pattern.png",
+                'assets/images/pattern.png',
                 fit: BoxFit.cover,
               ),
             ),
@@ -52,7 +53,7 @@ class _SplashScreenState extends State<SplashScreen> {
             // Center logo
             Center(
               child: Image.asset(
-                "assets/images/logo.png",
+                'assets/images/logo.png',
                 width: 350, // adjust size
                 height: 350,
               ),

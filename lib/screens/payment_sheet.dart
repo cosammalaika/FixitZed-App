@@ -61,21 +61,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _methods = methods;
       _amount = _toDouble(payment?['amount']);
       _originalAmount = _toDouble(payment?['original_amount']) ?? _amount;
-      if (_originalAmount == null && _amount != null) {
-        _originalAmount = _amount;
-      }
+      _originalAmount ??= _amount;
 
       final storedDiscount = _toDouble(payment?['discount_amount']);
       if (storedDiscount != null &&
           storedDiscount > 0 &&
           _originalAmount != null) {
         _couponDiscount = storedDiscount.clamp(0, _originalAmount!);
-        if (_amount == null) {
-          _amount = (_originalAmount! - _couponDiscount).clamp(
-            0,
-            _originalAmount!,
-          );
-        }
+        final adjustedAmount = (_originalAmount! - _couponDiscount)
+            .clamp(0, _originalAmount!)
+            .toDouble();
+        _amount ??= adjustedAmount;
       } else if (_originalAmount != null && _amount != null) {
         final delta = _originalAmount! - _amount!;
         _couponDiscount = delta > 0 ? delta : 0;
@@ -161,11 +157,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
               .map((e) => Map<String, dynamic>.from(e))
               .toList();
         }
-        if (body is List)
+        if (body is List) {
           return body
               .whereType<Map>()
               .map((e) => Map<String, dynamic>.from(e))
               .toList();
+        }
       }
     } catch (_) {}
     // Fallback to basic set
@@ -218,7 +215,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           borderRadius: BorderRadius.circular(28),
                           boxShadow: [
                             BoxShadow(
-                              color: brand.withOpacity(0.18),
+                              color: brand.withValues(alpha: 0.18),
                               blurRadius: 28,
                               offset: const Offset(0, 18),
                             ),
@@ -230,7 +227,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withValues(alpha: 0.2),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -256,7 +253,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   Text(
                                     'Apply coupons or loyalty points, then settle the payment securely.',
                                     style: GoogleFonts.urbanist(
-                                      color: Colors.white.withOpacity(0.92),
+                                      color: Colors.white.withValues(alpha: 0.92),
                                       fontSize: 13,
                                     ),
                                   ),
@@ -275,7 +272,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
+                              color: Colors.black.withValues(alpha: 0.04),
                               blurRadius: 24,
                               offset: const Offset(0, 12),
                             ),
@@ -446,7 +443,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: brand.withOpacity(0.22),
+                    color: brand.withValues(alpha: 0.22),
                     blurRadius: 20,
                     offset: const Offset(0, 12),
                   ),
@@ -459,7 +456,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: selected
-                    ? Colors.white.withOpacity(0.18)
+                    ? Colors.white.withValues(alpha: 0.18)
                     : const Color(0xFFE8EDF1),
                 shape: BoxShape.circle,
               ),
@@ -677,11 +674,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
   }
 
-  void _setLoyaltyUsage(int points) {
-    _useLoyalty = points > 0;
-    _loyaltyToUse = points;
-    _recalculateLoyalty(reset: false);
-  }
 
   double? _computeDiscount(double? base, Map info) {
     if (base == null) return null;
@@ -892,7 +884,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             _recalculateLoyalty(reset: value);
                           }
                         : null,
-                    activeColor: const Color(0xFFF1592A),
+                    activeThumbColor: const Color(0xFFF1592A),
                   ),
                 ],
               ),
@@ -927,7 +919,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   max: sliderMax.toDouble(),
                   divisions: sliderMax > 0 ? sliderMax : null,
                   activeColor: const Color(0xFFF1592A),
-                  label: '${_loyaltyToUse} pts',
+                  label: '$_loyaltyToUse pts',
                   onChanged: (value) {
                     setState(() {
                       _useLoyalty = value > 0;
@@ -940,7 +932,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Using ${_loyaltyToUse.toString()} pts (K${(_loyaltyDiscount).toStringAsFixed(2)})',
+                      'Using $_loyaltyToUse pts (K${_loyaltyDiscount.toStringAsFixed(2)})',
                       style: GoogleFonts.urbanist(fontWeight: FontWeight.w600),
                     ),
                     Text(
@@ -974,7 +966,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFFFF2EA),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: brand.withOpacity(0.12)),
+        border: Border.all(color: brand.withValues(alpha: 0.12)),
       ),
       child: Column(
         children: [
@@ -1035,9 +1027,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _promptRating() async {
     final brand = const Color(0xFFF1592A);
-    double rating = 5;
-    String comment = '';
-    bool submitting = false;
+    var rating = 5.0;
+    var comment = '';
+    var submitting = false;
 
     final serviceName = (() {
       final sr = _serviceRequest;
@@ -1126,7 +1118,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: brand.withOpacity(0.25),
+                            color: brand.withValues(alpha: 0.25),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           ),
@@ -1138,7 +1130,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.18),
+                              color: Colors.white.withValues(alpha: 0.18),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -1163,7 +1155,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               if (fixerName.isNotEmpty) 'with $fixerName',
                             ].join(' '),
                             style: GoogleFonts.urbanist(
-                              color: Colors.white.withOpacity(0.9),
+                              color: Colors.white.withValues(alpha: 0.9),
                             ),
                           ),
                         ],
@@ -1210,7 +1202,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: filled
-                                          ? brand.withOpacity(0.15)
+                                          ? brand.withValues(alpha: 0.15)
                                           : Colors.transparent,
                                     ),
                                     child: Icon(
@@ -1239,7 +1231,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: const Color(0xFFF1592A).withOpacity(0.2),
+                          color: const Color(0xFFF1592A).withValues(alpha: 0.2),
                           width: 1.2,
                         ),
                         boxShadow: const [
@@ -1274,7 +1266,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 : () => Navigator.of(ctx).pop(false),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: brand,
-                              side: BorderSide(color: brand.withOpacity(0.4)),
+                              side: BorderSide(color: brand.withValues(alpha: 0.4)),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
@@ -1318,8 +1310,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                             res.statusCode < 300,
                                       );
                                     } finally {
-                                      if (mounted)
+                                      if (mounted) {
                                         setLocal(() => submitting = false);
+                                      }
                                     }
                                   },
                             style: ElevatedButton.styleFrom(

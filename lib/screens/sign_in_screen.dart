@@ -1,16 +1,16 @@
 // lib/screens/sign_in_screen.dart
-import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
-import '../services/auth_service.dart';
-import 'sign_up_screen.dart';
-import 'auth/forgot_password_sheet.dart';
-import '../state/dashboard_controller.dart';
-import '../state/fixers_providers.dart';
+import 'package:fixitzed_app/services/auth_service.dart';
+import 'package:fixitzed_app/screens/sign_up_screen.dart';
+import 'package:fixitzed_app/screens/auth/forgot_password_sheet.dart';
+import 'package:fixitzed_app/state/dashboard_controller.dart';
+import 'package:fixitzed_app/state/fixers_providers.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -28,7 +28,6 @@ class _SignInScreenState extends State<SignInScreen> {
   bool _passwordVisible = false;
   bool _loading = false;
   bool _submitted = false; // control when to show validation
-  bool _biometricEnabled = false;
 
   @override
   void initState() {
@@ -97,20 +96,20 @@ class _SignInScreenState extends State<SignInScreen> {
         }
         await _preloadAppData();
         if (!mounted) return;
-        Navigator.of(context).pushReplacementNamed('/home');
+        unawaited(Navigator.of(context).pushReplacementNamed('/home'));
       } else if (result.message == 'inactive') {
         await AuthService().logout();
         if (!mounted) return;
-        Navigator.of(context).pushReplacementNamed('/account_blocked');
+        unawaited(Navigator.of(context).pushReplacementNamed('/account_blocked'));
       } else {
-        _showAlert(
+        await _showAlert(
           'Sign in failed',
           result.displayMessage ?? 'Invalid email/phone or password',
         );
       }
     } catch (_) {
       if (!mounted) return;
-      _showAlert('Network issue', 'Unable to sign in. Check your connection.');
+      await _showAlert('Network issue', 'Unable to sign in. Check your connection.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -132,7 +131,7 @@ class _SignInScreenState extends State<SignInScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: brand.withOpacity(0.12),
+                  color: brand.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -214,18 +213,6 @@ class _SignInScreenState extends State<SignInScreen> {
           top: false,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final media = MediaQuery.of(context);
-              final headerHeight = math
-                  .min(420.0, math.max(280.0, constraints.maxHeight * 0.45))
-                  .toDouble();
-              final topPadding =
-                  media.padding.top +
-                  math.max(32.0, headerHeight - 250.0).toDouble();
-              final bottomPadding = media.viewInsets.bottom > 0
-                  ? media.viewInsets.bottom + 24.0
-                  : media.padding.bottom + 32.0;
-              final heroGap = math.max(32.0, headerHeight - 260.0).toDouble();
-
               return Stack(
                 children: [
                   Positioned.fill(
@@ -265,7 +252,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.18),
+                                color: Colors.white.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Row(
@@ -300,7 +287,7 @@ class _SignInScreenState extends State<SignInScreen> {
                             Text(
                               'Track your requests, pay securely and stay updated.',
                               style: GoogleFonts.urbanist(
-                                color: Colors.white.withOpacity(0.85),
+                                color: Colors.white.withValues(alpha: 0.85),
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -317,7 +304,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
+                                    color: Colors.black.withValues(alpha: 0.08),
                                     blurRadius: 16,
                                     offset: const Offset(0, 6),
                                   ),
@@ -346,14 +333,14 @@ class _SignInScreenState extends State<SignInScreen> {
                                       ),
                                       cursorColor: const Color(0xFFF1592A),
                                       decoration: InputDecoration(
-                                        labelText: "Email or phone number",
+                                        labelText: 'Email or phone number',
                                         hintText:
-                                            "Enter your email or phone number",
+                                            'Enter your email or phone number',
                                         filled: true,
                                         fillColor: Theme.of(context)
                                             .colorScheme
-                                            .surfaceVariant
-                                            .withOpacity(0.18),
+                                            .surfaceContainerHighest
+                                            .withValues(alpha: 0.18),
                                         labelStyle: TextStyle(
                                           color: Theme.of(context).hintColor,
                                         ),
@@ -399,8 +386,9 @@ class _SignInScreenState extends State<SignInScreen> {
                                       ),
                                       validator: (v) {
                                         final s = (v ?? '').trim();
-                                        if (s.isEmpty)
+                                        if (s.isEmpty) {
                                           return 'Identifier is required';
+                                        }
                                         final isEmail = RegExp(
                                           r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$',
                                         ).hasMatch(s);
@@ -432,13 +420,13 @@ class _SignInScreenState extends State<SignInScreen> {
                                       ),
                                       cursorColor: const Color(0xFFF1592A),
                                       decoration: InputDecoration(
-                                        labelText: "Password",
-                                        hintText: "Enter your password",
+                                        labelText: 'Password',
+                                        hintText: 'Enter your password',
                                         filled: true,
                                         fillColor: Theme.of(context)
                                             .colorScheme
-                                            .surfaceVariant
-                                            .withOpacity(0.18),
+                                            .surfaceContainerHighest
+                                            .withValues(alpha: 0.18),
                                         labelStyle: TextStyle(
                                           color: Theme.of(context).hintColor,
                                         ),
@@ -495,10 +483,12 @@ class _SignInScreenState extends State<SignInScreen> {
                                       ),
                                       validator: (v) {
                                         final s = v ?? '';
-                                        if (s.isEmpty)
+                                        if (s.isEmpty) {
                                           return 'Password is required';
-                                        if (s.length < 6)
+                                        }
+                                        if (s.length < 6) {
                                           return 'Min 6 characters';
+                                        }
                                         return null;
                                       },
                                     ),
@@ -517,14 +507,14 @@ class _SignInScreenState extends State<SignInScreen> {
                                                       val ?? false,
                                                 ),
                                         ),
-                                        const Text("Remember Me"),
+                                        const Text('Remember Me'),
                                         const Spacer(),
                                         TextButton(
                                           onPressed: _loading
                                               ? null
                                               : _showForgotPassword,
                                           child: Text(
-                                            "Forgot password?",
+                                            'Forgot password?',
                                             style: GoogleFonts.urbanist(
                                               color: orange,
                                               fontWeight: FontWeight.w600,
@@ -559,7 +549,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                               ),
                                             )
                                           : Text(
-                                              "Sign In",
+                                              'Sign In',
                                               style: GoogleFonts.urbanist(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.w600,
@@ -675,21 +665,4 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  Widget _socialButton(String asset) {
-    return InkWell(
-      onTap: _loading
-          ? null
-          : () {
-              // TODO: Implement social auth
-            },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Image.asset(asset, height: 28),
-      ),
-    );
-  }
 }

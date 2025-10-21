@@ -102,7 +102,7 @@ class AuthService {
         final token = _extractToken(data);
         if (token != null && token.isNotEmpty) {
           await _saveToken(token);
-          final Map<String, dynamic>? user = data['user'] is Map<String, dynamic>
+          final user = data['user'] is Map<String, dynamic>
               ? Map<String, dynamic>.from(data['user'] as Map)
               : null;
           final statusRaw = user?['status'] ?? user?['account_status'] ?? user?['accountStatus'];
@@ -289,8 +289,8 @@ class AuthService {
         body['email'] = trimmedEmail;
       }
       final fullName = [trimmedFirst, trimmedLast]
-          .where((s) => s != null && s!.isNotEmpty)
-          .map((s) => s!)
+          .whereType<String>()
+          .where((s) => s.isNotEmpty)
           .join(' ')
           .trim();
       if (fullName.isNotEmpty) {

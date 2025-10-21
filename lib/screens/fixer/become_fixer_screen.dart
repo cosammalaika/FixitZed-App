@@ -81,7 +81,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
         return;
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
+      var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
@@ -168,7 +168,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
     if (action == null) return;
 
     try {
-      PlatformFile? file;
+      late final PlatformFile file;
       switch (action) {
         case _AttachmentAction.camera:
           final xFile = await _imagePicker.pickImage(
@@ -203,9 +203,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
           break;
       }
 
-      if (file != null) {
-        onSelected(file);
-      }
+      onSelected(file);
     } catch (_) {
       _showSnack('Could not pick file. Please try again.');
     }
@@ -326,8 +324,9 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                     allowPdf: true,
                     onSelected: (file) {
                       setState(() {
-                        if (_supportingDocs.length >= 5)
+                        if (_supportingDocs.length >= 5) {
                           _supportingDocs.removeAt(0);
+                        }
                         _supportingDocs.add(file);
                       });
                     },
@@ -476,7 +475,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: [
                         BoxShadow(
-                          color: brand.withOpacity(0.20),
+                          color: brand.withValues(alpha: 0.20),
                           blurRadius: 18,
                           offset: const Offset(0, 12),
                         ),
@@ -488,7 +487,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -513,7 +512,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                               Text(
                                 'Tell us about yourself and upload your documents to get started.',
                                 style: GoogleFonts.urbanist(
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                 ),
                               ),
                             ],
@@ -740,8 +739,9 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                                   runSpacing: 8,
                                   children: _services.map((service) {
                                     final id = (service['id'] as num?)?.toInt();
-                                    if (id == null)
+                                    if (id == null) {
                                       return const SizedBox.shrink();
+                                    }
                                     final selected = _selectedServices.contains(
                                       id,
                                     );
@@ -759,7 +759,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                                         });
                                       },
                                       label: Text(name),
-                                      selectedColor: brand.withOpacity(0.2),
+                                      selectedColor: brand.withValues(alpha: 0.2),
                                       checkmarkColor: brand,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),

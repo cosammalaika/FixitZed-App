@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../widgets/fixer_list_item.dart';
+import 'package:fixitzed_app/widgets/fixer_list_item.dart';
 
 class DashboardGreeting extends StatelessWidget {
   final String name;
@@ -62,7 +62,7 @@ class DashboardGreeting extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
+                      color: Colors.black.withValues(alpha: 0.06),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -509,10 +509,9 @@ class CategoriesBlock extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             child: Row(
               children: () {
-                List<Widget> items = [];
-                List<Map> data;
+                final items = <Widget>[];
                 if (categories.isEmpty) {
-                  data = [
+                  const data = [
                     {
                       'icon': Icons.cleaning_services_rounded,
                       'name': 'Cleaning',

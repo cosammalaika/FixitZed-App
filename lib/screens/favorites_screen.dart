@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../services/home_service.dart';
-import '../services/favorites_service.dart';
-import '../utils/service_utils.dart';
+import 'package:fixitzed_app/services/home_service.dart';
+import 'package:fixitzed_app/services/favorites_service.dart';
+import 'package:fixitzed_app/utils/service_utils.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -53,11 +53,11 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       appBar: AppBar(
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: theme.colorScheme.onBackground),
+        iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
         title: Text(
           'Favorites',
           style: GoogleFonts.urbanist(
-            color: theme.colorScheme.onBackground,
+            color: theme.colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),

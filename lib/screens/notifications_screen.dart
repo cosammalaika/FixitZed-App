@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/notification_service.dart';
-import 'payment_sheet.dart';
-import '../core/date_utils.dart';
+import 'package:fixitzed_app/services/notification_service.dart';
+import 'package:fixitzed_app/screens/payment_sheet.dart';
+import 'package:fixitzed_app/core/date_utils.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -149,13 +149,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ),
       );
       if (paid == true && mounted) {
-        _load();
+        await _load();
       }
       return;
     }
 
     await Navigator.pushNamed(context, '/profile/bookings');
-    if (mounted) _load();
+    if (mounted) await _load();
   }
 
   int? _parseRequestId(Map<String, dynamic> notification) {
@@ -195,12 +195,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final now = DateTime.now();
     for (final n in _items) {
       final d = parseAppDate(n['created_at'] ?? n['updated_at']) ?? now;
-      if (isSameDay(d, now))
+      if (isSameDay(d, now)) {
         today.add(n);
-      else if (isYesterday(d, relativeTo: now))
+      } else if (isYesterday(d, relativeTo: now)) {
         yesterday.add(n);
-      else
+      } else {
         earlier.add(n);
+      }
     }
 
     return Scaffold(
@@ -210,7 +211,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Theme.of(context).colorScheme.onBackground,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -218,7 +219,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         title: Text(
           'Notification',
           style: GoogleFonts.urbanist(
-            color: Theme.of(context).colorScheme.onBackground,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -248,7 +249,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               ? null
                               : () async {
                                   final ok = await _svc.markAllRead();
-                                  if (ok) _load();
+                                  if (ok) {
+                                    await _load();
+                                  }
                                 },
                           child: const Text(
                             'Mark All As Read',

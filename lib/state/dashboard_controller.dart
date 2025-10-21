@@ -61,9 +61,9 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     final notificationService = ref.read(notificationServiceProvider);
 
     Map<String, dynamic>? me;
-    List<dynamic> categories = const [];
-    List<dynamic> services = const [];
-    List<dynamic> notifications = const [];
+    var categories = <dynamic>[];
+    var services = <dynamic>[];
+    var notifications = <dynamic>[];
     String? error;
 
     try {

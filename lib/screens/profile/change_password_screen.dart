@@ -31,7 +31,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   InputDecoration _dec(String label, {Widget? suffix}) => InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.18),
+        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.18),
         labelStyle: TextStyle(color: Theme.of(context).hintColor),
         hintStyle: TextStyle(color: Theme.of(context).hintColor),
         enabledBorder: OutlineInputBorder(
@@ -72,12 +72,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onBackground),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
         centerTitle: true,
         title: Text(
           'Change Password',
           style: GoogleFonts.urbanist(
-            color: Theme.of(context).colorScheme.onBackground,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),

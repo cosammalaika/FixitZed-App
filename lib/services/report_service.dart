@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../core/api.dart';
+import 'package:fixitzed_app/core/api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ReportService {

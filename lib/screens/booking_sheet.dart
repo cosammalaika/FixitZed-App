@@ -373,7 +373,7 @@ class _BookingSheetState extends State<BookingSheet> {
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: background.withOpacity(0.6)),
+        border: Border.all(color: background.withValues(alpha: 0.6)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,11 +435,12 @@ class _BookingSheetState extends State<BookingSheet> {
     if (!mounted) return;
     setState(() => _submitting = false);
     if (ok) {
-      LocalNotificationService.instance.notifyBookingCreated(
+      await LocalNotificationService.instance.notifyBookingCreated(
         serviceName: _serviceName ?? 'Service request',
         scheduledAt: scheduledAt,
         location: _locationCtrl.text.trim(),
       );
+      if (!mounted) return;
       Navigator.of(context).pop(true);
       _showSnack(
         message: 'Request submitted — pending approval',
@@ -710,7 +711,7 @@ class _BookingSheetState extends State<BookingSheet> {
       ),
       builder: (ctx) {
         final queryCtrl = TextEditingController();
-        List<Map<String, dynamic>> filtered = List.of(_services);
+        var filtered = List<Map<String, dynamic>>.of(_services);
         void applyFilter(String q) {
           final qq = q.trim().toLowerCase();
           filtered = _services.where((s) {
@@ -952,7 +953,7 @@ class _BookingSheetState extends State<BookingSheet> {
         }
         return false;
       }
-      LocationPermission permission = await Geolocator.checkPermission();
+      var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
@@ -967,7 +968,7 @@ class _BookingSheetState extends State<BookingSheet> {
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      String formatted =
+      var formatted =
           '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
       try {
         final placemarks = await placemarkFromCoordinates(

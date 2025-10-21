@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/date_utils.dart';
-import '../../state/my_bookings_controller.dart';
-import '../payment_sheet.dart';
+import 'package:fixitzed_app/core/date_utils.dart';
+import 'package:fixitzed_app/state/my_bookings_controller.dart';
+import 'package:fixitzed_app/screens/payment_sheet.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
 
-import 'booking_detail_screen.dart';
+import 'package:fixitzed_app/screens/profile/booking_detail_screen.dart';
 
 class MyBookingScreen extends ConsumerWidget {
   const MyBookingScreen({super.key});
@@ -21,11 +21,11 @@ class MyBookingScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: theme.colorScheme.onBackground),
+        iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
         title: Text(
           'My Bookings',
           style: GoogleFonts.urbanist(
-            color: theme.colorScheme.onBackground,
+            color: theme.colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -190,7 +190,6 @@ class MyBookingScreen extends ConsumerWidget {
                         hasDue
                             ? ElevatedButton(
                                 onPressed: () async {
-                                  if (rid == null) return;
                                   final paid =
                                       await Navigator.of(
                                         context,

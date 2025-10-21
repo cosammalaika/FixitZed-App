@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -138,12 +140,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _uploadProfilePhoto(String path) async {
     if (_uploadingPhoto) return;
     setState(() => _uploadingPhoto = true);
-    showDialog<void>(
+    unawaited(showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-    bool success = false;
+    ));
+    var success = false;
     try {
       success = await AuthService().updateProfilePhoto(path);
     } finally {
@@ -313,7 +315,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFF1592A).withOpacity(0.22),
+                  color: const Color(0xFFF1592A).withValues(alpha: 0.22),
                   blurRadius: 24,
                   offset: const Offset(0, 16),
                 ),
@@ -347,7 +349,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Text(
                             email.isEmpty ? 'No email on file' : email,
                             style: GoogleFonts.urbanist(
-                              color: Colors.white.withOpacity(0.85),
+                              color: Colors.white.withValues(alpha: 0.85),
                             ),
                           ),
                           if (location.isNotEmpty) ...[
@@ -358,14 +360,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Icon(
                                   Icons.place_outlined,
                                   size: 16,
-                                  color: Colors.white.withOpacity(0.8),
+                                  color: Colors.white.withValues(alpha: 0.8),
                                 ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
                                     location,
                                     style: GoogleFonts.urbanist(
-                                      color: Colors.white.withOpacity(0.8),
+                                      color: Colors.white.withValues(alpha: 0.8),
                                       fontSize: 13,
                                     ),
                                   ),
@@ -380,13 +382,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Icon(
                                   Icons.phone_rounded,
                                   size: 16,
-                                  color: Colors.white.withOpacity(0.8),
+                                  color: Colors.white.withValues(alpha: 0.8),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   phone,
                                   style: GoogleFonts.urbanist(
-                                    color: Colors.white.withOpacity(0.8),
+                                    color: Colors.white.withValues(alpha: 0.8),
                                     fontSize: 13,
                                   ),
                                 ),
@@ -406,7 +408,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     vertical: 16,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
+                    color: Colors.white.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -414,7 +416,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -446,7 +448,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 18,
                   offset: const Offset(0, 10),
                 ),
@@ -488,9 +490,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: () async {
                     await AuthService().logout();
                     if (!mounted) return;
-                    Navigator.of(
+                    unawaited(Navigator.of(
                       context,
-                    ).pushNamedAndRemoveUntil('/auth', (r) => false);
+                    ).pushNamedAndRemoveUntil('/auth', (r) => false));
                   },
                 ),
               ],
@@ -727,7 +729,7 @@ extension _ReportSheet on _ProfileScreenState {
   Future<void> _showReportSheet({required String type}) async {
     final subjectCtrl = TextEditingController();
     final messageCtrl = TextEditingController();
-    bool submitting = false;
+    var submitting = false;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -794,7 +796,7 @@ extension _ReportSheet on _ProfileScreenState {
                           borderRadius: BorderRadius.circular(22),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFF1592A).withOpacity(0.2),
+                              color: const Color(0xFFF1592A).withValues(alpha: 0.2),
                               blurRadius: 20,
                               offset: const Offset(0, 12),
                             ),
@@ -805,7 +807,7 @@ extension _ReportSheet on _ProfileScreenState {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withValues(alpha: 0.2),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -830,7 +832,7 @@ extension _ReportSheet on _ProfileScreenState {
                                   Text(
                                     'Help us keep the community safe.',
                                     style: GoogleFonts.urbanist(
-                                      color: Colors.white.withOpacity(0.9),
+                                      color: Colors.white.withValues(alpha: 0.9),
                                     ),
                                   ),
                                 ],

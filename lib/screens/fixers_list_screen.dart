@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../state/fixers_providers.dart';
-import '../widgets/fixer_list_item.dart';
+import 'package:fixitzed_app/state/fixers_providers.dart';
+import 'package:fixitzed_app/widgets/fixer_list_item.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
 
 class FixersListScreen extends ConsumerWidget {
@@ -18,12 +18,12 @@ class FixersListScreen extends ConsumerWidget {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.onBackground,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
         title: Text(
           'Fixers',
           style: GoogleFonts.urbanist(
-            color: Theme.of(context).colorScheme.onBackground,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),

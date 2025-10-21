@@ -17,11 +17,11 @@ class BookingDetailScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: theme.colorScheme.onBackground),
+        iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
         title: Text(
           'Booking Detail',
           style: GoogleFonts.urbanist(
-            color: theme.colorScheme.onBackground,
+            color: theme.colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -103,7 +103,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: brand.withOpacity(0.12)),
+        border: Border.all(color: brand.withValues(alpha: 0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,7 +177,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: brand.withOpacity(0.1),
+                  color: brand.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.warning_rounded, color: brand),
@@ -208,7 +208,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
               onPressed: () => Navigator.of(ctx).pop(false),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.black87,
-                side: BorderSide(color: brand.withOpacity(0.25)),
+                side: BorderSide(color: brand.withValues(alpha: 0.25)),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -380,12 +380,12 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [brand.withOpacity(0.12), brand.withOpacity(0.04)],
+          colors: [brand.withValues(alpha: 0.12), brand.withValues(alpha: 0.04)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: brand.withOpacity(0.15)),
+        border: Border.all(color: brand.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -418,7 +418,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
                       ),
                     );
                 if (paid == true) {
-                  _loadPayment();
+                  await _loadPayment();
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -455,7 +455,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: brand.withOpacity(0.2),
+            color: brand.withValues(alpha: 0.2),
             blurRadius: 20,
             offset: const Offset(0, 14),
           ),
@@ -469,7 +469,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
+                  color: Colors.white.withValues(alpha: 0.18),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -497,7 +497,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
                         child: Text(
                           scheduled,
                           style: GoogleFonts.urbanist(
-                            color: Colors.white.withOpacity(0.85),
+                            color: Colors.white.withValues(alpha: 0.85),
                           ),
                         ),
                       ),
@@ -518,7 +518,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
+        color: Colors.white.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -679,7 +679,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Text(
@@ -737,12 +737,12 @@ class _ReceiptActions extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [brand.withOpacity(0.18), brand.withOpacity(0.08)],
+          colors: [brand.withValues(alpha: 0.18), brand.withValues(alpha: 0.08)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: brand.withOpacity(0.22)),
+        border: Border.all(color: brand.withValues(alpha: 0.22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -756,7 +756,7 @@ class _ReceiptActions extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: brand.withOpacity(0.12),
+                      color: brand.withValues(alpha: 0.12),
                       blurRadius: 14,
                       offset: const Offset(0, 6),
                     ),
@@ -839,7 +839,7 @@ class _ReceiptActions extends StatelessWidget {
                           horizontal: 16,
                         ),
                         side: BorderSide(
-                          color: brand.withOpacity(0.7),
+                          color: brand.withValues(alpha: 0.7),
                           width: 1.2,
                         ),
                         shape: RoundedRectangleBorder(
@@ -912,12 +912,13 @@ String _resolveFixerName({
     if (direct != null) return direct;
   }
 
-  Map<String, dynamic>? explore = fixer;
+  var explore = fixer;
   if (explore == null && request['fixer_user'] is Map) {
     explore = Map<String, dynamic>.from(request['fixer_user'] as Map);
   }
 
-  if (explore == null) {
+  final resolvedExplore = explore;
+  if (resolvedExplore == null) {
     return 'Pending assignment';
   }
 
@@ -944,13 +945,14 @@ String _resolveFixerName({
   }
 
   for (final key in ['user', 'profile', 'account']) {
-    if (explore![key] is Map) {
-      final nested = fromMap(Map<String, dynamic>.from(explore[key] as Map));
+    if (resolvedExplore[key] is Map) {
+      final nested =
+          fromMap(Map<String, dynamic>.from(resolvedExplore[key] as Map));
       if (nested.isNotEmpty) return nested;
     }
   }
 
-  final direct = fromMap(explore);
+  final direct = fromMap(resolvedExplore);
   if (direct.isNotEmpty) return direct;
 
   return 'Pending assignment';
@@ -965,7 +967,7 @@ Future<bool?> showBookingDetailSheet(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    barrierColor: Colors.black.withOpacity(0.4),
+    barrierColor: Colors.black.withValues(alpha: 0.4),
     backgroundColor: theme.scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

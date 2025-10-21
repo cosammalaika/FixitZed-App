@@ -45,7 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       final ref = _ref;
       if (ref == null) return;
-      ref.read(dashboardControllerProvider.notifier).refresh();
+      await ref.read(dashboardControllerProvider.notifier).refresh();
     },
   );
 
@@ -219,7 +219,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (ctx, i) {
               final rawCat = items[i];
-              Map<String, dynamic> category = {};
+              var category = <String, dynamic>{};
               if (rawCat is Map<String, dynamic>) {
                 category = Map<String, dynamic>.from(rawCat);
               } else if (rawCat is Map) {

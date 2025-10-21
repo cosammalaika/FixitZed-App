@@ -294,7 +294,7 @@ class HomeService {
     try {
       final needsEnrichment = compact.any((e) {
         if (e is! Map) return false;
-        final Map map = e;
+        final map = e;
         final hasServices = map['services'] is List && (map['services'] as List).isNotEmpty;
         final hasAvatar = (map['avatar'] ?? map['image_url'] ?? map['photo'] ?? '')
             .toString()
@@ -311,7 +311,7 @@ class HomeService {
       final full = await _fetchAllFixersRaw();
       if (full.isEmpty) return compact;
 
-      Map<String, Map> index = {};
+      final index = <String, Map>{};
       String? keyOf(Map m) {
         final id = m['id'] ?? m['user_id'] ?? (m['user'] is Map ? m['user']['id'] : null);
         if (id != null) return 'id:$id';

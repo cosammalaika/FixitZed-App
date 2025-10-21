@@ -90,7 +90,7 @@ String _stringFrom(dynamic v) {
 }
 
 String fixerAvatarUrl(Map<dynamic, dynamic> fixer) {
-  String raw = '';
+  var raw = '';
   final candidates = [
     fixer['avatar'],
     fixer['photo'],
@@ -170,7 +170,7 @@ double? _parseRatingValue(dynamic value, Set<int> seen, {String? hint}) {
     final normalized = trimmed.replaceAll(',', '');
     final percentHint = _hintSuggestsPercent(hint) || normalized.contains('%');
     final withoutPercent = normalized.replaceAll('%', '');
-    double? parsed = double.tryParse(withoutPercent);
+    var parsed = double.tryParse(withoutPercent);
     if (parsed == null) {
       final match = RegExp(r'(\d+(\.\d+)?)').firstMatch(withoutPercent);
       if (match != null) {
@@ -350,8 +350,8 @@ double? _parseRatingValue(dynamic value, Set<int> seen, {String? hint}) {
   }
 
   if (value is Iterable) {
-    double sum = 0;
-    int count = 0;
+    var sum = 0.0;
+    var count = 0;
     for (final item in value) {
       final parsed = _parseRatingValue(item, Set<int>.from(seen), hint: hint);
       if (parsed != null) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,7 +53,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> nextPage() async {
     if (currentPage < onboardingData.length - 1) {
-      _controller.nextPage(
+      await _controller.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
@@ -64,7 +66,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_seen', true);
     if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed('/auth');
+    unawaited(Navigator.of(context).pushReplacementNamed('/auth'));
   }
 
   @override

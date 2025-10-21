@@ -30,7 +30,7 @@ class NotificationService {
       final res = await http.get(_uri('notifications?page=$page'), headers: _headers(token));
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
-        List<Map<String, dynamic>> list = const [];
+        var list = <Map<String, dynamic>>[];
         if (body is List) {
           list = body.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map)).toList();
         } else if (body is Map) {

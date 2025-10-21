@@ -1,11 +1,13 @@
+import 'dart:async';
+
 import 'package:fixitzed_app/screens/sign_in_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../data/province_districts.dart';
-import '../services/auth_service.dart';
-import '../services/location_service.dart';
+import 'package:fixitzed_app/data/province_districts.dart';
+import 'package:fixitzed_app/services/auth_service.dart';
+import 'package:fixitzed_app/services/location_service.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -130,7 +132,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   bool _validateAllSteps() {
-    int firstInvalid = -1;
+    var firstInvalid = -1;
     for (var i = 0; i < _stepCount; i++) {
       final form = _stepKeys[i].currentState;
       if (form == null) continue;
@@ -203,7 +205,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         await prefs.remove('remember_identifier');
         await prefs.remove('remember_email');
 
-        Navigator.pushReplacementNamed(context, '/home');
+        unawaited(Navigator.pushReplacementNamed(context, '/home'));
       } else {
         final detailLines = result.errors;
         var message = result.displayMessage ?? '';
@@ -250,7 +252,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: brand.withOpacity(0.12),
+                  color: brand.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -322,7 +324,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   InputDecoration _dec(String label, {Widget? suffix}) {
     final theme = Theme.of(context);
-    final surface = theme.colorScheme.surfaceVariant.withOpacity(
+    final surface = theme.colorScheme.surfaceContainerHighest.withValues(alpha: 
       theme.brightness == Brightness.dark ? 0.22 : 0.55,
     );
     return InputDecoration(
@@ -336,19 +338,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
         fontWeight: FontWeight.w500,
       ),
       hintStyle: theme.textTheme.bodyMedium?.copyWith(
-        color: theme.hintColor.withOpacity(0.75),
+        color: theme.hintColor.withValues(alpha: 0.75),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
         borderSide: BorderSide(
-          color: theme.dividerColor.withOpacity(0.4),
+          color: theme.dividerColor.withValues(alpha: 0.4),
           width: 1,
         ),
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
         borderSide: BorderSide(
-          color: theme.dividerColor.withOpacity(0.4),
+          color: theme.dividerColor.withValues(alpha: 0.4),
           width: 1,
         ),
       ),
@@ -359,7 +361,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
         borderSide: BorderSide(
-          color: theme.colorScheme.error.withOpacity(0.8),
+          color: theme.colorScheme.error.withValues(alpha: 0.8),
           width: 1.2,
         ),
       ),
@@ -397,8 +399,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.black.withOpacity(0.92),
-                  brand.withOpacity(0.85),
+                  Colors.black.withValues(alpha: 0.92),
+                  brand.withValues(alpha: 0.85),
                   const Color(0xFF1F1F1F),
                 ],
                 begin: Alignment.topLeft,
@@ -413,7 +415,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               width: 180,
               height: 180,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
+                color: Colors.white.withValues(alpha: 0.06),
                 shape: BoxShape.circle,
               ),
             ),
@@ -425,7 +427,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               width: 160,
               height: 160,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 shape: BoxShape.circle,
               ),
             ),
@@ -449,13 +451,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
+                              color: Colors.white.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Text(
                               'Create your Fixer profile',
                               style: GoogleFonts.urbanist(
-                                color: Colors.white.withOpacity(0.9),
+                                color: Colors.white.withValues(alpha: 0.9),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -493,7 +495,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.12),
+                          color: Colors.white.withValues(alpha: 0.12),
                         ),
                         child: Icon(step.icon, color: Colors.white, size: 20),
                       ),
@@ -504,7 +506,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           Text(
                             'Step ${_currentStep + 1} of $_stepCount',
                             style: GoogleFonts.urbanist(
-                              color: Colors.white.withOpacity(0.8),
+                              color: Colors.white.withValues(alpha: 0.8),
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -532,7 +534,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   Widget _buildProgressOverview(Color brand) {
     final progress = (_currentStep + 1) / _stepCount;
-    final step = _steps[_currentStep];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -541,7 +542,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           child: LinearProgressIndicator(
             minHeight: 6,
             value: progress,
-            backgroundColor: Theme.of(context).dividerColor.withOpacity(0.24),
+            backgroundColor: Theme.of(context).dividerColor.withValues(alpha: 0.24),
             valueColor: AlwaysStoppedAnimation<Color>(brand),
           ),
         ),
@@ -670,7 +671,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             },
           ),
           DropdownButtonFormField<String>(
-            value: _selectedProvince,
+            initialValue: _selectedProvince,
             items: _provinceMap.keys
                 .map(
                   (province) =>
@@ -690,7 +691,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             },
           ),
           DropdownButtonFormField<String>(
-            value: _selectedDistrict,
+            initialValue: _selectedDistrict,
             items: _districtOptions
                 .map(
                   (district) =>
@@ -808,7 +809,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     fontWeight: FontWeight.w600,
                     color: Theme.of(
                       context,
-                    ).colorScheme.onSurface.withOpacity(0.8),
+                    ).colorScheme.onSurface.withValues(alpha: 0.8),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -851,7 +852,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 18,
             offset: const Offset(0, 12),
           ),
@@ -868,7 +869,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [orange.withOpacity(0.85), orange],
+                    colors: [orange.withValues(alpha: 0.85), orange],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -915,7 +916,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: orange.withOpacity(0.12),
+        color: orange.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(

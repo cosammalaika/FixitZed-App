@@ -235,7 +235,7 @@ class _EReceiptScreenState extends State<EReceiptScreen> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         side: BorderSide(
-                          color: brand.withOpacity(0.75),
+                          color: brand.withValues(alpha: 0.75),
                           width: 1.2,
                         ),
                         foregroundColor: brand,
@@ -471,12 +471,13 @@ String _resolveFixerNameForReceipt({
     if (direct != null) return direct;
   }
 
-  Map<String, dynamic>? explore = fixer;
+  var explore = fixer;
   if (explore == null && request['fixer_user'] is Map) {
     explore = Map<String, dynamic>.from(request['fixer_user'] as Map);
   }
 
-  if (explore == null) return 'Pending assignment';
+  final resolvedExplore = explore;
+  if (resolvedExplore == null) return 'Pending assignment';
 
   String fromMap(Map m) {
     final first = stringValue(m['first_name'] ?? m['firstName']);
@@ -501,13 +502,13 @@ String _resolveFixerNameForReceipt({
   }
 
   for (final key in ['user', 'profile', 'account']) {
-    if (explore![key] is Map) {
-      final nested = fromMap(Map<String, dynamic>.from(explore[key] as Map));
+    if (resolvedExplore[key] is Map) {
+      final nested = fromMap(Map<String, dynamic>.from(resolvedExplore[key] as Map));
       if (nested.isNotEmpty) return nested;
     }
   }
 
-  final direct = fromMap(explore);
+  final direct = fromMap(resolvedExplore);
   if (direct.isNotEmpty) return direct;
 
   return 'Pending assignment';

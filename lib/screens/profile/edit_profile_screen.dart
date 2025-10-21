@@ -41,8 +41,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ? me['user'] as Map
         : (me ?? {});
     final name = (raw['name'] ?? raw['full_name'] ?? '').toString();
-    String first = (raw['first_name'] ?? '').toString();
-    String last = (raw['last_name'] ?? '').toString();
+    var first = (raw['first_name'] ?? '').toString();
+    var last = (raw['last_name'] ?? '').toString();
     if (first.isEmpty && name.isNotEmpty) {
       final parts = name.trim().split(' ');
       first = parts.isNotEmpty ? parts.first : '';
@@ -94,7 +94,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   InputDecoration _dec(String label) => InputDecoration(
     labelText: label,
     filled: true,
-    fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.18),
+    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.18),
     labelStyle: TextStyle(color: Theme.of(context).hintColor),
     hintStyle: TextStyle(color: Theme.of(context).hintColor),
     enabledBorder: OutlineInputBorder(
@@ -190,12 +190,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.onBackground,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
         title: Text(
           'Edit Profile',
           style: GoogleFonts.urbanist(
-            color: Theme.of(context).colorScheme.onBackground,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),

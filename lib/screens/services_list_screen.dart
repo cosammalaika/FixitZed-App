@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/home_service.dart';
-import '../services/favorites_service.dart';
-import '../utils/service_utils.dart';
+import 'package:fixitzed_app/services/home_service.dart';
+import 'package:fixitzed_app/services/favorites_service.dart';
+import 'package:fixitzed_app/utils/service_utils.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
 
 class ServicesListScreen extends StatefulWidget {
@@ -42,7 +42,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
           args.containsKey('categories')) {
         final rawCategory = args['category'];
         if (rawCategory is Map) {
-          _category = Map<String, dynamic>.from(rawCategory as Map);
+          _category = Map<String, dynamic>.from(rawCategory);
           _categoryName =
               (_category!['name'] ?? _category!['title'] ?? 'Services')
                   .toString();
@@ -76,9 +76,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
                 .toString();
       }
     }
-    if (_categoryName == null) {
-      _categoryName = 'Services';
-    }
+    _categoryName ??= 'Services';
     _initialized = true;
     _load();
   }
@@ -146,12 +144,12 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.onBackground,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
         title: Text(
           _categoryName ?? 'Services',
           style: GoogleFonts.urbanist(
-            color: Theme.of(context).colorScheme.onBackground,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -347,11 +345,14 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
         }
         if (targetName != null && targetName.isNotEmpty) {
           final serviceCatName = (() {
-            if (cat is Map)
+            if (cat is Map) {
               return (cat['name'] ?? cat['title'] ?? '').toString();
+            }
             return (service['category_name'] ?? '').toString();
           })().toLowerCase();
-          if (serviceCatName.contains(targetName)) return true;
+          if (serviceCatName.contains(targetName)) {
+            return true;
+          }
         }
         return false;
       }).toList();

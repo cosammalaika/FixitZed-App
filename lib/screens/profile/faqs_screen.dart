@@ -33,9 +33,9 @@ class FaqsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onBackground),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
         centerTitle: true,
-        title: Text('FAQs', style: GoogleFonts.urbanist(color: Theme.of(context).colorScheme.onBackground, fontWeight: FontWeight.w700)),
+        title: Text('FAQs', style: GoogleFonts.urbanist(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w700)),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: ListView.builder(

@@ -40,8 +40,9 @@ class PaymentService {
     );
     if (res.statusCode == 200) {
       final root = jsonDecode(res.body);
-      if (root is Map && root['data'] is Map)
+      if (root is Map && root['data'] is Map) {
         return Map<String, dynamic>.from(root['data'] as Map);
+      }
       if (root is Map) return Map<String, dynamic>.from(root);
     }
     return null;
@@ -111,8 +112,9 @@ class PaymentService {
         } else if (body['errors'] is Map &&
             (body['errors'] as Map).isNotEmpty) {
           final first = (body['errors'] as Map).values.first;
-          if (first is List && first.isNotEmpty)
+          if (first is List && first.isNotEmpty) {
             errorMessage = first.first.toString();
+          }
         }
       }
     } catch (_) {}
