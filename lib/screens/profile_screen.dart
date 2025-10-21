@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../services/auth_service.dart';
-import '../services/profile_photo_service.dart';
-import '../services/report_service.dart';
-import '../state/profile_controller.dart';
+import 'package:fixitzed_app/services/auth_service.dart';
+import 'package:fixitzed_app/services/profile_photo_service.dart';
+import 'package:fixitzed_app/services/report_service.dart';
+import 'package:fixitzed_app/state/profile_controller.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

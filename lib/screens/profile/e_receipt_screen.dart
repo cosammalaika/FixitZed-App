@@ -9,7 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../core/date_utils.dart';
+import 'package:fixitzed_app/core/date_utils.dart';
 
 class EReceiptScreen extends StatefulWidget {
   final Map<String, dynamic> request;
@@ -481,8 +481,9 @@ String _resolveFixerNameForReceipt({
   String fromMap(Map m) {
     final first = stringValue(m['first_name'] ?? m['firstName']);
     final last = stringValue(m['last_name'] ?? m['lastName']);
-    if (first != null || last != null)
+    if (first != null || last != null) {
       return [first, last].whereType<String>().join(' ');
+    }
 
     for (final key in [
       'name',

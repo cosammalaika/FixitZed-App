@@ -3,10 +3,10 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../services/home_service.dart';
-import '../services/local_notification_service.dart';
-import '../services/service_request_service.dart';
-import '../services/locations_service.dart';
+import 'package:fixitzed_app/services/home_service.dart';
+import 'package:fixitzed_app/services/local_notification_service.dart';
+import 'package:fixitzed_app/services/service_request_service.dart';
+import 'package:fixitzed_app/services/locations_service.dart';
 
 class BookingSheet extends StatefulWidget {
   final Map<String, dynamic>? initialService;
@@ -978,7 +978,7 @@ class _BookingSheetState extends State<BookingSheet> {
           final p = placemarks.first;
           final parts =
               [p.street, p.subLocality, p.locality, p.administrativeArea]
-                  .where((e) => e != null && e!.trim().isNotEmpty)
+                  .where((e) => e != null && e.trim().isNotEmpty)
                   .map((e) => e!.trim());
           final str = parts.join(', ');
           if (str.isNotEmpty) formatted = str;

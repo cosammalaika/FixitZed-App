@@ -1,4 +1,4 @@
-import 'api.dart';
+import 'package:fixitzed_app/core/api.dart';
 
 String _asString(dynamic value) {
   if (value == null) return '';

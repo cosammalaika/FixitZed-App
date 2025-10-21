@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../services/payment_service.dart';
-import '../../services/service_request_service.dart';
-import '../payment_sheet.dart';
-import '../../core/date_utils.dart';
-import 'e_receipt_screen.dart';
+import 'package:fixitzed_app/services/payment_service.dart';
+import 'package:fixitzed_app/services/service_request_service.dart';
+import 'package:fixitzed_app/screens/payment_sheet.dart';
+import 'package:fixitzed_app/core/date_utils.dart';
+import 'package:fixitzed_app/screens/profile/e_receipt_screen.dart';
 
 class BookingDetailScreen extends StatelessWidget {
   final Map<String, dynamic> request;

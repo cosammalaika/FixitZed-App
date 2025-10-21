@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/api.dart';
+import 'package:fixitzed_app/core/api.dart';
 
 class CouponService {
   Future<Map<String, String>> _headers() async {

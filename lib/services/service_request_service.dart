@@ -5,9 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/api.dart';
-import '../core/date_utils.dart';
-import 'local_notification_service.dart';
+import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/core/date_utils.dart';
+import 'package:fixitzed_app/services/local_notification_service.dart';
 
 class ServiceRequestService {
   Map<String, String> _headers({String? token}) => {

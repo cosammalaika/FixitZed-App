@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../screens/booking_sheet.dart';
+import 'package:fixitzed_app/screens/booking_sheet.dart';
 
 Map<String, dynamic>? normalizeService(dynamic raw) {
   if (raw is Map<String, dynamic>) {

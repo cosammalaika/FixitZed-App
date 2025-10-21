@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../core/fixer_utils.dart';
+import 'package:fixitzed_app/core/fixer_utils.dart';
 
 class FixerListItem extends StatelessWidget {
   final Map fixer;

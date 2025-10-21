@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'connectivity_banner.dart';
-import 'connectivity_controller.dart';
+import 'package:fixitzed_app/common/connectivity/connectivity_banner.dart';
+import 'package:fixitzed_app/common/connectivity/connectivity_controller.dart';
 
 class ConnectivityOverlay extends ConsumerWidget {
   const ConnectivityOverlay({super.key, required this.child});

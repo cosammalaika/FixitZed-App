@@ -13,7 +13,6 @@ import 'package:fixitzed_app/screens/payment_sheet.dart';
 import 'package:fixitzed_app/screens/profile/my_booking_screen.dart';
 import 'package:fixitzed_app/screens/profile_screen.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
-import 'package:fixitzed_app/widgets/skeletons.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});

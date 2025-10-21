@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/fixer_utils.dart';
-import 'service_providers.dart';
+import 'package:fixitzed_app/core/fixer_utils.dart';
+import 'package:fixitzed_app/state/service_providers.dart';
 
 final topFixersProvider = FutureProvider<List<dynamic>>((
   ref,

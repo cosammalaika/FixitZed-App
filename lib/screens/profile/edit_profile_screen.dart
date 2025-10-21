@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../services/auth_service.dart';
-import '../../services/home_service.dart';
+import 'package:fixitzed_app/services/auth_service.dart';
+import 'package:fixitzed_app/services/home_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});

@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../core/api.dart';
-import '../data/province_districts.dart';
+import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/data/province_districts.dart';
 
 class LocationService {
   Future<Map<String, List<String>>> fetchProvinceDistricts() async {

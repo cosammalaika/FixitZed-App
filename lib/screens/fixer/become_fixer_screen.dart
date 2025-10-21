@@ -7,8 +7,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../services/fixer_application_service.dart';
-import '../../services/home_service.dart';
+import 'package:fixitzed_app/services/fixer_application_service.dart';
+import 'package:fixitzed_app/services/home_service.dart';
 
 enum _AttachmentAction { camera, gallery, file }
 

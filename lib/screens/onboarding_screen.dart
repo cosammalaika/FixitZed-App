@@ -15,22 +15,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<Map<String, String>> onboardingData = [
     {
-      "image": "assets/images/onboarding1.jpg",
-      "title": "Professional Help, Anytime",
-      "body":
-          "Find trusted plumbers, electricians, and cleaners near you all in one app.",
+      'image': 'assets/images/onboarding1.jpg',
+      'title': 'Professional Help, Anytime',
+      'body':
+          'Find trusted plumbers, electricians, and cleaners near you all in one app.',
     },
     {
-      "image": "assets/images/onboarding2.jpg",
-      "title": "Book with Ease, Get Reliable Service",
-      "body":
-          "Choose your service, pick a time that works for you, and let our vetted Fixers handle the rest, affordable, fast, and reliable.",
+      'image': 'assets/images/onboarding2.jpg',
+      'title': 'Book with Ease, Get Reliable Service',
+      'body':
+          'Choose your service, pick a time that works for you, and let our vetted Fixers handle the rest, affordable, fast, and reliable.',
     },
     {
-      "image": "assets/images/onboarding3.jpg",
-      "title": "Support Local Talent",
-      "body":
-          "By using FixItZed, you’re not just solving problems, you’re empowering skilled Zambians and growing local businesses.",
+      'image': 'assets/images/onboarding3.jpg',
+      'title': 'Support Local Talent',
+      'body':
+          'By using FixItZed, you’re not just solving problems, you’re empowering skilled Zambians and growing local businesses.',
     },
   ];
 
@@ -42,7 +42,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final targetWidthPx = (mq.size.width * mq.devicePixelRatio).round();
     for (var item in onboardingData) {
       final provider = ResizeImage(
-        AssetImage(item["image"]!),
+        AssetImage(item['image']!),
         width: targetWidthPx,
       );
       precacheImage(provider, context);
@@ -64,7 +64,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_seen', true);
     if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed("/auth");
+    Navigator.of(context).pushReplacementNamed('/auth');
   }
 
   @override
@@ -108,7 +108,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               (mq.size.width * mq.devicePixelRatio).round();
                           return Image(
                             image: ResizeImage(
-                              AssetImage(item["image"]!),
+                              AssetImage(item['image']!),
                               width: targetWidthPx,
                             ),
                             height: mq.size.height * 0.55,
@@ -124,7 +124,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       top: 20, // move down from status bar
                       right: 20,
                       child: Image.asset(
-                        "assets/images/logo.png", // ✅ your logo here
+                        'assets/images/logo.png', // ✅ your logo here
                         height: 180,
                         fit: BoxFit.contain,
                       ),
@@ -143,7 +143,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         Column(
                           children: [
                             Text(
-                              item["title"]!,
+                              item['title']!,
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 26,
@@ -153,7 +153,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                             const SizedBox(height: 14),
                             Text(
-                              item["body"]!,
+                              item['body']!,
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 16,
@@ -205,8 +205,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 ),
                                 child: Text(
                                   index == onboardingData.length - 1
-                                      ? "Get Started"
-                                      : "Next",
+                                      ? 'Get Started'
+                                      : 'Next',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w900,

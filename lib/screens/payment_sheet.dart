@@ -2,12 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/payment_service.dart';
-import '../services/coupon_service.dart';
-import '../services/loyalty_service.dart';
+import 'package:fixitzed_app/services/payment_service.dart';
+import 'package:fixitzed_app/services/coupon_service.dart';
+import 'package:fixitzed_app/services/loyalty_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../core/api.dart';
+import 'package:fixitzed_app/core/api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PaymentScreen extends StatefulWidget {

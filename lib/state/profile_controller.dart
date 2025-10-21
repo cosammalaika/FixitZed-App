@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/api.dart';
-import 'service_providers.dart';
+import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/state/service_providers.dart';
 
 class ProfileState {
   const ProfileState({

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/app_theme.dart';
-import '../../core/settings.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
+import 'package:fixitzed_app/core/settings.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
