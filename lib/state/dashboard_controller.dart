@@ -95,7 +95,7 @@ class DashboardController extends AsyncNotifier<DashboardState> {
 
     try {
       final meFuture = homeService.fetchMe();
-      final categoriesFuture = homeService.fetchCategories();
+      final categoriesFuture = homeService.fetchSubcategories();
       final servicesFuture = homeService.fetchServices();
       final notificationsFuture = notificationService.fetch(page: 1);
 

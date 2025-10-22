@@ -75,6 +75,25 @@ class HomeService {
     return [];
   }
 
+  Future<List<dynamic>> fetchSubcategories({int? categoryId}) async {
+    final query = <String, dynamic>{'per_page': 200};
+    if (categoryId != null) {
+      query['category_id'] = categoryId;
+    }
+    try {
+      final res = await http.get(
+        _uri('subcategories', query),
+        headers: _headers(),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final list = _extractList(data);
+        if (list.isNotEmpty) return list;
+      }
+    } catch (_) {}
+    return [];
+  }
+
   Future<List<dynamic>> fetchServices() async {
     try {
       final res = await http.get(

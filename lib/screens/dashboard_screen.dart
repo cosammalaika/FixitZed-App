@@ -183,7 +183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .whereType<Map>()
         .map((cat) => cat.map((key, value) => MapEntry(key.toString(), value)))
         .toList();
-    final items = categories.take(8).toList();
+    final items = normalizedCategories.take(8).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -191,7 +191,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Expanded(
               child: Text(
-                'Popular categories',
+                'Popular subcategories',
                 style: GoogleFonts.urbanist(
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
@@ -230,7 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (category.isEmpty && rawCat != null) {
                 category = {'name': rawCat.toString()};
               }
-              final name = (category['name'] ?? category['title'] ?? 'Category')
+              final name = (category['name'] ?? category['title'] ?? 'Subcategory')
                   .toString();
               return GestureDetector(
                 onTap: () => Navigator.pushNamed(

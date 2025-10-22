@@ -102,6 +102,18 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
         .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
         .toList();
 
+    for (final service in services) {
+      final sub = service['subcategory'];
+      if (sub is Map) {
+        final subId = sub['id'];
+        final subName = sub['name'] ?? sub['title'];
+        service.putIfAbsent('subcategory_id', () => subId);
+        if (subName is String && subName.trim().isNotEmpty) {
+          service.putIfAbsent('subcategory_name', () => subName.trim());
+        }
+      }
+    }
+
     setState(() {
       _allServices = services;
       _fav = fav;
@@ -112,12 +124,12 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
     _applyFilters();
   }
 
-  int? _extractCategoryId(Map source) {
-    final dynamic catField = source['category'] is Map
-        ? (source['category'] as Map)['id']
-        : source['category_id'] ?? source['id'];
+  int? _extractSubcategoryId(Map source) {
+    final dynamic subField = source['subcategory'] is Map
+        ? (source['subcategory'] as Map)['id']
+        : source['subcategory_id'] ?? source['id'];
     final dynamic id =
-        catField ?? source['category_id'] ?? source['categoryId'];
+        subField ?? source['subcategory_id'] ?? source['subcategoryId'];
     if (id == null) return null;
     if (id is num) return id.toInt();
     if (id is String) return int.tryParse(id);
@@ -129,8 +141,8 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
     Map<String, dynamic>? b,
   ) {
     if (a == null || b == null) return false;
-    final aId = _extractCategoryId(a);
-    final bId = _extractCategoryId(b);
+    final aId = _extractSubcategoryId(a);
+    final bId = _extractSubcategoryId(b);
     if (aId != null && bId != null) return aId == bId;
     final aName = (a['name'] ?? a['title'] ?? '').toString().toLowerCase();
     final bName = (b['name'] ?? b['title'] ?? '').toString().toLowerCase();
@@ -332,13 +344,13 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
     var filtered = List<Map<String, dynamic>>.from(_allServices);
 
     if (_category != null) {
-      final targetId = _extractCategoryId(_category!);
+      final targetId = _extractSubcategoryId(_category!);
       final targetName = (_category!['name'] ?? _category!['title'])
           ?.toString()
           .toLowerCase();
       filtered = filtered.where((service) {
-        final cat = service['category'];
-        final serviceCatId = _extractCategoryId(service);
+        final cat = service['subcategory'];
+        final serviceCatId = _extractSubcategoryId(service);
         if (targetId != null &&
             serviceCatId != null &&
             targetId == serviceCatId) {
@@ -349,7 +361,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
             if (cat is Map) {
               return (cat['name'] ?? cat['title'] ?? '').toString();
             }
-            return (service['category_name'] ?? '').toString();
+            return (service['subcategory_name'] ?? '').toString();
           })().toLowerCase();
           if (serviceCatName.contains(targetName)) {
             return true;
@@ -368,7 +380,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
           service['description'],
           service['summary'],
           service['service_name'],
-          service['category_name'],
+          service['subcategory_name'],
           service['keywords'],
           service['tags'],
         ];
@@ -377,9 +389,9 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
               value != null && value.toString().toLowerCase().contains(term),
         );
         if (match) return true;
-        final category = service['category'];
-        if (category is Map) {
-          final nested = (category['name'] ?? category['title'] ?? '')
+        final subcategory = service['subcategory'];
+        if (subcategory is Map) {
+          final nested = (subcategory['name'] ?? subcategory['title'] ?? '')
               .toString()
               .toLowerCase();
           if (nested.contains(term)) return true;
@@ -400,27 +412,26 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
     final seen = <String>{};
     final options = <Map<String, dynamic>>[];
     for (final service in services) {
-      Map<String, dynamic>? category;
-      final rawCategory = service['category'];
-      if (rawCategory is Map) {
-        category = rawCategory.map(
+      Map<String, dynamic>? subcategory;
+      final rawSubcategory = service['subcategory'];
+      if (rawSubcategory is Map) {
+        subcategory = rawSubcategory.map(
           (key, value) => MapEntry(key.toString(), value),
         );
       } else {
-        final id = service['category_id'] ?? service['categoryId'];
-        final name = (service['category_name'] ?? '').toString();
+        final id = service['subcategory_id'] ?? service['subcategoryId'];
+        final name = (service['subcategory_name'] ?? '').toString();
         if (id != null || name.isNotEmpty) {
-          category = {
+          subcategory = {
             if (id != null) 'id': id,
-            'name': name.isNotEmpty ? name : 'Category',
+            'name': name.isNotEmpty ? name : 'Subcategory',
           };
         }
       }
-      if (category == null) continue;
-      final key =
-          '${category['id'] ?? ''}-${(category['name'] ?? '').toString().toLowerCase()}';
+      if (subcategory == null) continue;
+      final key = '${subcategory['id'] ?? ''}-${(subcategory['name'] ?? '').toString().toLowerCase()}';
       if (seen.add(key)) {
-        options.add(category);
+        options.add(subcategory);
       }
     }
     return options;
@@ -467,7 +478,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.grid_view_rounded),
-                      title: const Text('All categories'),
+                      title: const Text('All subcategories'),
                       trailing: allSelected
                           ? const Icon(Icons.check_rounded,
                               color: Color(0xFFF1592A))
@@ -488,7 +499,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      'No categories available yet. Try refreshing the list.',
+                      'No subcategories available yet. Try refreshing the list.',
                       style: GoogleFonts.urbanist(color: Colors.black54),
                     ),
                   )

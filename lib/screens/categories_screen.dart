@@ -1,4 +1,4 @@
-import 'package:fixitzed_app/services/category_service.dart';
+import 'package:fixitzed_app/services/home_service.dart';
 import 'package:flutter/material.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
 
@@ -10,8 +10,8 @@ class CategoriesScreen extends StatefulWidget {
 }
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
-  final service = CategoryService();
-  List<dynamic> categories = [];
+  final service = HomeService();
+  List<dynamic> subcategories = [];
   bool isLoading = true;
 
   @override
@@ -22,9 +22,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   void loadCategories() async {
     try {
-      final data = await service.getCategories();
+      final data = await service.fetchSubcategories();
       setState(() {
-        categories = data;
+        subcategories = data;
         isLoading = false;
       });
     } catch (e) {
@@ -35,16 +35,21 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Categories')),
+      appBar: AppBar(title: const Text('Subcategories')),
       body: isLoading
           ? const CategoriesSkeleton()
           : ListView.builder(
-              itemCount: categories.length,
+              itemCount: subcategories.length,
               itemBuilder: (context, index) {
-                final category = categories[index];
+                final category = subcategories[index] as Map? ?? {};
                 return ListTile(
-                  title: Text(category['name']),
-                  subtitle: Text(category['description'] ?? ''),
+                  title: Text(
+                    (category['name'] ?? category['title'] ?? 'Subcategory')
+                        .toString(),
+                  ),
+                  subtitle: Text(
+                    (category['description'] ?? '').toString(),
+                  ),
                 );
               },
             ),

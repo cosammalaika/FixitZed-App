@@ -13,10 +13,20 @@ Map<String, dynamic>? normalizeService(dynamic raw) {
 }
 
 String? serviceCategoryLabel(Map<dynamic, dynamic> service) {
+  final subcategory = service['subcategory'];
+  if (subcategory is Map) {
+    final candidate =
+        (subcategory['name'] ?? subcategory['title'] ?? '').toString().trim();
+    if (candidate.isNotEmpty) return candidate;
+  }
   final category = service['category'];
   if (category is Map) {
     final candidate = (category['name'] ?? category['title'] ?? '').toString().trim();
     if (candidate.isNotEmpty) return candidate;
+  }
+  final subDirect = service['subcategory_name'] ?? service['subcategoryName'];
+  if (subDirect is String && subDirect.trim().isNotEmpty) {
+    return subDirect.trim();
   }
   final direct = service['category_name'] ??
       service['categoryName'] ??
