@@ -79,6 +79,7 @@ class ServiceRequestService {
     double? locationLat,
     double? locationLng,
     String? couponCode,
+    String? customerNote,
   }) async {
     // Try common backend paths in order.
     int? asInt(String? v) {
@@ -95,6 +96,10 @@ class ServiceRequestService {
       if (locationLng != null) 'location_lng': locationLng,
       if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
     };
+    final note = customerNote?.trim();
+    if (note != null && note.isNotEmpty) {
+      payload['customer_note'] = note;
+    }
     var lastResult = const ServiceRequestResult.failure(
       message: 'Service unavailable.',
     );

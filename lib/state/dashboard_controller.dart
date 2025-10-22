@@ -52,12 +52,12 @@ class DashboardController extends AsyncNotifier<DashboardState> {
   @override
   FutureOr<DashboardState> build() {
     _registerSync();
-    return _fetch();
+    unawaited(_refreshFromNetwork(showLoading: true));
+    return const DashboardState();
   }
 
   Future<void> refresh() async {
-    state = const AsyncValue<DashboardState>.loading().copyWithPrevious(state);
-    state = await AsyncValue.guard(_fetch);
+    await _refreshFromNetwork(showLoading: true);
   }
 
   void _registerSync() {
@@ -74,7 +74,16 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     });
   }
 
-  Future<DashboardState> _fetch() async {
+  Future<void> _refreshFromNetwork({bool showLoading = false}) async {
+    if (showLoading) {
+      state =
+          const AsyncValue<DashboardState>.loading().copyWithPrevious(state);
+    }
+    final result = await AsyncValue.guard(_fetchDashboard);
+    state = result;
+  }
+
+  Future<DashboardState> _fetchDashboard() async {
     final homeService = ref.read(homeServiceProvider);
     final notificationService = ref.read(notificationServiceProvider);
 

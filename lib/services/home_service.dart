@@ -1,13 +1,14 @@
 import 'dart:convert';
+import 'package:fixitzed_app/core/api.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fixitzed_app/core/api.dart';
 
 class HomeService {
   Map<String, String> _headers({String? token}) => {
-    'Accept': 'application/json',
-    if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-  };
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty)
+          'Authorization': 'Bearer $token',
+      };
 
   List<dynamic> _extractList(dynamic data) {
     if (data is List) return data;
@@ -61,7 +62,10 @@ class HomeService {
 
   Future<List<dynamic>> fetchCategories() async {
     try {
-      final res = await http.get(_uri('categories'), headers: _headers());
+      final res = await http.get(
+        _uri('categories', {'per_page': 100}),
+        headers: _headers(),
+      );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = _extractList(data);
@@ -73,7 +77,10 @@ class HomeService {
 
   Future<List<dynamic>> fetchServices() async {
     try {
-      final res = await http.get(_uri('services'), headers: _headers());
+      final res = await http.get(
+        _uri('services', {'per_page': 200}),
+        headers: _headers(),
+      );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = _extractList(data);
@@ -413,4 +420,5 @@ class HomeService {
     } catch (_) {}
     return <Map<String, dynamic>>[];
   }
+
 }

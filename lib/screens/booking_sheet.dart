@@ -27,17 +27,29 @@ class _BookingSheetState extends State<BookingSheet> {
   static const _lastLocationLatKey = 'booking:last_location_lat';
   static const _lastLocationLngKey = 'booking:last_location_lng';
 
-  List<Map<String, dynamic>> _services = const [];
+  List<Map<String, dynamic>> _services = const <Map<String, dynamic>>[];
   String? _serviceId;
   String? _serviceName;
   bool _submitting = false;
   final _locationCtrl = TextEditingController();
+  final _customServiceCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  List<Map<String, dynamic>> _savedLocations = const [];
+  List<Map<String, dynamic>> _savedLocations = const <Map<String, dynamic>>[];
   double? _locationLat;
   double? _locationLng;
   bool _locating = false;
   Future<void>? _initialLoad;
+
+  bool get _requiresCustomService {
+    final id = _serviceId?.trim();
+    if (id != null && id.isNotEmpty) {
+      if (id == '1401') return true;
+      final parsedId = int.tryParse(id);
+      if (parsedId != null && parsedId == 1401) return true;
+    }
+    final name = _serviceName?.toLowerCase() ?? '';
+    return name.contains('other') && name.contains('specify');
+  }
 
   @override
   void initState() {
@@ -57,6 +69,13 @@ class _BookingSheetState extends State<BookingSheet> {
         });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _locationCtrl.dispose();
+    _customServiceCtrl.dispose();
+    super.dispose();
   }
 
   InputDecoration _fieldDecoration({
@@ -445,6 +464,8 @@ class _BookingSheetState extends State<BookingSheet> {
     }
     FocusScope.of(context).unfocus();
     final scheduledAt = DateTime.now();
+    final customNote =
+        _requiresCustomService ? _customServiceCtrl.text.trim() : null;
     setState(() => _submitting = true);
     final result = await _req.createRequest(
       serviceId: _serviceId!,
@@ -452,6 +473,9 @@ class _BookingSheetState extends State<BookingSheet> {
       location: _locationCtrl.text.trim(),
       locationLat: _locationLat,
       locationLng: _locationLng,
+      customerNote: (customNote != null && customNote.isNotEmpty)
+          ? customNote
+          : null,
     );
     if (!mounted) return;
     setState(() => _submitting = false);
@@ -538,6 +562,25 @@ class _BookingSheetState extends State<BookingSheet> {
                         ),
                       ),
                       const SizedBox(height: 14),
+                      if (_requiresCustomService)
+                        TextFormField(
+                          controller: _customServiceCtrl,
+                          textCapitalization: TextCapitalization.sentences,
+                          maxLines: 4,
+                          minLines: 3,
+                          decoration: _fieldDecoration(
+                            label: 'Describe the service',
+                            hint: 'Share a few details so we can match the right fixer',
+                          ),
+                          validator: (value) {
+                            if (!_requiresCustomService) return null;
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please tell us what you need done';
+                            }
+                            return null;
+                          },
+                        ),
+                      if (_requiresCustomService) const SizedBox(height: 14),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -889,6 +932,9 @@ class _BookingSheetState extends State<BookingSheet> {
       setState(() {
         _serviceId = selected['id'];
         _serviceName = selected['name'];
+        if (!_requiresCustomService) {
+          _customServiceCtrl.clear();
+        }
       });
     }
   }

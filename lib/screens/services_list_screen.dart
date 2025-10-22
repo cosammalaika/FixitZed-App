@@ -29,6 +29,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
   void initState() {
     super.initState();
     _searchCtrl = TextEditingController();
+    _categoryOptions = const <Map<String, dynamic>>[];
   }
 
   @override
@@ -88,7 +89,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
   }
 
   Future<void> _load() async {
-    if (mounted) {
+    if (mounted && _services.isEmpty) {
       setState(() {
         _loading = true;
       });
