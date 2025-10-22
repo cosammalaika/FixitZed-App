@@ -468,6 +468,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Navigator.pushNamed(context, '/profile/settings'),
                 ),
                 _menuItem(
+                  Icons.card_giftcard_rounded,
+                  'Invite a friend',
+                  onTap: () =>
+                      Navigator.pushNamed(context, '/profile/invite'),
+                ),
+                _menuItem(
                   Icons.help_outline_rounded,
                   'FAQs',
                   onTap: () => Navigator.pushNamed(context, '/profile/faqs'),

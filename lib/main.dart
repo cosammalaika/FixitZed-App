@@ -16,6 +16,7 @@ import 'package:fixitzed_app/screens/profile/my_booking_screen.dart';
 import 'package:fixitzed_app/screens/profile/settings_screen.dart';
 import 'package:fixitzed_app/screens/profile/help_center_screen.dart';
 import 'package:fixitzed_app/screens/profile/faqs_screen.dart';
+import 'package:fixitzed_app/screens/profile/invite_friend_screen.dart';
 import 'package:fixitzed_app/screens/profile/change_password_screen.dart';
 import 'package:fixitzed_app/screens/fixer/become_fixer_screen.dart';
 import 'package:fixitzed_app/screens/about_screen.dart';
@@ -69,6 +70,7 @@ class MyApp extends ConsumerWidget {
             '/profile/payments': (context) => const PaymentMethodsScreen(),
             '/profile/bookings': (context) => const MyBookingScreen(),
             '/profile/settings': (context) => const SettingsScreen(),
+            '/profile/invite': (context) => const InviteFriendScreen(),
             '/profile/help': (context) => const HelpCenterScreen(),
             '/profile/faqs': (context) => const FaqsScreen(),
             '/profile/password': (context) => const ChangePasswordScreen(),
