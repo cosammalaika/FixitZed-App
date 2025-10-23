@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fixitzed_app/common/connectivity/connectivity_banner.dart';
+import 'package:fixitzed_app/common/connectivity/connectivity_badge.dart';
 import 'package:fixitzed_app/common/connectivity/connectivity_controller.dart';
 
 class ConnectivityOverlay extends ConsumerWidget {
@@ -21,6 +22,11 @@ class ConnectivityOverlay extends ConsumerWidget {
           left: 0,
           right: 0,
           child: ConnectivityBanner(visible: !status.isOnline),
+        ),
+        Positioned(
+          bottom: 20,
+          right: 20,
+          child: ConnectivityBadge(visible: !status.isOnline),
         ),
       ],
     );
