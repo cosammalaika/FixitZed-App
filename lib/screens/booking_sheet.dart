@@ -200,7 +200,7 @@ class _BookingSheetState extends State<BookingSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Book a service',
+                      'Request a service',
                       style: GoogleFonts.urbanist(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
@@ -718,7 +718,7 @@ class _BookingSheetState extends State<BookingSheet> {
                               ),
                             )
                           : const Icon(Icons.check_circle_outline),
-                      label: Text(_submitting ? 'Booking…' : 'Book Now'),
+                      label: Text(_submitting ? 'Requesting…' : 'Request Now'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF1592A),
                         foregroundColor: Colors.white,

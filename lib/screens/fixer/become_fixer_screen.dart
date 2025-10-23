@@ -9,8 +9,21 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:fixitzed_app/services/fixer_application_service.dart';
 import 'package:fixitzed_app/services/home_service.dart';
+import 'package:fixitzed_app/utils/service_utils.dart';
 
 enum _AttachmentAction { camera, gallery, file }
+
+class _ServiceCategoryGroup {
+  const _ServiceCategoryGroup({
+    required this.key,
+    required this.label,
+    required this.services,
+  });
+
+  final String key;
+  final String label;
+  final List<Map<String, dynamic>> services;
+}
 
 class BecomeFixerScreen extends StatefulWidget {
   const BecomeFixerScreen({super.key});
@@ -34,7 +47,8 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
   PlatformFile? _nrcFront;
   PlatformFile? _nrcBack;
 
-  List<Map<String, dynamic>> _services = const [];
+  List<_ServiceCategoryGroup> _serviceCategories = const [];
+  Set<String> _expandedCategoryKeys = <String>{};
   bool _loading = true;
   bool _submitting = false;
   bool _requestingLocation = false;
@@ -64,11 +78,222 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
       (a, b) =>
           (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()),
     );
+    final categories = _groupServicesByCategory(services);
+    final availableKeys = categories.map((category) => category.key).toSet();
+    final preservedExpanded = _expandedCategoryKeys
+        .where((key) => availableKeys.contains(key))
+        .toSet();
+    final autoExpanded = categories
+        .where(
+          (category) => category.services.any((service) {
+            final id = _serviceId(service);
+            return id != null && _selectedServices.contains(id);
+          }),
+        )
+        .map((category) => category.key)
+        .toSet();
+    final mergedExpanded = <String>{}
+      ..addAll(preservedExpanded)
+      ..addAll(autoExpanded);
+    if (mergedExpanded.isEmpty && categories.isNotEmpty) {
+      mergedExpanded.add(categories.first.key);
+    }
     if (!mounted) return;
     setState(() {
-      _services = services;
+      _serviceCategories = categories;
+      _expandedCategoryKeys = mergedExpanded;
       _loading = false;
     });
+  }
+
+  List<_ServiceCategoryGroup> _groupServicesByCategory(
+    List<Map<String, dynamic>> services,
+  ) {
+    if (services.isEmpty) return const [];
+
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    final labels = <String, String>{};
+
+    for (final service in services) {
+      final label = serviceCategoryLabel(service) ?? 'Other services';
+      final key = _categoryKey(service, label);
+      labels[key] = label;
+      grouped.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(service);
+    }
+
+    final categories = grouped.entries.map((entry) {
+      final label = labels[entry.key] ?? 'Other services';
+      final items = List<Map<String, dynamic>>.from(entry.value);
+      items.sort(
+        (a, b) => _serviceName(
+          a,
+        ).toLowerCase().compareTo(_serviceName(b).toLowerCase()),
+      );
+      return _ServiceCategoryGroup(
+        key: entry.key,
+        label: label,
+        services: items,
+      );
+    }).toList();
+
+    categories.sort(
+      (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
+    );
+
+    return categories;
+  }
+
+  String _categoryKey(Map<String, dynamic> service, String label) {
+    final candidates = <dynamic>[
+      if (service['subcategory'] is Map) (service['subcategory'] as Map)['id'],
+      service['subcategory_id'],
+      service['subcategoryId'],
+      if (service['category'] is Map) (service['category'] as Map)['id'],
+      service['category_id'],
+      service['categoryId'],
+    ];
+    for (final candidate in candidates) {
+      if (candidate == null) continue;
+      if (candidate is num) return 'id_${candidate.toInt()}';
+      if (candidate is String && candidate.trim().isNotEmpty) {
+        return 'id_${candidate.trim()}';
+      }
+    }
+    return 'label_${label.toLowerCase()}';
+  }
+
+  int? _serviceId(Map<String, dynamic> service) {
+    final rawId =
+        service['id'] ?? service['service_id'] ?? service['serviceId'];
+    if (rawId is int) return rawId;
+    if (rawId is num) return rawId.toInt();
+    if (rawId is String) return int.tryParse(rawId);
+    return null;
+  }
+
+  String _serviceName(Map<String, dynamic> service) {
+    final raw =
+        service['name'] ?? service['title'] ?? service['label'] ?? 'Service';
+    final text = raw.toString().trim();
+    return text.isEmpty ? 'Service' : text;
+  }
+
+  Widget _buildCategoryTile(_ServiceCategoryGroup category, Color brand) {
+    final expanded = _expandedCategoryKeys.contains(category.key);
+    final selectedCount = category.services.where((service) {
+      final id = _serviceId(service);
+      return id != null && _selectedServices.contains(id);
+    }).length;
+    final chips = category.services
+        .map((service) => _buildServiceChip(service, brand))
+        .whereType<Widget>()
+        .toList();
+
+    final content = chips.isEmpty
+        ? Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'No services available in this category yet.',
+              style: GoogleFonts.urbanist(color: Colors.black54, fontSize: 12),
+            ),
+          )
+        : Wrap(spacing: 8, runSpacing: 8, children: chips);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: expanded
+              ? brand.withValues(alpha: 0.35)
+              : const Color(0xFFE0E3EB),
+        ),
+        boxShadow: expanded
+            ? [
+                BoxShadow(
+                  color: brand.withValues(alpha: 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ]
+            : null,
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: PageStorageKey<String>(category.key),
+          initiallyExpanded: expanded,
+          onExpansionChanged: (value) {
+            setState(() {
+              if (value) {
+                _expandedCategoryKeys.add(category.key);
+              } else {
+                _expandedCategoryKeys.remove(category.key);
+              }
+            });
+          },
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  category.label,
+                  style: GoogleFonts.urbanist(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              if (selectedCount > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: brand.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$selectedCount selected',
+                    style: GoogleFonts.urbanist(
+                      color: brand,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          children: [content],
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildServiceChip(Map<String, dynamic> service, Color brand) {
+    final id = _serviceId(service);
+    if (id == null) return null;
+    final selected = _selectedServices.contains(id);
+    final name = _serviceName(service);
+    return FilterChip(
+      selected: selected,
+      onSelected: (_) {
+        setState(() {
+          if (selected) {
+            _selectedServices.remove(id);
+          } else {
+            _selectedServices.add(id);
+          }
+        });
+      },
+      label: Text(name),
+      selectedColor: brand.withValues(alpha: 0.2),
+      checkmarkColor: brand,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
   }
 
   Future<void> _useCurrentLocation() async {
@@ -719,7 +944,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              if (_services.isEmpty)
+                              if (_serviceCategories.isEmpty)
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
@@ -734,38 +959,13 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                                   ),
                                 )
                               else
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: _services.map((service) {
-                                    final id = (service['id'] as num?)?.toInt();
-                                    if (id == null) {
-                                      return const SizedBox.shrink();
-                                    }
-                                    final selected = _selectedServices.contains(
-                                      id,
-                                    );
-                                    final name = (service['name'] ?? 'Service')
-                                        .toString();
-                                    return FilterChip(
-                                      selected: selected,
-                                      onSelected: (_) {
-                                        setState(() {
-                                          if (selected) {
-                                            _selectedServices.remove(id);
-                                          } else {
-                                            _selectedServices.add(id);
-                                          }
-                                        });
-                                      },
-                                      label: Text(name),
-                                      selectedColor: brand.withValues(alpha: 0.2),
-                                      checkmarkColor: brand,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    );
-                                  }).toList(),
+                                Column(
+                                  children: _serviceCategories
+                                      .map(
+                                        (category) =>
+                                            _buildCategoryTile(category, brand),
+                                      )
+                                      .toList(),
                                 ),
                               if (_selectedServices.isEmpty)
                                 Padding(

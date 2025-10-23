@@ -100,7 +100,9 @@ class _SignInScreenState extends State<SignInScreen> {
       } else if (result.message == 'inactive') {
         await AuthService().logout();
         if (!mounted) return;
-        unawaited(Navigator.of(context).pushReplacementNamed('/account_blocked'));
+        unawaited(
+          Navigator.of(context).pushReplacementNamed('/account_blocked'),
+        );
       } else {
         await _showAlert(
           'Sign in failed',
@@ -109,7 +111,10 @@ class _SignInScreenState extends State<SignInScreen> {
       }
     } catch (_) {
       if (!mounted) return;
-      await _showAlert('Network issue', 'Unable to sign in. Check your connection.');
+      await _showAlert(
+        'Network issue',
+        'Unable to sign in. Check your connection.',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -664,5 +669,4 @@ class _SignInScreenState extends State<SignInScreen> {
       ),
     );
   }
-
 }
