@@ -220,14 +220,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             itemBuilder: (ctx, i) {
               final rawCat = items[i];
               var category = <String, dynamic>{};
-              if (rawCat is Map<String, dynamic>) {
-                category = Map<String, dynamic>.from(rawCat);
-              } else if (rawCat is Map) {
-                category = rawCat.map(
-                  (key, value) => MapEntry(key.toString(), value),
-                );
-              }
-              if (category.isEmpty && rawCat != null) {
+              category = Map<String, dynamic>.from(rawCat);
+                          if (category.isEmpty) {
                 category = {'name': rawCat.toString()};
               }
               final name = (category['name'] ?? category['title'] ?? 'Subcategory')
