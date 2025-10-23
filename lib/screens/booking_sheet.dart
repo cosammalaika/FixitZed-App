@@ -11,6 +11,26 @@ import 'package:fixitzed_app/services/local_notification_service.dart';
 import 'package:fixitzed_app/services/service_request_service.dart';
 import 'package:fixitzed_app/services/locations_service.dart';
 
+class _ActiveFixerServiceSet {
+  const _ActiveFixerServiceSet({
+    required this.ids,
+    required this.names,
+    required this.slugs,
+  });
+
+  final Set<String> ids;
+  final Set<String> names;
+  final Set<String> slugs;
+
+  static const _ActiveFixerServiceSet empty = _ActiveFixerServiceSet(
+    ids: <String>{},
+    names: <String>{},
+    slugs: <String>{},
+  );
+
+  bool get isEmpty => ids.isEmpty && names.isEmpty && slugs.isEmpty;
+}
+
 class BookingSheet extends StatefulWidget {
   final Map<String, dynamic>? initialService;
   const BookingSheet({super.key, this.initialService});
@@ -20,6 +40,31 @@ class BookingSheet extends StatefulWidget {
 }
 
 class _BookingSheetState extends State<BookingSheet> {
+  static const Set<String> _activeFixerStatusTokens = {
+    'active',
+    'approved',
+    'available',
+    'online',
+    'enabled',
+    'verified',
+    'live',
+    'current',
+  };
+
+  static const Set<String> _inactiveFixerStatusTokens = {
+    'inactive',
+    'disabled',
+    'suspended',
+    'blocked',
+    'pending',
+    'unavailable',
+    'offline',
+    'archived',
+    'deactivated',
+    'draft',
+    'rejected',
+  };
+
   final _svc = HomeService();
   final _req = ServiceRequestService();
 
@@ -112,23 +157,52 @@ class _BookingSheetState extends State<BookingSheet> {
   }
 
   Future<void> _load() async {
-    final servicesRaw = await _svc.fetchServices();
-    final locsRaw = await LocationsService().list();
+    final servicesFuture = _svc.fetchServices();
+    final fixersFuture = _svc.fetchAllFixers();
+    final locationsFuture = LocationsService().list();
+
+    List<dynamic> servicesRaw = const [];
+    List<dynamic> fixersRaw = const [];
+    List<Map<String, dynamic>> locsRaw = const <Map<String, dynamic>>[];
+
+    try {
+      servicesRaw = await servicesFuture;
+    } catch (_) {
+      servicesRaw = const [];
+    }
+    try {
+      fixersRaw = await fixersFuture;
+    } catch (_) {
+      fixersRaw = const [];
+    }
+    try {
+      locsRaw = await locationsFuture;
+    } catch (_) {
+      locsRaw = const <Map<String, dynamic>>[];
+    }
+
     final services = servicesRaw
         .whereType<Map>()
         .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
         .toList();
+    final filtered = _filterServicesByActiveFixers(services, fixersRaw);
     if (!mounted) return;
     setState(() {
-      _services = services;
+      _services = filtered;
       _savedLocations = locsRaw;
       if (_serviceId != null) {
-        final match = _services.firstWhere(
-          (s) => _extractServiceId(s) == _serviceId,
-          orElse: () => <String, dynamic>{},
-        );
-        if (match.isNotEmpty) {
-          _serviceName = _extractServiceName(match);
+        Map<String, dynamic>? found;
+        for (final service in _services) {
+          if (_extractServiceId(service) == _serviceId) {
+            found = service;
+            break;
+          }
+        }
+        if (found != null) {
+          _serviceName = _extractServiceName(found);
+        } else {
+          _serviceId = null;
+          _serviceName = null;
         }
       }
     });
@@ -152,7 +226,8 @@ class _BookingSheetState extends State<BookingSheet> {
     );
     if (!success && mounted) {
       _showSnack(
-        message: 'Could not fetch your current location automatically. You can tap “Use current” or enter it manually.',
+        message:
+            'Could not fetch your current location automatically. You can tap “Use current” or enter it manually.',
         success: false,
       );
     }
@@ -435,6 +510,295 @@ class _BookingSheetState extends State<BookingSheet> {
     );
   }
 
+  List<Map<String, dynamic>> _filterServicesByActiveFixers(
+    List<Map<String, dynamic>> services,
+    List<dynamic> fixersRaw,
+  ) {
+    if (services.isEmpty) return services;
+    final active = _collectActiveFixerServices(fixersRaw);
+    if (active.isEmpty) return services;
+
+    bool matches(Map<String, dynamic> service) {
+      final id = _extractServiceId(service);
+      if (id != null && active.ids.contains(id)) {
+        return true;
+      }
+
+      for (final candidate in <String>{
+        _normalizeSlugToken(service['slug']),
+        _normalizeSlugToken(service['service_slug']),
+        _normalizeSlugToken(service['serviceCode']),
+      }) {
+        if (candidate.isNotEmpty && active.slugs.contains(candidate)) {
+          return true;
+        }
+      }
+
+      for (final name in _serviceNameCandidates(service)) {
+        final normalized = _normalizeServiceNameToken(name);
+        if (normalized.isNotEmpty && active.names.contains(normalized)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    final filtered = <Map<String, dynamic>>[];
+    for (final service in services) {
+      if (matches(service)) {
+        filtered.add(service);
+      }
+    }
+    return filtered.isEmpty ? services : filtered;
+  }
+
+  _ActiveFixerServiceSet _collectActiveFixerServices(List<dynamic> fixersRaw) {
+    if (fixersRaw.isEmpty) return _ActiveFixerServiceSet.empty;
+
+    final ids = <String>{};
+    final names = <String>{};
+    final slugs = <String>{};
+    final seenFixerMaps = <int>{};
+    final seenServiceMaps = <int>{};
+
+    void addId(dynamic value) {
+      if (value == null) return;
+      if (value is num) {
+        ids.add(value.toInt().toString());
+      } else if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return;
+        if (RegExp(r'^\d+$').hasMatch(trimmed)) {
+          ids.add(trimmed);
+        }
+      }
+    }
+
+    void addName(dynamic value) {
+      if (value == null) return;
+      if (value is String) {
+        final segments = value
+            .split(RegExp(r'[,&/;|]+'))
+            .map((e) => e.trim())
+            .where((element) => element.isNotEmpty);
+        for (final segment in segments) {
+          final normalized = _normalizeServiceNameToken(segment);
+          if (normalized.isNotEmpty) names.add(normalized);
+          final slug = _normalizeSlugToken(segment);
+          if (slug.isNotEmpty) slugs.add(slug);
+        }
+      }
+    }
+
+    void addSlug(dynamic value) {
+      final normalized = _normalizeSlugToken(value);
+      if (normalized.isNotEmpty) slugs.add(normalized);
+    }
+
+    void collectService(dynamic raw) {
+      if (raw == null) return;
+      if (raw is Map) {
+        final id = identityHashCode(raw);
+        if (!seenServiceMaps.add(id)) return;
+        addId(
+          raw['service_id'] ??
+              raw['serviceId'] ??
+              raw['id'] ??
+              raw['service_id_fk'],
+        );
+        addSlug(
+          raw['slug'] ?? raw['service_slug'] ?? raw['slug_name'] ?? raw['code'],
+        );
+        addName(raw['name']);
+        addName(raw['title']);
+        addName(raw['label']);
+        addName(raw['service_name']);
+        addName(raw['display_name']);
+        collectService(raw['service']);
+        collectService(raw['pivot']);
+        for (final entry in raw.entries) {
+          final key = entry.key.toString().toLowerCase();
+          if (key.contains('service') ||
+              key.contains('skill') ||
+              key.contains('tag') ||
+              key.contains('category')) {
+            collectService(entry.value);
+          }
+        }
+      } else if (raw is Iterable) {
+        for (final item in raw) {
+          collectService(item);
+        }
+      } else if (raw is num) {
+        addId(raw);
+      } else if (raw is String) {
+        addName(raw);
+      }
+    }
+
+    void collectFixer(Map<dynamic, dynamic> fixer) {
+      final id = identityHashCode(fixer);
+      if (!seenFixerMaps.add(id)) return;
+      if (!_isFixerActive(fixer)) return;
+
+      collectService(fixer['services']);
+      collectService(fixer['service_names']);
+      collectService(fixer['service_list']);
+      collectService(fixer['serviceIds']);
+      collectService(fixer['service_ids']);
+      collectService(fixer['service_ids_array']);
+      collectService(fixer['skills']);
+      collectService(fixer['skill_names']);
+      collectService(fixer['tags']);
+      collectService(fixer['categories']);
+      collectService(fixer['specialities']);
+
+      for (final key in const [
+        'fixer',
+        'user',
+        'profile',
+        'fixer_profile',
+        'owner',
+        'details',
+        'metadata',
+        'meta',
+      ]) {
+        final nested = fixer[key];
+        if (nested is Map) {
+          collectFixer(nested);
+        } else if (nested is Iterable) {
+          for (final item in nested) {
+            if (item is Map) collectFixer(item);
+          }
+        }
+      }
+    }
+
+    for (final raw in fixersRaw) {
+      if (raw is Map) {
+        collectFixer(raw);
+      }
+    }
+
+    if (ids.isEmpty && names.isEmpty && slugs.isEmpty) {
+      return _ActiveFixerServiceSet.empty;
+    }
+    return _ActiveFixerServiceSet(ids: ids, names: names, slugs: slugs);
+  }
+
+  bool _isFixerActive(Map<dynamic, dynamic> fixer) {
+    bool? parseBool(dynamic value) {
+      if (value == null) return null;
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (normalized.isEmpty) return null;
+        if (_activeFixerStatusTokens.contains(normalized) ||
+            normalized == 'true' ||
+            normalized == '1' ||
+            normalized == 'yes') {
+          return true;
+        }
+        if (_inactiveFixerStatusTokens.contains(normalized) ||
+            normalized == 'false' ||
+            normalized == '0' ||
+            normalized == 'no') {
+          return false;
+        }
+      }
+      return null;
+    }
+
+    final direct =
+        parseBool(fixer['is_active']) ??
+        parseBool(fixer['active']) ??
+        parseBool(fixer['isActive']) ??
+        parseBool(fixer['available']) ??
+        parseBool(fixer['availability']) ??
+        parseBool(fixer['status']) ??
+        parseBool(fixer['state']);
+
+    if (direct != null) {
+      return direct;
+    }
+
+    for (final key in const [
+      'status',
+      'state',
+      'availability',
+      'availability_status',
+      'fixer_status',
+    ]) {
+      final value = fixer[key];
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (normalized.isEmpty) continue;
+        if (_inactiveFixerStatusTokens.contains(normalized)) {
+          return false;
+        }
+        if (_activeFixerStatusTokens.contains(normalized)) {
+          return true;
+        }
+      }
+    }
+    return true;
+  }
+
+  Iterable<String> _serviceNameCandidates(Map<dynamic, dynamic> service) sync* {
+    for (final value in [
+      service['name'],
+      service['title'],
+      service['label'],
+      service['service_name'],
+      service['display_name'],
+      service['short_name'],
+    ]) {
+      if (value is String && value.trim().isNotEmpty) {
+        yield value;
+      }
+    }
+    final subcategory = service['subcategory'];
+    if (subcategory is Map) {
+      final subName = subcategory['name'] ?? subcategory['title'];
+      if (subName is String && subName.trim().isNotEmpty) {
+        yield subName;
+      }
+    }
+    final subName2 = service['subcategory_name'] ?? service['subcategoryName'];
+    if (subName2 is String && subName2.trim().isNotEmpty) {
+      yield subName2;
+    }
+    final category = service['category'];
+    if (category is Map) {
+      final categoryName = category['name'] ?? category['title'];
+      if (categoryName is String && categoryName.trim().isNotEmpty) {
+        yield categoryName;
+      }
+    }
+  }
+
+  String _normalizeServiceNameToken(dynamic value) {
+    if (value == null) return '';
+    final lower = value.toString().trim().toLowerCase();
+    if (lower.isEmpty) return '';
+    return lower
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String _normalizeSlugToken(dynamic value) {
+    if (value == null) return '';
+    final lower = value.toString().trim().toLowerCase();
+    if (lower.isEmpty) return '';
+    final cleaned = lower
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
+    return cleaned;
+  }
+
   String? _extractServiceId(Map<dynamic, dynamic> s) {
     final id = s['id'] ?? s['uuid'] ?? s['service_id'];
     if (id == null) return null;
@@ -464,8 +828,9 @@ class _BookingSheetState extends State<BookingSheet> {
     }
     FocusScope.of(context).unfocus();
     final scheduledAt = DateTime.now();
-    final customNote =
-        _requiresCustomService ? _customServiceCtrl.text.trim() : null;
+    final customNote = _requiresCustomService
+        ? _customServiceCtrl.text.trim()
+        : null;
     setState(() => _submitting = true);
     final result = await _req.createRequest(
       serviceId: _serviceId!,
@@ -570,7 +935,8 @@ class _BookingSheetState extends State<BookingSheet> {
                           minLines: 3,
                           decoration: _fieldDecoration(
                             label: 'Describe the service',
-                            hint: 'Share a few details so we can match the right fixer',
+                            hint:
+                                'Share a few details so we can match the right fixer',
                           ),
                           validator: (value) {
                             if (!_requiresCustomService) return null;
@@ -593,28 +959,32 @@ class _BookingSheetState extends State<BookingSheet> {
                         children: [
                           TextFormField(
                             controller: _locationCtrl,
-                            decoration: _fieldDecoration(
-                              label: 'Service location',
-                              hint: 'e.g., Plot 123, Kabwata, Lusaka',
-                              icon: const Icon(Icons.location_on_outlined),
-                            ).copyWith(
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  Icons.my_location_rounded,
-                                  color: _locating
-                                      ? Theme.of(context).colorScheme.outline
-                                      : const Color(0xFFF1592A),
+                            decoration:
+                                _fieldDecoration(
+                                  label: 'Service location',
+                                  hint: 'e.g., Plot 123, Kabwata, Lusaka',
+                                  icon: const Icon(Icons.location_on_outlined),
+                                ).copyWith(
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      Icons.my_location_rounded,
+                                      color: _locating
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.outline
+                                          : const Color(0xFFF1592A),
+                                    ),
+                                    onPressed: _locating
+                                        ? null
+                                        : () async {
+                                            await _useCurrentLocation();
+                                          },
+                                  ),
                                 ),
-                                onPressed: _locating
-                                    ? null
-                                    : () async {
-                                        await _useCurrentLocation();
-                                      },
-                              ),
-                            ),
                             textInputAction: TextInputAction.next,
                             onChanged: (_) {
-                              if (_locationLat != null || _locationLng != null) {
+                              if (_locationLat != null ||
+                                  _locationLng != null) {
                                 _locationLat = null;
                                 _locationLng = null;
                               }
@@ -775,9 +1145,7 @@ class _BookingSheetState extends State<BookingSheet> {
       loader = showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (_) => const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -810,14 +1178,20 @@ class _BookingSheetState extends State<BookingSheet> {
           builder: (ctx, setSt) {
             List<Map<String, dynamic>> filteredServices() {
               final query = queryCtrl.text.trim().toLowerCase();
-              if (query.isEmpty) return List<Map<String, dynamic>>.of(_services);
-              return _services.where((s) {
-                final name =
-                    (s['name'] ?? s['title'] ?? 'Service').toString().toLowerCase();
-                final desc =
-                    (s['description'] ?? s['summary'] ?? '').toString().toLowerCase();
-                return name.contains(query) || desc.contains(query);
-              }).map((s) => Map<String, dynamic>.from(s)).toList();
+              if (query.isEmpty)
+                return List<Map<String, dynamic>>.of(_services);
+              return _services
+                  .where((s) {
+                    final name = (s['name'] ?? s['title'] ?? 'Service')
+                        .toString()
+                        .toLowerCase();
+                    final desc = (s['description'] ?? s['summary'] ?? '')
+                        .toString()
+                        .toLowerCase();
+                    return name.contains(query) || desc.contains(query);
+                  })
+                  .map((s) => Map<String, dynamic>.from(s))
+                  .toList();
             }
 
             final filtered = filteredServices();
@@ -828,100 +1202,100 @@ class _BookingSheetState extends State<BookingSheet> {
                 padding: EdgeInsets.only(
                   left: 16,
                   right: 16,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-                top: 12,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 44,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+                  top: 12,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Choose Service',
-                    style: GoogleFonts.urbanist(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(height: 12),
+                    Text(
+                      'Choose Service',
+                      style: GoogleFonts.urbanist(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: queryCtrl,
-                    autofocus: true,
-                    decoration: _fieldDecoration(
-                      label: 'Search services',
-                      icon: const Icon(Icons.search_rounded),
-                      hint: 'Type to filter…',
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: queryCtrl,
+                      autofocus: true,
+                      decoration: _fieldDecoration(
+                        label: 'Search services',
+                        icon: const Icon(Icons.search_rounded),
+                        hint: 'Type to filter…',
+                      ),
+                      onChanged: (_) => setSt(() {}),
                     ),
-                    onChanged: (_) => setSt(() {}),
-                  ),
-                  const SizedBox(height: 12),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 420),
-                    child: filtered.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24.0),
-                              child: Text(
-                                'No services match your search',
-                                style: GoogleFonts.urbanist(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            shrinkWrap: true,
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, __) =>
-                                const Divider(height: 1),
-                            itemBuilder: (ctx, i) {
-                              final s = filtered[i];
-                              final id = (s['id'] ?? s['uuid'] ?? '$i')
-                                  .toString();
-                              final name =
-                                  (s['name'] ?? s['title'] ?? 'Service')
-                                      .toString();
-                              final desc =
-                                  (s['description'] ?? s['summary'] ?? '')
-                                      .toString();
-                              return ListTile(
-                                leading: const Icon(
-                                  Icons.handyman_outlined,
-                                  color: Color(0xFFF1592A),
-                                ),
-                                title: Text(
-                                  name,
+                    const SizedBox(height: 12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 420),
+                      child: filtered.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: Text(
+                                  'No services match your search',
                                   style: GoogleFonts.urbanist(
-                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black54,
                                   ),
                                 ),
-                                subtitle: desc.isNotEmpty
-                                    ? Text(
-                                        desc,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      )
-                                    : null,
-                                onTap: () => Navigator.of(
-                                  ctx,
-                                ).pop({'id': id, 'name': name}),
-                              );
-                            },
-                          ),
-                  ),
-                ],
+                              ),
+                            )
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (ctx, i) {
+                                final s = filtered[i];
+                                final id = (s['id'] ?? s['uuid'] ?? '$i')
+                                    .toString();
+                                final name =
+                                    (s['name'] ?? s['title'] ?? 'Service')
+                                        .toString();
+                                final desc =
+                                    (s['description'] ?? s['summary'] ?? '')
+                                        .toString();
+                                return ListTile(
+                                  leading: const Icon(
+                                    Icons.handyman_outlined,
+                                    color: Color(0xFFF1592A),
+                                  ),
+                                  title: Text(
+                                    name,
+                                    style: GoogleFonts.urbanist(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: desc.isNotEmpty
+                                      ? Text(
+                                          desc,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        )
+                                      : null,
+                                  onTap: () => Navigator.of(
+                                    ctx,
+                                  ).pop({'id': id, 'name': name}),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
               ),
-            ),
             );
           },
         );
@@ -1031,11 +1405,9 @@ class _BookingSheetState extends State<BookingSheet> {
         _locationLat = toDouble(latRaw);
         _locationLng = toDouble(lngRaw);
       });
-      unawaited(_cacheLocation(
-        _locationCtrl.text.trim(),
-        _locationLat,
-        _locationLng,
-      ));
+      unawaited(
+        _cacheLocation(_locationCtrl.text.trim(), _locationLat, _locationLng),
+      );
     }
   }
 
@@ -1104,11 +1476,9 @@ class _BookingSheetState extends State<BookingSheet> {
           _locating = false;
         }
       });
-      unawaited(_cacheLocation(
-        _locationCtrl.text.trim(),
-        _locationLat,
-        _locationLng,
-      ));
+      unawaited(
+        _cacheLocation(_locationCtrl.text.trim(), _locationLat, _locationLng),
+      );
       return true;
     } catch (_) {
       if (!mounted) return false;
