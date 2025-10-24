@@ -84,6 +84,7 @@ class _BookingSheetState extends State<BookingSheet> {
   double? _locationLng;
   bool _locating = false;
   Future<void>? _initialLoad;
+  bool _servicePickerOpen = false;
 
   bool get _requiresCustomService {
     final id = _serviceId?.trim();
@@ -1140,176 +1141,197 @@ class _BookingSheetState extends State<BookingSheet> {
   }
 
   Future<void> _pickService() async {
-    Future<void>? loader;
-    if (_services.isEmpty && mounted) {
-      loader = showDialog<void>(
+    if (_servicePickerOpen || !mounted) return;
+
+    setState(() => _servicePickerOpen = true);
+    try {
+      final selected = await showModalBottomSheet<Map<String, String>>(
         context: context,
-        barrierDismissible: false,
-        builder: (_) => const Center(child: CircularProgressIndicator()),
-      );
-    }
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) {
+          final queryCtrl = TextEditingController();
+          return FutureBuilder<void>(
+            future: _ensureServicesLoaded(),
+            builder: (ctx, snapshot) {
+              final loading = snapshot.connectionState != ConnectionState.done;
+              final services = List<Map<String, dynamic>>.of(_services);
 
-    await _ensureServicesLoaded();
+              Widget buildList() {
+                if (loading) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 60),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (services.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: Text(
+                        'Services are still syncing. Please try again shortly.',
+                        style: GoogleFonts.urbanist(color: Colors.black54),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
 
-    if (loader != null && mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
-      await loader;
-    }
+                List<Map<String, dynamic>> filteredServices() {
+                  final query = queryCtrl.text.trim().toLowerCase();
+                  if (query.isEmpty) return services;
+                  return services
+                      .where((s) {
+                        final name = (s['name'] ?? s['title'] ?? 'Service')
+                            .toString()
+                            .toLowerCase();
+                        final desc = (s['description'] ?? s['summary'] ?? '')
+                            .toString()
+                            .toLowerCase();
+                        return name.contains(query) || desc.contains(query);
+                      })
+                      .map((s) => Map<String, dynamic>.from(s))
+                      .toList();
+                }
 
-    if (!mounted) return;
-    if (_services.isEmpty) {
-      _showSnack(
-        message: 'Services are still syncing. Please try again in a moment.',
-        success: false,
-      );
-      return;
-    }
-
-    final selected = await showModalBottomSheet<Map<String, String>>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        final queryCtrl = TextEditingController();
-
-        return StatefulBuilder(
-          builder: (ctx, setSt) {
-            List<Map<String, dynamic>> filteredServices() {
-              final query = queryCtrl.text.trim().toLowerCase();
-              if (query.isEmpty)
-                return List<Map<String, dynamic>>.of(_services);
-              return _services
-                  .where((s) {
-                    final name = (s['name'] ?? s['title'] ?? 'Service')
-                        .toString()
-                        .toLowerCase();
-                    final desc = (s['description'] ?? s['summary'] ?? '')
-                        .toString()
-                        .toLowerCase();
-                    return name.contains(query) || desc.contains(query);
-                  })
-                  .map((s) => Map<String, dynamic>.from(s))
-                  .toList();
-            }
-
-            final filtered = filteredServices();
-
-            return SafeArea(
-              top: false,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-                  top: 12,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(2),
+                return StatefulBuilder(
+                  builder: (ctx, setSt) {
+                    final filtered = filteredServices();
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: queryCtrl,
+                          autofocus: true,
+                          decoration: _fieldDecoration(
+                            label: 'Search services',
+                            icon: const Icon(Icons.search_rounded),
+                            hint: 'Type to filter…',
+                          ),
+                          onChanged: (_) => setSt(() {}),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Choose Service',
-                      style: GoogleFonts.urbanist(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: queryCtrl,
-                      autofocus: true,
-                      decoration: _fieldDecoration(
-                        label: 'Search services',
-                        icon: const Icon(Icons.search_rounded),
-                        hint: 'Type to filter…',
-                      ),
-                      onChanged: (_) => setSt(() {}),
-                    ),
-                    const SizedBox(height: 12),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 420),
-                      child: filtered.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24.0),
-                                child: Text(
-                                  'No services match your search',
-                                  style: GoogleFonts.urbanist(
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : ListView.separated(
-                              shrinkWrap: true,
-                              itemCount: filtered.length,
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
-                              itemBuilder: (ctx, i) {
-                                final s = filtered[i];
-                                final id = (s['id'] ?? s['uuid'] ?? '$i')
-                                    .toString();
-                                final name =
-                                    (s['name'] ?? s['title'] ?? 'Service')
-                                        .toString();
-                                final desc =
-                                    (s['description'] ?? s['summary'] ?? '')
-                                        .toString();
-                                return ListTile(
-                                  leading: const Icon(
-                                    Icons.handyman_outlined,
-                                    color: Color(0xFFF1592A),
-                                  ),
-                                  title: Text(
-                                    name,
-                                    style: GoogleFonts.urbanist(
-                                      fontWeight: FontWeight.w600,
+                        const SizedBox(height: 12),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 420),
+                          child: filtered.isEmpty
+                              ? Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(24.0),
+                                    child: Text(
+                                      'No services match your search',
+                                      style: GoogleFonts.urbanist(
+                                        color: Colors.black54,
+                                      ),
                                     ),
                                   ),
-                                  subtitle: desc.isNotEmpty
-                                      ? Text(
-                                          desc,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        )
-                                      : null,
-                                  onTap: () => Navigator.of(
-                                    ctx,
-                                  ).pop({'id': id, 'name': name}),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
+                                )
+                              : ListView.separated(
+                                  shrinkWrap: true,
+                                  itemCount: filtered.length,
+                                  separatorBuilder: (_, __) =>
+                                      const Divider(height: 1),
+                                  itemBuilder: (ctx, i) {
+                                    final s = filtered[i];
+                                    final id = (s['id'] ?? s['uuid'] ?? '$i')
+                                        .toString();
+                                    final name =
+                                        (s['name'] ?? s['title'] ?? 'Service')
+                                            .toString();
+                                    final desc =
+                                        (s['description'] ?? s['summary'] ?? '')
+                                            .toString();
+                                    return ListTile(
+                                      leading: const Icon(
+                                        Icons.handyman_outlined,
+                                        color: Color(0xFFF1592A),
+                                      ),
+                                      title: Text(
+                                        name,
+                                        style: GoogleFonts.urbanist(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      subtitle: desc.isNotEmpty
+                                          ? Text(
+                                              desc,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            )
+                                          : null,
+                                      onTap: () => Navigator.of(
+                                        ctx,
+                                      ).pop({'id': id, 'name': name}),
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              }
+
+              return SafeArea(
+                top: false,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+                    top: 12,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Choose Service',
+                        style: GoogleFonts.urbanist(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      buildList(),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
-        );
-      },
-    );
-    if (!mounted) return;
-    if (selected != null) {
-      setState(() {
-        _serviceId = selected['id'];
-        _serviceName = selected['name'];
-        if (!_requiresCustomService) {
-          _customServiceCtrl.clear();
-        }
-      });
+              );
+            },
+          );
+        },
+      );
+
+      if (!mounted) return;
+      if (selected != null) {
+        setState(() {
+          _serviceId = selected['id'];
+          _serviceName = selected['name'];
+          if (!_requiresCustomService) {
+            _customServiceCtrl.clear();
+          }
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _servicePickerOpen = false);
+      } else {
+        _servicePickerOpen = false;
+      }
     }
   }
 

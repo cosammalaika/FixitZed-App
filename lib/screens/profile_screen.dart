@@ -29,6 +29,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Color? iconColor,
     bool showDivider = true,
   }) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final tile = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -39,8 +42,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0x1AF1592A), Color(0x33F1592A)],
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [
+                          brand.withOpacity(0.32),
+                          scheme.secondary.withOpacity(0.18),
+                        ]
+                      : const [Color(0x1AF1592A), Color(0x33F1592A)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -55,11 +63,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: GoogleFonts.urbanist(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1F1F1F),
+                  color: scheme.onSurface,
                 ),
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: Colors.black26),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: scheme.onSurfaceVariant.withOpacity(isDark ? 0.45 : 0.35),
+            ),
           ],
         ),
       ),
@@ -69,7 +80,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         tile,
         if (showDivider)
-          const Divider(height: 1, thickness: 1, color: Color(0xFFF2F2F2)),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: scheme.outline.withOpacity(isDark ? 0.12 : 0.06),
+          ),
       ],
     );
   }
@@ -140,11 +155,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _uploadProfilePhoto(String path) async {
     if (_uploadingPhoto) return;
     setState(() => _uploadingPhoto = true);
-    unawaited(showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    ));
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      ),
+    );
     var success = false;
     try {
       success = await AuthService().updateProfilePhoto(path);
@@ -264,8 +281,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton.icon(
-                      onPressed: () =>
-                          ref.read(profileControllerProvider.notifier).refresh(),
+                      onPressed: () => ref
+                          .read(profileControllerProvider.notifier)
+                          .refresh(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF1592A),
                         foregroundColor: Colors.white,
@@ -367,7 +385,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   child: Text(
                                     location,
                                     style: GoogleFonts.urbanist(
-                                      color: Colors.white.withValues(alpha: 0.8),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.8,
+                                      ),
                                       fontSize: 13,
                                     ),
                                   ),
@@ -444,15 +464,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+              boxShadow: Theme.of(context).brightness == Brightness.dark
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
             ),
             child: Column(
               children: [
@@ -470,8 +492,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _menuItem(
                   Icons.card_giftcard_rounded,
                   'Invite a friend',
-                  onTap: () =>
-                      Navigator.pushNamed(context, '/profile/invite'),
+                  onTap: () => Navigator.pushNamed(context, '/profile/invite'),
                 ),
                 _menuItem(
                   Icons.help_outline_rounded,
@@ -496,9 +517,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: () async {
                     await AuthService().logout();
                     if (!mounted) return;
-                    unawaited(Navigator.of(
-                      context,
-                    ).pushNamedAndRemoveUntil('/auth', (r) => false));
+                    unawaited(
+                      Navigator.of(
+                        context,
+                      ).pushNamedAndRemoveUntil('/auth', (r) => false),
+                    );
                   },
                 ),
               ],
@@ -802,7 +825,9 @@ extension _ReportSheet on _ProfileScreenState {
                           borderRadius: BorderRadius.circular(22),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFF1592A).withValues(alpha: 0.2),
+                              color: const Color(
+                                0xFFF1592A,
+                              ).withValues(alpha: 0.2),
                               blurRadius: 20,
                               offset: const Offset(0, 12),
                             ),
@@ -838,7 +863,9 @@ extension _ReportSheet on _ProfileScreenState {
                                   Text(
                                     'Help us keep the community safe.',
                                     style: GoogleFonts.urbanist(
-                                      color: Colors.white.withValues(alpha: 0.9),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
                                     ),
                                   ),
                                 ],

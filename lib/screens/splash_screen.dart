@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:fixitzed_app/services/home_service.dart';
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -19,7 +21,11 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _bootstrap() async {
-    await Future.delayed(const Duration(seconds: 2));
+    final preload = HomeService()
+        .preloadServices()
+        .timeout(const Duration(seconds: 10))
+        .catchError((_) {});
+    await Future.wait([Future.delayed(const Duration(seconds: 2)), preload]);
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('onboarding_seen') ?? false;

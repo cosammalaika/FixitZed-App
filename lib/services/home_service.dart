@@ -4,11 +4,15 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeService {
+  static List<dynamic>? _servicesCache;
+  static DateTime? _servicesCacheFetchedAt;
+  static Future<List<dynamic>>? _servicesCacheFuture;
+  static const Duration _servicesCacheTtl = Duration(minutes: 30);
+
   Map<String, String> _headers({String? token}) => {
-        'Accept': 'application/json',
-        if (token != null && token.isNotEmpty)
-          'Authorization': 'Bearer $token',
-      };
+    'Accept': 'application/json',
+    if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+  };
 
   List<dynamic> _extractList(dynamic data) {
     if (data is List) return data;
@@ -94,19 +98,76 @@ class HomeService {
     return [];
   }
 
-  Future<List<dynamic>> fetchServices() async {
+  bool _hasFreshServiceCache() {
+    final cached = _servicesCache;
+    final fetchedAt = _servicesCacheFetchedAt;
+    if (cached == null || cached.isEmpty || fetchedAt == null) return false;
+    final age = DateTime.now().difference(fetchedAt);
+    return age < _servicesCacheTtl;
+  }
+
+  List<dynamic> _cloneServicesCache() {
+    final cached = _servicesCache;
+    if (cached == null) return const [];
+    return List<dynamic>.from(cached);
+  }
+
+  Future<void> preloadServices({bool forceRefresh = false}) async {
     try {
-      final res = await http.get(
-        _uri('services', {'per_page': 200}),
-        headers: _headers(),
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final list = _extractList(data);
-        if (list.isNotEmpty) return list;
+      await fetchServices(forceRefresh: forceRefresh);
+    } catch (_) {
+      // Ignore preload errors – runtime fetch calls will try again.
+    }
+  }
+
+  Future<List<dynamic>> fetchServices({bool forceRefresh = false}) async {
+    if (!forceRefresh && _hasFreshServiceCache()) {
+      return _cloneServicesCache();
+    }
+
+    if (!forceRefresh && _servicesCacheFuture != null) {
+      try {
+        final pending = await _servicesCacheFuture!;
+        return List<dynamic>.from(pending);
+      } catch (_) {
+        // Fall through to perform a fresh request.
       }
-    } catch (_) {}
-    return [];
+    }
+
+    Future<List<dynamic>> load() async {
+      try {
+        final res = await http.get(
+          _uri('services', {'per_page': 200}),
+          headers: _headers(),
+        );
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body);
+          final list = _extractList(data);
+          if (list.isNotEmpty) {
+            _servicesCache = List<dynamic>.from(list);
+            _servicesCacheFetchedAt = DateTime.now();
+            return _cloneServicesCache();
+          }
+        }
+      } catch (_) {}
+      if (_servicesCache != null && _servicesCache!.isNotEmpty) {
+        return _cloneServicesCache();
+      }
+      return const [];
+    }
+
+    final future = load();
+    if (!forceRefresh) {
+      _servicesCacheFuture = future;
+    }
+    try {
+      final result = await future;
+      return result;
+    } finally {
+      if (!forceRefresh) {
+        _servicesCacheFuture = null;
+      }
+    }
   }
 
   Future<List<dynamic>> fetchFixers({int limit = 10}) async {
@@ -245,11 +306,7 @@ class HomeService {
       final user = _normalizeMap(target['user']) ?? <String, dynamic>{};
       final sourceUser = _normalizeMap(source['user']);
       if (sourceUser != null) {
-        final userRatingKeys = [
-          'rating',
-          'avg_rating',
-          'average_rating',
-        ];
+        final userRatingKeys = ['rating', 'avg_rating', 'average_rating'];
         for (final key in userRatingKeys) {
           final val = sourceUser[key] ?? source[key];
           if (val == null) continue;
@@ -283,7 +340,9 @@ class HomeService {
       }
 
       // Guard against lingering numeric strings by normalizing `rating` to a double string
-      final ratingValue = parseToDouble(target['rating'] ?? target['avg_rating']);
+      final ratingValue = parseToDouble(
+        target['rating'] ?? target['avg_rating'],
+      );
       if (ratingValue != null) {
         target['rating'] = ratingValue;
         target['avg_rating'] ??= ratingValue;
@@ -302,7 +361,8 @@ class HomeService {
       final baseMap = _normalizeMap(base[i]);
       if (baseMap == null) continue;
       final fixerId = baseMap['id']?.toString();
-      final userId = baseMap['user_id']?.toString() ??
+      final userId =
+          baseMap['user_id']?.toString() ??
           _normalizeMap(baseMap['user'])?['id']?.toString();
       Map<String, dynamic>? match;
       if (userId != null && userId.isNotEmpty) {
@@ -321,11 +381,13 @@ class HomeService {
       final needsEnrichment = compact.any((e) {
         if (e is! Map) return false;
         final map = e;
-        final hasServices = map['services'] is List && (map['services'] as List).isNotEmpty;
-        final hasAvatar = (map['avatar'] ?? map['image_url'] ?? map['photo'] ?? '')
-            .toString()
-            .trim()
-            .isNotEmpty;
+        final hasServices =
+            map['services'] is List && (map['services'] as List).isNotEmpty;
+        final hasAvatar =
+            (map['avatar'] ?? map['image_url'] ?? map['photo'] ?? '')
+                .toString()
+                .trim()
+                .isNotEmpty;
         final hasBio = (map['bio'] ?? '').toString().trim().isNotEmpty;
         return !(hasServices && hasAvatar && hasBio);
       });
@@ -339,10 +401,15 @@ class HomeService {
 
       final index = <String, Map>{};
       String? keyOf(Map m) {
-        final id = m['id'] ?? m['user_id'] ?? (m['user'] is Map ? m['user']['id'] : null);
+        final id =
+            m['id'] ??
+            m['user_id'] ??
+            (m['user'] is Map ? m['user']['id'] : null);
         if (id != null) return 'id:$id';
-        final name = (m['name'] ?? m['full_name'] ?? m['display_name'])?.toString();
-        if (name != null && name.isNotEmpty) return 'name:${name.toLowerCase()}';
+        final name = (m['name'] ?? m['full_name'] ?? m['display_name'])
+            ?.toString();
+        if (name != null && name.isNotEmpty)
+          return 'name:${name.toLowerCase()}';
         return null;
       }
 
@@ -355,7 +422,9 @@ class HomeService {
         final out = Map.of(a);
         b.forEach((k, v) {
           final exists = a[k];
-          final isMissing = exists == null || (exists is String && exists.toString().trim().isEmpty);
+          final isMissing =
+              exists == null ||
+              (exists is String && exists.toString().trim().isEmpty);
           if (isMissing) out[k] = v;
         });
         return out;
@@ -386,8 +455,9 @@ class HomeService {
     final raw = await _fetchAllFixersRaw();
     if (raw.isEmpty) return [];
 
-    final top =
-        await _fetchTopFixersRaw(limit: raw.length > 10 ? raw.length : 10);
+    final top = await _fetchTopFixersRaw(
+      limit: raw.length > 10 ? raw.length : 10,
+    );
     if (top.isNotEmpty) {
       _mergeFixerRatings(raw, top);
     }
@@ -430,14 +500,11 @@ class HomeService {
         if (list.isNotEmpty) {
           return list
               .whereType<Map>()
-              .map<Map<String, dynamic>>(
-                (e) => Map<String, dynamic>.from(e),
-              )
+              .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
               .toList();
         }
       }
     } catch (_) {}
     return <Map<String, dynamic>>[];
   }
-
 }
