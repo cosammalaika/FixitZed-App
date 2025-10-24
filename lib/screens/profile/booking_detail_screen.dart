@@ -5,6 +5,7 @@ import 'package:fixitzed_app/services/service_request_service.dart';
 import 'package:fixitzed_app/screens/payment_sheet.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/screens/profile/e_receipt_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BookingDetailScreen extends StatelessWidget {
   final Map<String, dynamic> request;
@@ -119,10 +120,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
           const SizedBox(height: 8),
           Text(
             'No fixer has accepted yet. You can cancel now or keep the request active.',
-            style: GoogleFonts.urbanist(
-              color: Colors.black87,
-              height: 1.4,
-            ),
+            style: GoogleFonts.urbanist(color: Colors.black87, height: 1.4),
           ),
           const SizedBox(height: 14),
           SizedBox(
@@ -168,7 +166,9 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
       builder: (ctx) {
         return AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
           titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
           contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
           actionsPadding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -197,10 +197,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
           ),
           content: Text(
             'Are you sure you want to cancel this request? This action cannot be undone.',
-            style: GoogleFonts.urbanist(
-              color: Colors.black87,
-              height: 1.45,
-            ),
+            style: GoogleFonts.urbanist(color: Colors.black87, height: 1.45),
           ),
           actionsAlignment: MainAxisAlignment.spaceBetween,
           actions: [
@@ -209,7 +206,10 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.black87,
                 side: BorderSide(color: brand.withValues(alpha: 0.25)),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -221,7 +221,10 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: brand,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -243,7 +246,9 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          success ? 'Request cancelled.' : 'Failed to cancel request. Please try again.',
+          success
+              ? 'Request cancelled.'
+              : 'Failed to cancel request. Please try again.',
         ),
       ),
     );
@@ -291,7 +296,12 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
         : null;
     final location = (r['location'] ?? '').toString();
     final coupon = (r['coupon_code'] ?? r['coupon'] ?? '').toString();
+    final hasFixer = _hasFixerAssigned(r, fixer);
+    final displayStatus = _effectiveStatus(status, hasFixer);
     final fixerName = _resolveFixerName(request: r, fixer: fixer);
+    final fixerContact = hasFixer
+        ? _resolveFixerContact(request: r, fixer: fixer)
+        : null;
     final price = _toDouble(r['price'] ?? r['amount'] ?? r['total']);
     final discount = _toDouble(r['discount'] ?? r['discount_amount']);
     final total = _toDouble(r['total'] ?? ((price ?? 0) - (discount ?? 0)));
@@ -310,7 +320,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
           _headerCard(
             serviceName: serviceName,
             scheduled: scheduled,
-            status: status,
+            status: displayStatus,
             fixerName: fixerName,
             brand: brand,
           ),
@@ -323,6 +333,17 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
                 'Location',
                 location.isEmpty ? '—' : location,
               ),
+              if (fixerContact != null)
+                _infoTile(
+                  Icons.phone_rounded,
+                  'Fixer contact',
+                  fixerContact,
+                  trailing: TextButton.icon(
+                    onPressed: () => _callNumber(fixerContact),
+                    icon: const Icon(Icons.call_rounded),
+                    label: const Text('Call'),
+                  ),
+                ),
               if (coupon.isNotEmpty)
                 _infoTile(Icons.sell_rounded, 'Coupon', coupon.toUpperCase()),
             ],
@@ -380,7 +401,10 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [brand.withValues(alpha: 0.12), brand.withValues(alpha: 0.04)],
+          colors: [
+            brand.withValues(alpha: 0.12),
+            brand.withValues(alpha: 0.04),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -565,7 +589,12 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     );
   }
 
-  Widget _infoTile(IconData icon, String label, String value) {
+  Widget _infoTile(
+    IconData icon,
+    String label,
+    String value, {
+    Widget? trailing,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -599,6 +628,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
               ],
             ),
           ),
+          if (trailing != null) ...[const SizedBox(width: 12), trailing],
         ],
       ),
     );
@@ -674,6 +704,31 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     );
   }
 
+  Future<void> _callNumber(String number) async {
+    final uri = Uri(scheme: 'tel', path: number);
+    if (!await launchUrl(uri)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Unable to start call')));
+    }
+  }
+
+  String _normalizeStatusKey(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) return 'pending';
+    return normalized
+        .replaceAll(RegExp(r'[^a-z]'), '_')
+        .replaceAll(RegExp('_+'), '_');
+  }
+
+  String _effectiveStatus(String status, bool hasFixer) {
+    final normalized = _normalizeStatusKey(status);
+    if (!hasFixer) return 'pending';
+    if (normalized == 'pending') return 'accepted';
+    return normalized;
+  }
+
   Widget _statusChip(String status) {
     final formatted = _formatStatus(status);
     return Container(
@@ -737,7 +792,10 @@ class _ReceiptActions extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [brand.withValues(alpha: 0.18), brand.withValues(alpha: 0.08)],
+          colors: [
+            brand.withValues(alpha: 0.18),
+            brand.withValues(alpha: 0.08),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -946,8 +1004,9 @@ String _resolveFixerName({
 
   for (final key in ['user', 'profile', 'account']) {
     if (resolvedExplore[key] is Map) {
-      final nested =
-          fromMap(Map<String, dynamic>.from(resolvedExplore[key] as Map));
+      final nested = fromMap(
+        Map<String, dynamic>.from(resolvedExplore[key] as Map),
+      );
       if (nested.isNotEmpty) return nested;
     }
   }
@@ -956,6 +1015,81 @@ String _resolveFixerName({
   if (direct.isNotEmpty) return direct;
 
   return 'Pending assignment';
+}
+
+String? _resolveFixerContact({
+  required Map<String, dynamic> request,
+  Map<String, dynamic>? fixer,
+}) {
+  String? pick(Object? value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return null;
+    return text;
+  }
+
+  for (final key in [
+    'fixer_contact',
+    'assigned_fixer_contact',
+    'fixerContact',
+    'fixer_phone',
+    'contact',
+  ]) {
+    final direct = pick(request[key]);
+    if (direct != null) return direct;
+  }
+
+  Map<String, dynamic>? explore = fixer;
+  if (explore == null && request['fixer_user'] is Map) {
+    explore = Map<String, dynamic>.from(request['fixer_user'] as Map);
+  } else if (explore == null && request['fixer'] is Map) {
+    explore = Map<String, dynamic>.from(request['fixer'] as Map);
+  }
+
+  String? fromMap(Map m) {
+    for (final key in [
+      'contact_number',
+      'phone_number',
+      'mobile_number',
+      'primary_phone',
+      'phone',
+      'mobile',
+      'telephone',
+      'contact',
+    ]) {
+      final value = pick(m[key]);
+      if (value != null) return value;
+    }
+    return null;
+  }
+
+  String? exploreMap(Map<String, dynamic> map) {
+    final direct = fromMap(map);
+    if (direct != null) return direct;
+    for (final key in ['user', 'profile', 'account']) {
+      if (map[key] is Map) {
+        final nested = exploreMap(Map<String, dynamic>.from(map[key] as Map));
+        if (nested != null) return nested;
+      }
+    }
+    return null;
+  }
+
+  if (explore != null) {
+    final resolved = exploreMap(explore);
+    if (resolved != null) return resolved;
+  }
+
+  for (final key in ['fixers', 'assignments', 'accepted_fixers']) {
+    final list = request[key];
+    if (list is! List) continue;
+    for (final raw in list.whereType<Map>()) {
+      final resolved = exploreMap(Map<String, dynamic>.from(raw));
+      if (resolved != null) return resolved;
+    }
+  }
+
+  return null;
 }
 
 Future<bool?> showBookingDetailSheet(

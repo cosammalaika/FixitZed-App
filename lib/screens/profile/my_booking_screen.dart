@@ -125,6 +125,7 @@ class MyBookingScreen extends ConsumerWidget {
                     .toString()
                     .toLowerCase();
                 final payAmount = pay?['amount'];
+                final statusKey = _effectiveStatusKey(r, status);
                 final hasDue =
                     rid != null &&
                     payAmount != null &&
@@ -224,15 +225,15 @@ class MyBookingScreen extends ConsumerWidget {
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: _statusBg(status),
+                                  color: _statusBg(statusKey),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
-                                  _statusText(status),
+                                  _statusText(statusKey),
                                   style: GoogleFonts.urbanist(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: _statusFg(status),
+                                    color: _statusFg(statusKey),
                                   ),
                                 ),
                               ),
@@ -252,6 +253,51 @@ class MyBookingScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  bool _hasFixerAssigned(Map request) {
+    bool hasValue(dynamic value) {
+      if (value == null) return false;
+      final text = value.toString().trim();
+      if (text.isEmpty) return false;
+      return text != '0' && text.toLowerCase() != 'null';
+    }
+
+    for (final key in [
+      'fixer_id',
+      'assigned_fixer_id',
+      'fixerId',
+      'assignedFixerId',
+      'fixer_user_id',
+    ]) {
+      if (hasValue(request[key])) return true;
+    }
+
+    for (final key in ['fixer', 'assigned_fixer', 'fixer_user']) {
+      final value = request[key];
+      if (value is Map && value.isNotEmpty) return true;
+    }
+
+    for (final key in ['fixers', 'assignments', 'accepted_fixers']) {
+      final list = request[key];
+      if (list is List && list.isNotEmpty) return true;
+    }
+    return false;
+  }
+
+  String _normalizeStatusKey(String status) {
+    final normalized = status.trim().toLowerCase();
+    if (normalized.isEmpty) return 'pending';
+    return normalized
+        .replaceAll(RegExp(r'[^a-z]'), '_')
+        .replaceAll(RegExp('_+'), '_');
+  }
+
+  String _effectiveStatusKey(Map request, String status) {
+    final normalized = _normalizeStatusKey(status);
+    if (!_hasFixerAssigned(request)) return 'pending';
+    if (normalized == 'pending') return 'accepted';
+    return normalized;
   }
 
   Color _statusBg(String s) {
