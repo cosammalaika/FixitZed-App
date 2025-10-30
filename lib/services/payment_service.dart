@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
 
 class PaymentResult {
@@ -43,6 +44,7 @@ class PaymentService {
       _uri('requests/$requestId/payment'),
       headers: _headers(token),
     );
+    await SessionGuard.evaluate(res);
     if (res.statusCode == 200) {
       final root = jsonDecode(res.body);
       if (root is Map && root['data'] is Map) {
@@ -88,6 +90,7 @@ class PaymentService {
       headers: _headers(token),
       body: jsonEncode(payload),
     );
+    await SessionGuard.evaluate(res);
     if (res.statusCode >= 200 && res.statusCode < 300) {
       Map<String, dynamic>? data;
       String? message;
@@ -98,7 +101,7 @@ class PaymentService {
               ? Map<String, dynamic>.from(body['data'] as Map)
               : Map<String, dynamic>.from(body);
           message = body['message']?.toString();
-      }
+        }
       } catch (_) {}
       _sync.emit(
         AppSyncTopic.bookings,

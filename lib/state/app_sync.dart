@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Topic-tagged event pushed whenever data mutations occur in the app.
 class AppSyncEvent {
-  AppSyncEvent(this.topic, {this.payload})
-      : timestamp = DateTime.now().toUtc();
+  AppSyncEvent(this.topic, {this.payload}) : timestamp = DateTime.now().toUtc();
 
   final String topic;
   final Object? payload;
@@ -49,6 +48,7 @@ class AppSyncTopic {
   static const notifications = 'notifications';
   static const bookings = 'bookings';
   static const wallet = 'wallet';
+  static const auth = 'auth';
 }
 
 extension AppSyncRef on Ref {

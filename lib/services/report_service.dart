@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ReportService {
@@ -34,9 +35,9 @@ class ReportService {
           if (targetId != null) 'target_id': targetId,
         }),
       );
+      await SessionGuard.evaluate(res);
       return res.statusCode >= 200 && res.statusCode < 300;
     } catch (_) {}
     return false;
   }
 }
-

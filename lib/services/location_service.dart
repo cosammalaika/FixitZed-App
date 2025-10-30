@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/data/province_districts.dart';
 
 class LocationService {
@@ -13,6 +14,7 @@ class LocationService {
         uri,
         headers: const {'Accept': 'application/json'},
       );
+      await SessionGuard.evaluate(res);
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final decoded = jsonDecode(res.body);

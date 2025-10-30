@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
+import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
 
 class NotificationService {
@@ -16,10 +17,10 @@ class NotificationService {
   final AppSync _sync;
 
   Map<String, String> _headers(String token) => {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      };
+    'Accept': 'application/json',
+    'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json',
+  };
 
   Uri _uri(String path) => Uri.parse('${Api.baseUrl}/$path');
 
@@ -32,21 +33,35 @@ class NotificationService {
     try {
       final token = await _token();
       if (token == null || token.isEmpty) return [];
-      final res = await http.get(_uri('notifications?page=$page'), headers: _headers(token));
+      final res = await http.get(
+        _uri('notifications?page=$page'),
+        headers: _headers(token),
+      );
+      await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         var list = <Map<String, dynamic>>[];
         if (body is List) {
-          list = body.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map)).toList();
+          list = body
+              .map<Map<String, dynamic>>(
+                (e) => Map<String, dynamic>.from(e as Map),
+              )
+              .toList();
         } else if (body is Map) {
           // Laravel: { success: true, data: { data: [...], ...pagination } }
           final data = body['data'];
           if (data is Map && data['data'] is List) {
             list = (data['data'] as List)
-                .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map))
+                .map<Map<String, dynamic>>(
+                  (e) => Map<String, dynamic>.from(e as Map),
+                )
                 .toList();
           } else if (data is List) {
-            list = data.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map)).toList();
+            list = data
+                .map<Map<String, dynamic>>(
+                  (e) => Map<String, dynamic>.from(e as Map),
+                )
+                .toList();
           }
         }
         if (page == 1 && list.isNotEmpty) {
@@ -62,7 +77,12 @@ class NotificationService {
     try {
       final token = await _token();
       if (token == null || token.isEmpty) return false;
-      final res = await http.patch(_uri('notifications/$id/read'), headers: _headers(token), body: jsonEncode({}));
+      final res = await http.patch(
+        _uri('notifications/$id/read'),
+        headers: _headers(token),
+        body: jsonEncode({}),
+      );
+      await SessionGuard.evaluate(res);
       final ok = res.statusCode == 200;
       if (ok) {
         _sync.emit(
@@ -84,7 +104,12 @@ class NotificationService {
     try {
       final token = await _token();
       if (token == null || token.isEmpty) return false;
-      final res = await http.post(_uri('notifications/read-all'), headers: _headers(token), body: jsonEncode({}));
+      final res = await http.post(
+        _uri('notifications/read-all'),
+        headers: _headers(token),
+        body: jsonEncode({}),
+      );
+      await SessionGuard.evaluate(res);
       final ok = res.statusCode == 200;
       if (ok) {
         _sync.emit(
@@ -102,7 +127,9 @@ class NotificationService {
     }
   }
 
-  Future<void> _pushLocalAlerts(List<Map<String, dynamic>> notifications) async {
+  Future<void> _pushLocalAlerts(
+    List<Map<String, dynamic>> notifications,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final seenRaw = prefs.getStringList('local_notif_seen') ?? const [];
@@ -117,9 +144,13 @@ class NotificationService {
         final title = _resolveTitle(notif);
         final body = _resolveBody(notif);
         final createdAt = parseAppDate(
-          notif['created_at'] ?? notif['createdAt'] ?? notif['createdAtFormatted'],
+          notif['created_at'] ??
+              notif['createdAt'] ??
+              notif['createdAtFormatted'],
         );
-        final suffix = createdAt != null ? ' • ${DateFormat('d MMM HH:mm').format(createdAt)}' : '';
+        final suffix = createdAt != null
+            ? ' • ${DateFormat('d MMM HH:mm').format(createdAt)}'
+            : '';
 
         await LocalNotificationService.instance.showInstant(
           id: id.hashCode,
@@ -146,12 +177,20 @@ class NotificationService {
   }
 
   String _resolveTitle(Map<String, dynamic> notif) {
-    final raw = (notif['title'] ?? notif['subject'] ?? notif['heading'] ?? 'Notification').toString().trim();
+    final raw =
+        (notif['title'] ??
+                notif['subject'] ??
+                notif['heading'] ??
+                'Notification')
+            .toString()
+            .trim();
     return raw.isEmpty ? 'Notification' : raw;
   }
 
   String _resolveBody(Map<String, dynamic> notif) {
-    final raw = (notif['message'] ?? notif['body'] ?? notif['content'] ?? '').toString().trim();
+    final raw = (notif['message'] ?? notif['body'] ?? notif['content'] ?? '')
+        .toString()
+        .trim();
     return raw;
   }
 }

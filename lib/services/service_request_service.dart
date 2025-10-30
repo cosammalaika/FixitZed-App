@@ -8,18 +8,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
+import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
 
 class ServiceRequestResult {
   const ServiceRequestResult.success()
-      : success = true,
-        message = null,
-        statusCode = null;
+    : success = true,
+      message = null,
+      statusCode = null;
 
-  const ServiceRequestResult.failure({
-    required this.message,
-    this.statusCode,
-  }) : success = false;
+  const ServiceRequestResult.failure({required this.message, this.statusCode})
+    : success = false;
 
   final bool success;
   final String? message;
@@ -32,10 +31,10 @@ class ServiceRequestService {
   final AppSync _sync;
 
   Map<String, String> _headers({String? token}) => {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-      };
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+  };
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -55,6 +54,7 @@ class ServiceRequestService {
         headers: _headers(token: token),
         body: jsonEncode(payload),
       );
+      await SessionGuard.evaluate(res);
 
       final status = res.statusCode;
       if (status >= 200 && status < 300) {
@@ -67,7 +67,8 @@ class ServiceRequestService {
       );
     } catch (_) {
       return const ServiceRequestResult.failure(
-        message: 'Unable to reach the server. Check your connection and try again.',
+        message:
+            'Unable to reach the server. Check your connection and try again.',
       );
     }
   }
@@ -86,15 +87,18 @@ class ServiceRequestService {
       if (v == null) return null;
       return int.tryParse(v);
     }
-    final formattedSchedule =
-        DateFormat('yyyy-MM-dd HH:mm:ss').format(scheduledAt.toLocal());
+
+    final formattedSchedule = DateFormat(
+      'yyyy-MM-dd HH:mm:ss',
+    ).format(scheduledAt.toLocal());
     final payload = <String, dynamic>{
       'service_id': asInt(serviceId) ?? serviceId,
       'scheduled_at': formattedSchedule,
       'location': location,
       if (locationLat != null) 'location_lat': locationLat,
       if (locationLng != null) 'location_lng': locationLng,
-      if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
+      if (couponCode != null && couponCode.isNotEmpty)
+        'coupon_code': couponCode,
     };
     final note = customerNote?.trim();
     if (note != null && note.isNotEmpty) {
@@ -103,11 +107,7 @@ class ServiceRequestService {
     var lastResult = const ServiceRequestResult.failure(
       message: 'Service unavailable.',
     );
-    for (final path in [
-      'requests',
-      'service-requests',
-      'bookings',
-    ]) {
+    for (final path in ['requests', 'service-requests', 'bookings']) {
       final result = await _postTo(path, payload);
       if (result.success) {
         _sync.emit(
@@ -144,6 +144,7 @@ class ServiceRequestService {
       ];
       for (final path in postEndpoints) {
         final res = await http.post(_uri(path), headers: headers);
+        await SessionGuard.evaluate(res);
         if (res.statusCode >= 200 && res.statusCode < 300) {
           _sync.emit(
             AppSyncTopic.bookings,
@@ -165,6 +166,7 @@ class ServiceRequestService {
         headers: headers,
         body: jsonEncode({'status': 'cancelled'}),
       );
+      await SessionGuard.evaluate(res);
       final ok = res.statusCode >= 200 && res.statusCode < 300;
       if (ok) {
         _sync.emit(
@@ -188,7 +190,11 @@ class ServiceRequestService {
   Future<List<Map<String, dynamic>>> listRequests() async {
     try {
       final token = await _getToken();
-      final res = await http.get(_uri('requests'), headers: _headers(token: token));
+      final res = await http.get(
+        _uri('requests'),
+        headers: _headers(token: token),
+      );
+      await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         List list;
@@ -207,8 +213,10 @@ class ServiceRequestService {
         } else {
           list = [];
         }
-        final mapped =
-            list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+        final mapped = list
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
         await _maybeNotifyStatus(mapped);
         return mapped;
       }
@@ -221,10 +229,12 @@ class ServiceRequestService {
       final prefs = await SharedPreferences.getInstance();
       final cachedStatuses = prefs.getString('request_status_cache');
       final cachedFixers = prefs.getString('request_fixer_cache');
-      final previousStatuses =
-          cachedStatuses != null ? _decodeStatusCache(cachedStatuses) : <String, String>{};
-      final previousFixers =
-          cachedFixers != null ? _decodeStatusCache(cachedFixers) : <String, String>{};
+      final previousStatuses = cachedStatuses != null
+          ? _decodeStatusCache(cachedStatuses)
+          : <String, String>{};
+      final previousFixers = cachedFixers != null
+          ? _decodeStatusCache(cachedFixers)
+          : <String, String>{};
 
       final currentStatuses = <String, String>{};
       final currentFixers = <String, String>{};
@@ -287,7 +297,10 @@ class ServiceRequestService {
         }
       }
 
-      await prefs.setString('request_status_cache', jsonEncode(currentStatuses));
+      await prefs.setString(
+        'request_status_cache',
+        jsonEncode(currentStatuses),
+      );
       await prefs.setString('request_fixer_cache', jsonEncode(currentFixers));
     } catch (_) {
       // Swallow errors to keep fetch resilient.
@@ -329,7 +342,9 @@ class ServiceRequestService {
 
     final fixer = req['fixer'];
     if (fixer is Map) {
-      final resolved = stringify(fixer['id'] ?? fixer['fixer_id'] ?? fixer['user_id']);
+      final resolved = stringify(
+        fixer['id'] ?? fixer['fixer_id'] ?? fixer['user_id'],
+      );
       if (resolved != null) return resolved;
     }
 
@@ -342,7 +357,8 @@ class ServiceRequestService {
       final name = (service['name'] ?? service['title']).toString().trim();
       if (name.isNotEmpty) return name;
     }
-    final fallback = (req['service_name'] ?? req['serviceTitle'] ?? 'Service').toString();
+    final fallback = (req['service_name'] ?? req['serviceTitle'] ?? 'Service')
+        .toString();
     return fallback.trim().isEmpty ? 'Service' : fallback.trim();
   }
 
@@ -410,7 +426,9 @@ class ServiceRequestService {
 Map<String, String> _decodeStatusCache(String raw) {
   final decoded = jsonDecode(raw);
   if (decoded is Map) {
-    return decoded.map((key, value) => MapEntry(key.toString(), value.toString()));
+    return decoded.map(
+      (key, value) => MapEntry(key.toString(), value.toString()),
+    );
   }
   return <String, String>{};
 }

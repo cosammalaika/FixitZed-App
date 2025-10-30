@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/services/session_guard.dart';
 
 class CouponService {
   Future<Map<String, String>> _headers() async {
@@ -20,7 +21,10 @@ class CouponService {
 
   Uri _uri(String path) => Uri.parse('${Api.baseUrl}/$path');
 
-  Future<Map<String, dynamic>?> validate(String code, {String? serviceId}) async {
+  Future<Map<String, dynamic>?> validate(
+    String code, {
+    String? serviceId,
+  }) async {
     try {
       final headers = await _headers();
       final res = await http.post(
@@ -31,6 +35,7 @@ class CouponService {
           if (serviceId != null) 'service_id': serviceId,
         }),
       );
+      await SessionGuard.evaluate(res);
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final data = jsonDecode(res.body);
         if (data is Map) return Map<String, dynamic>.from(data);
@@ -38,6 +43,7 @@ class CouponService {
         // Fallback: attempt client-side resolution via GET /coupons
         // to handle case-insensitive matches or alternate backends.
         final listRes = await http.get(_uri('coupons'), headers: headers);
+        await SessionGuard.evaluate(listRes);
         if (listRes.statusCode == 200) {
           final body = jsonDecode(listRes.body);
           List items;
@@ -56,10 +62,7 @@ class CouponService {
           });
           if (idx >= 0) {
             final item = Map<String, dynamic>.from(items[idx] as Map);
-            return {
-              'success': true,
-              'data': item,
-            };
+            return {'success': true, 'data': item};
           }
         }
       }

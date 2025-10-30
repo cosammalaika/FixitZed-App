@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -57,6 +58,7 @@ class HomeService {
     try {
       final token = await _getToken();
       final res = await http.get(_uri('me'), headers: _headers(token: token));
+      await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       }
@@ -70,6 +72,7 @@ class HomeService {
         _uri('categories', {'per_page': 100}),
         headers: _headers(),
       );
+      await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = _extractList(data);
@@ -89,6 +92,7 @@ class HomeService {
         _uri('subcategories', query),
         headers: _headers(),
       );
+      await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = _extractList(data);
@@ -140,6 +144,7 @@ class HomeService {
           _uri('services', {'per_page': 200}),
           headers: _headers(),
         );
+        await SessionGuard.evaluate(res);
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body);
           final list = _extractList(data);
@@ -190,6 +195,7 @@ class HomeService {
         _uri('fixers/top', {'limit': limit}),
         headers: _headers(),
       );
+      await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = _extractList(data);
@@ -202,6 +208,7 @@ class HomeService {
   Future<List<dynamic>> _fetchAllFixersRaw() async {
     try {
       final res = await http.get(_uri('fixers'), headers: _headers());
+      await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = _extractList(data);
@@ -211,6 +218,7 @@ class HomeService {
         _uri('users', {'role': 'fixer'}),
         headers: _headers(),
       );
+      await SessionGuard.evaluate(res2);
       if (res2.statusCode == 200) {
         final data = jsonDecode(res2.body);
         final list = _extractList(data);
@@ -470,6 +478,7 @@ class HomeService {
     for (final path in ['coupons', 'coupons?active=1']) {
       try {
         final res = await http.get(_uri(path), headers: _headers());
+        await SessionGuard.evaluate(res);
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body);
           if (data is List && data.isNotEmpty) {
@@ -494,6 +503,7 @@ class HomeService {
   Future<List<Map<String, dynamic>>> fetchCoupons() async {
     try {
       final res = await http.get(_uri('coupons'), headers: _headers());
+      await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = _extractList(data);

@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/services/session_guard.dart';
 
 class FixerApplicationService {
   Future<String?> _token() async {
@@ -49,11 +50,14 @@ class FixerApplicationService {
     for (var i = 0; i < supportingDocuments.length; i++) {
       final path = supportingDocuments[i];
       if (path.isEmpty) continue;
-      request.files.add(await http.MultipartFile.fromPath('supporting_documents[$i]', path));
+      request.files.add(
+        await http.MultipartFile.fromPath('supporting_documents[$i]', path),
+      );
     }
 
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
+    await SessionGuard.evaluate(response);
 
     return response.statusCode >= 200 && response.statusCode < 300;
   }

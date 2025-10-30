@@ -30,4 +30,3 @@ class FavoritesService {
     return prefs.getStringList(_key) ?? const [];
   }
 }
-

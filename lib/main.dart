@@ -25,6 +25,7 @@ import 'package:fixitzed_app/screens/auth/account_blocked_screen.dart';
 import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
 import 'package:fixitzed_app/common/connectivity/connectivity_overlay.dart';
+import 'package:fixitzed_app/widgets/session_redirector.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,7 +81,7 @@ class MyApp extends ConsumerWidget {
           },
           builder: (context, child) {
             if (child == null) return const SizedBox.shrink();
-            return ConnectivityOverlay(child: child);
+            return SessionRedirector(child: ConnectivityOverlay(child: child));
           },
         );
       },

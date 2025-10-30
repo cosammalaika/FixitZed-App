@@ -1,9 +1,9 @@
 // lib/services/auth_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
+import 'package:fixitzed_app/services/session_manager.dart';
 
 class AuthResult {
   final bool success;
@@ -31,7 +31,6 @@ class AuthService {
   AuthService({AppSync? sync}) : _sync = sync ?? AppSync.instance;
 
   final AppSync _sync;
-  static const String _tokenKey = 'auth_token';
 
   /// WHY: Ensure Laravel returns JSON validation; send JSON bodies for consistency.
   Map<String, String> _headers({String? token}) => {
@@ -78,19 +77,16 @@ class AuthService {
     );
   }
 
-  Future<void> _saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
+  Future<void> _saveToken(String token) {
+    return SessionManager.instance.storeToken(token);
   }
 
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
+  Future<String?> _getToken() {
+    return SessionManager.instance.readToken();
   }
 
-  Future<void> _clearToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
+  Future<void> _clearToken() {
+    return SessionManager.instance.removeToken();
   }
 
   /// Logs in with identifier/email/phone and returns the outcome.
@@ -109,14 +105,16 @@ class AuthService {
           final user = data['user'] is Map<String, dynamic>
               ? Map<String, dynamic>.from(data['user'] as Map)
               : null;
-          final statusRaw = user?['status'] ?? user?['account_status'] ?? user?['accountStatus'];
-          final status = statusRaw is String ? statusRaw.trim().toLowerCase() : null;
+          final statusRaw =
+              user?['status'] ??
+              user?['account_status'] ??
+              user?['accountStatus'];
+          final status = statusRaw is String
+              ? statusRaw.trim().toLowerCase()
+              : null;
           if (status != null && status.isNotEmpty && status != 'active') {
             await _clearToken();
-            return const AuthResult(
-              success: false,
-              message: 'inactive',
-            );
+            return const AuthResult(success: false, message: 'inactive');
           }
           final msg = _extractMessage(data);
           _sync.emit(
@@ -178,7 +176,8 @@ class AuthService {
 
       final body = <String, dynamic>{
         'first_name': firstName.trim(),
-        if (trimmedLast != null && trimmedLast.isNotEmpty) 'last_name': trimmedLast,
+        if (trimmedLast != null && trimmedLast.isNotEmpty)
+          'last_name': trimmedLast,
         if (displayName.isNotEmpty) 'name': displayName,
         'email': email,
         'contact_number': phone,
@@ -236,28 +235,12 @@ class AuthService {
     } catch (_) {
       // WHY: Network/API failures shouldn't block local logout.
     } finally {
-      await _clearToken();
-      _sync.emit(
-        AppSyncTopic.profile,
-        payload: const <String, dynamic>{'action': 'logout'},
-      );
-      _sync.emit(
-        AppSyncTopic.dashboard,
-        payload: const <String, dynamic>{'source': 'auth', 'action': 'logout'},
-      );
-      _sync.emit(
-        AppSyncTopic.notifications,
-        payload: const <String, dynamic>{'source': 'auth', 'action': 'logout'},
-      );
-      _sync.emit(
-        AppSyncTopic.bookings,
-        payload: const <String, dynamic>{'source': 'auth', 'action': 'logout'},
-      );
-      _sync.emit(
-        AppSyncTopic.wallet,
-        payload: const <String, dynamic>{'source': 'auth', 'action': 'logout'},
-      );
+      await SessionManager.instance.finalizeLogout(reason: 'manual');
     }
+  }
+
+  Future<void> handleSessionExpired({String reason = 'sessionExpired'}) {
+    return SessionManager.instance.ensureForcedLogout(reason: reason);
   }
 
   Future<AuthResult> forgotPassword(String identifier) async {
@@ -268,7 +251,8 @@ class AuthService {
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final data = jsonDecode(res.body);
-        final msg = _extractMessage(data) ??
+        final msg =
+            _extractMessage(data) ??
             'If we find a matching account, a reset code will be emailed shortly.';
         return AuthResult(success: true, message: msg);
       }
@@ -298,7 +282,8 @@ class AuthService {
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final data = jsonDecode(res.body);
-        final msg = _extractMessage(data) ??
+        final msg =
+            _extractMessage(data) ??
             'Password updated successfully. You can now sign in.';
         return AuthResult(success: true, message: msg);
       }
@@ -340,11 +325,10 @@ class AuthService {
       if (trimmedEmail != null && trimmedEmail.isNotEmpty) {
         body['email'] = trimmedEmail;
       }
-      final fullName = [trimmedFirst, trimmedLast]
-          .whereType<String>()
-          .where((s) => s.isNotEmpty)
-          .join(' ')
-          .trim();
+      final fullName = [
+        trimmedFirst,
+        trimmedLast,
+      ].whereType<String>().where((s) => s.isNotEmpty).join(' ').trim();
       if (fullName.isNotEmpty) {
         body['name'] = fullName; // Laravel Jetstream style
         body['full_name'] = fullName;
@@ -409,8 +393,7 @@ class AuthService {
 
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
-      final ok =
-          response.statusCode >= 200 && response.statusCode < 300;
+      final ok = response.statusCode >= 200 && response.statusCode < 300;
       if (ok) {
         _announceProfileUpdate();
       }
