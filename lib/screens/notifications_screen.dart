@@ -19,6 +19,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _loading = true;
   List<Map<String, dynamic>> _items = const [];
   StreamSubscription<AppSyncEvent>? _syncSub;
+  final Set<int> _deleting = <int>{};
 
   @override
   void initState() {
@@ -47,6 +48,97 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _loading = false;
       }
     });
+  }
+
+  int? _notificationId(Map<String, dynamic> notification) {
+    final raw = notification['id'] ??
+        notification['uuid'] ??
+        notification['notification_id'];
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
+  }
+
+  bool _sameNotification(
+    Map<String, dynamic> a,
+    Map<String, dynamic> b,
+  ) {
+    final idA = _notificationId(a);
+    final idB = _notificationId(b);
+    if (idA != null && idB != null) return idA == idB;
+    return identical(a, b);
+  }
+
+  Widget _dismissBackground() {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD84343),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: const Icon(
+        Icons.delete_outline_rounded,
+        color: Colors.white,
+        size: 26,
+      ),
+    );
+  }
+
+  Future<bool> _confirmDelete(Map<String, dynamic> notification) async {
+    final id = _notificationId(notification);
+    if (id == null) return true;
+    if (_deleting.contains(id)) return false;
+    setState(() => _deleting.add(id));
+    final ok = await _svc.delete(id);
+    if (!mounted) return false;
+    setState(() => _deleting.remove(id));
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to delete notification',
+            style: GoogleFonts.urbanist(),
+          ),
+          backgroundColor: const Color(0xFFD84343),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+    return ok;
+  }
+
+  void _removeNotification(Map<String, dynamic> notification) {
+    if (!mounted) return;
+    setState(() {
+      _items = _items
+          .where((item) => !_sameNotification(item, notification))
+          .toList();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Notification removed',
+          style: GoogleFonts.urbanist(color: Colors.white),
+        ),
+        backgroundColor: const Color(0xFF2E7D32),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Widget _dismissibleTile(Map<String, dynamic> notification) {
+    final id = _notificationId(notification);
+    final key = id != null ? 'notif_$id' : 'notif_${notification.hashCode}';
+    return Dismissible(
+      key: ValueKey<String>(key),
+      direction: DismissDirection.endToStart,
+      secondaryBackground: _dismissBackground(),
+      confirmDismiss: (_) => _confirmDelete(notification),
+      onDismissed: (_) => _removeNotification(notification),
+      child: _tile(notification),
+    );
   }
 
   Widget _tile(Map<String, dynamic> n) {
@@ -278,7 +370,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    ...today.map(_tile),
+                    ...today.map(_dismissibleTile),
                     const SizedBox(height: 18),
                   ],
                   if (yesterday.isNotEmpty) ...[
@@ -290,7 +382,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    ...yesterday.map(_tile),
+                    ...yesterday.map(_dismissibleTile),
                     const SizedBox(height: 18),
                   ],
                   if (earlier.isNotEmpty) ...[
@@ -302,7 +394,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    ...earlier.map(_tile),
+                    ...earlier.map(_dismissibleTile),
                   ],
                   if (today.isEmpty && yesterday.isEmpty && earlier.isEmpty)
                     Padding(

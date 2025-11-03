@@ -10,6 +10,7 @@ import 'package:fixitzed_app/services/home_service.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
 import 'package:fixitzed_app/services/service_request_service.dart';
 import 'package:fixitzed_app/services/locations_service.dart';
+import 'package:fixitzed_app/widgets/swipe_action_button.dart';
 
 class _ActiveFixerServiceSet {
   const _ActiveFixerServiceSet({
@@ -811,21 +812,21 @@ class _BookingSheetState extends State<BookingSheet> {
     return (s['name'] ?? s['title'] ?? 'Service').toString();
   }
 
-  Future<void> _submit() async {
+  Future<bool> _submit() async {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) {
       _showSnack(
         message: 'Please complete all required fields',
         success: false,
       );
-      return;
+      return false;
     }
     if (_serviceId == null || _serviceId!.isEmpty) {
       _showSnack(
         message: 'Pick the service you need before requesting',
         success: false,
       );
-      return;
+      return false;
     }
     FocusScope.of(context).unfocus();
     final scheduledAt = DateTime.now();
@@ -843,7 +844,7 @@ class _BookingSheetState extends State<BookingSheet> {
           ? customNote
           : null,
     );
-    if (!mounted) return;
+    if (!mounted) return result.success;
     setState(() => _submitting = false);
     if (result.success) {
       await LocalNotificationService.instance.notifyBookingCreated(
@@ -851,17 +852,19 @@ class _BookingSheetState extends State<BookingSheet> {
         scheduledAt: scheduledAt,
         location: _locationCtrl.text.trim(),
       );
-      if (!mounted) return;
+      if (!mounted) return true;
       Navigator.of(context).pop(true);
       _showSnack(
         message: 'Request submitted — pending approval',
         success: true,
       );
+      return true;
     } else {
       _showSnack(
         message: result.message ?? 'Failed to submit request',
         success: false,
       );
+      return false;
     }
   }
 
@@ -1077,27 +1080,13 @@ class _BookingSheetState extends State<BookingSheet> {
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _submitting ? null : _submit,
-                      icon: _submitting
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.check_circle_outline),
-                      label: Text(_submitting ? 'Requesting…' : 'Request Now'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF1592A),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
+                    height: 56,
+                    child: SwipeActionButton(
+                      label: 'Swipe to request service',
+                      loadingLabel: 'Requesting…',
+                      enabled: !_submitting,
+                      trackColor: const Color(0xFFF1592A),
+                      onCompleted: _submit,
                     ),
                   ),
                   const SizedBox(height: 12),

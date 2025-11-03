@@ -127,6 +127,28 @@ class NotificationService {
     }
   }
 
+  Future<bool> delete(int id) async {
+    try {
+      final token = await _token();
+      if (token == null || token.isEmpty) return false;
+      final res = await http.delete(
+        _uri('notifications/$id'),
+        headers: _headers(token),
+      );
+      await SessionGuard.evaluate(res);
+      final ok = res.statusCode >= 200 && res.statusCode < 300;
+      if (ok) {
+        _sync.emit(
+          AppSyncTopic.notifications,
+          payload: <String, dynamic>{'action': 'delete', 'id': id},
+        );
+      }
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _pushLocalAlerts(
     List<Map<String, dynamic>> notifications,
   ) async {
