@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/core/settings.dart';
+import 'package:fixitzed_app/services/notification_settings_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,11 +19,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const _kDark = 'settings_dark_mode';
   static const _kLanguage = 'settings_language';
 
+  final NotificationSettingsService _notificationService =
+      NotificationSettingsService();
   bool pushOn = true;
   bool emailOn = true;
   bool darkOn = false;
   String language = 'English';
   bool _loading = true;
+  bool _pushSyncing = false;
+  bool _emailSyncing = false;
 
   @override
   void initState() {
@@ -31,9 +37,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    var pushPref = prefs.getBool(_kPush) ?? true;
+    var emailPref = prefs.getBool(_kEmail) ?? true;
+    final remote = await _notificationService.fetch();
+    if (remote.isNotEmpty) {
+      pushPref = remote['push'] ?? pushPref;
+      emailPref = remote['email'] ?? emailPref;
+      await prefs.setBool(_kPush, pushPref);
+      await prefs.setBool(_kEmail, emailPref);
+    }
     setState(() {
-      pushOn = prefs.getBool(_kPush) ?? true;
-      emailOn = prefs.getBool(_kEmail) ?? true;
+      pushOn = pushPref;
+      emailOn = emailPref;
       darkOn = prefs.getBool(_kDark) ?? false;
       language = prefs.getString(_kLanguage) ?? 'English';
       _loading = false;
@@ -48,6 +63,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveString(String key, String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, value);
+  }
+
+  void _showSnack(String message, {bool success = true}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: success ? const Color(0xFF2E7D32) : Colors.redAccent,
+      ),
+    );
   }
 
   Widget _settingsSection({
@@ -221,6 +246,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _handlePushToggle(bool value) async {
+    final previous = pushOn;
+    setState(() {
+      pushOn = value;
+      _pushSyncing = true;
+    });
+    await _saveBool(_kPush, value);
+    await AppSettings.setPushEnabled(value);
+    final ok = await _notificationService.update(push: value);
+    if (!mounted) return;
+    setState(() => _pushSyncing = false);
+    if (!ok) {
+      setState(() => pushOn = previous);
+      _showSnack('Unable to update push notifications', success: false);
+    }
+  }
+
+  Future<void> _handleEmailToggle(bool value) async {
+    final previous = emailOn;
+    setState(() {
+      emailOn = value;
+      _emailSyncing = true;
+    });
+    await _saveBool(_kEmail, value);
+    final ok = await _notificationService.update(email: value);
+    if (!mounted) return;
+    setState(() => _emailSyncing = false);
+    if (!ok) {
+      setState(() => emailOn = previous);
+      _showSnack('Unable to update email notifications', success: false);
+    }
+  }
+
   Widget _switchTile({
     required String title,
     required String subtitle,
@@ -228,6 +286,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required ValueChanged<bool> onChanged,
     required Color textColor,
     required Color hintColor,
+    bool loading = false,
   }) {
     return _tileWrapper(
       child: Row(
@@ -252,7 +311,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
-          Switch.adaptive(value: value, onChanged: onChanged),
+          loading
+              ? const SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Switch.adaptive(value: value, onChanged: onChanged),
         ],
       ),
     );
@@ -365,24 +430,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'Push Notifications',
                       subtitle: 'Receive in-app updates and alerts',
                       value: pushOn,
-                      onChanged: (v) async {
-                        setState(() => pushOn = v);
-                        await _saveBool(_kPush, v);
-                        await AppSettings.setPushEnabled(v);
-                      },
+                      onChanged: _handlePushToggle,
                       textColor: onSurface,
                       hintColor: hintColor,
+                      loading: _pushSyncing,
                     ),
                     _switchTile(
                       title: 'Email Notifications',
                       subtitle: 'Get booking and promo emails',
                       value: emailOn,
-                      onChanged: (v) async {
-                        setState(() => emailOn = v);
-                        await _saveBool(_kEmail, v);
-                      },
+                      onChanged: _handleEmailToggle,
                       textColor: onSurface,
                       hintColor: hintColor,
+                      loading: _emailSyncing,
                     ),
                   ],
                 ),

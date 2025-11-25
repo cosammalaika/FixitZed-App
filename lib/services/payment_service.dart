@@ -1,7 +1,10 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/services/app_analytics.dart';
 import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
 
@@ -165,5 +168,62 @@ class PaymentService {
       message: errorMessage,
       statusCode: res.statusCode,
     );
+  }
+
+  Future<List<Map<String, dynamic>>> fetchMethods() async {
+    final endpoints = [
+      'payment-methods',
+      'payment/methods',
+      'payments/methods',
+    ];
+    for (final path in endpoints) {
+      try {
+        final res = await http.get(
+          _uri(path),
+          headers: const {'Accept': 'application/json'},
+        );
+        if (res.statusCode == 200) {
+          final decoded = jsonDecode(res.body);
+          final list = _extractMethodList(decoded);
+          if (list.isNotEmpty) return list;
+        }
+      } catch (err, stack) {
+        AppAnalytics.instance.logError(
+          'payment_methods_fetch_failed',
+          message: err.toString(),
+          stackTrace: stack,
+          parameters: {'endpoint': path},
+        );
+      }
+    }
+    return [
+      {'name': 'Cash', 'code': 'cash'}
+    ];
+  }
+
+  List<Map<String, dynamic>> _extractMethodList(dynamic payload) {
+    List source;
+    if (payload is List) {
+      source = payload;
+    } else if (payload is Map) {
+      final data = payload['data'];
+      if (data is List) {
+        source = data;
+      } else if (payload.values.any((value) => value is List)) {
+        source = payload.values.whereType<List>().first;
+      } else {
+        source = const [];
+      }
+    } else {
+      source = const [];
+    }
+    return source
+        .whereType<Map>()
+        .map(
+          (item) => item.map(
+            (key, value) => MapEntry(key.toString(), value),
+          ),
+        )
+        .toList();
   }
 }

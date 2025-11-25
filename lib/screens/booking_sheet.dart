@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:fixitzed_app/services/app_analytics.dart';
 import 'package:fixitzed_app/services/home_service.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
 import 'package:fixitzed_app/services/service_request_service.dart';
@@ -209,6 +210,14 @@ class _BookingSheetState extends State<BookingSheet> {
       }
     });
     _initialLoad = null;
+  }
+
+  Future<void> _refreshSavedLocations() async {
+    try {
+      final locations = await LocationsService().list();
+      if (!mounted) return;
+      setState(() => _savedLocations = locations);
+    } catch (_) {}
   }
 
   Future<void> _ensureServicesLoaded() async {
@@ -844,9 +853,22 @@ class _BookingSheetState extends State<BookingSheet> {
           ? customNote
           : null,
     );
+    final analyticsPayload = <String, dynamic>{
+      'service_id': _serviceId,
+      'service_name': _serviceName ?? 'Service',
+      'has_location': _locationCtrl.text.trim().isNotEmpty,
+      'has_custom_note': customNote != null && customNote.isNotEmpty,
+      'scheduled_at': scheduledAt.toIso8601String(),
+      if (_locationLat != null) 'latitude': _locationLat,
+      if (_locationLng != null) 'longitude': _locationLng,
+    };
     if (!mounted) return result.success;
     setState(() => _submitting = false);
     if (result.success) {
+      AppAnalytics.instance.logEvent(
+        'booking_created',
+        parameters: analyticsPayload,
+      );
       await LocalNotificationService.instance.notifyBookingCreated(
         serviceName: _serviceName ?? 'Service request',
         scheduledAt: scheduledAt,
@@ -860,6 +882,14 @@ class _BookingSheetState extends State<BookingSheet> {
       );
       return true;
     } else {
+      AppAnalytics.instance.logError(
+        'booking_failed',
+        message: result.message ?? 'Unknown error',
+        parameters: {
+          ...analyticsPayload,
+          if (result.statusCode != null) 'status_code': result.statusCode,
+        },
+      );
       _showSnack(
         message: result.message ?? 'Failed to submit request',
         success: false,
@@ -1084,6 +1114,7 @@ class _BookingSheetState extends State<BookingSheet> {
                     child: SwipeActionButton(
                       label: 'Swipe to request service',
                       loadingLabel: 'Requesting…',
+                      releaseLabel: 'Release to submit',
                       enabled: !_submitting,
                       trackColor: const Color(0xFFF1592A),
                       onCompleted: _submit,
@@ -1392,6 +1423,24 @@ class _BookingSheetState extends State<BookingSheet> {
                       }),
                     );
                   },
+                ),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () async {
+                    Navigator.of(ctx).pop();
+                    final dirty = await Navigator.of(context).pushNamed(
+                      '/profile/addresses',
+                    );
+                    if (!mounted) return;
+                    if (dirty == true) {
+                      await _refreshSavedLocations();
+                    }
+                  },
+                  icon: const Icon(Icons.manage_accounts_rounded),
+                  label: const Text('Manage addresses'),
                 ),
               ),
             ],

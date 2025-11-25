@@ -1,14 +1,17 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:fixitzed_app/services/payment_service.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/services/app_analytics.dart';
 import 'package:fixitzed_app/services/coupon_service.dart';
 import 'package:fixitzed_app/services/loyalty_service.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:fixitzed_app/core/api.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fixitzed_app/services/payment_preferences.dart';
+import 'package:fixitzed_app/services/payment_service.dart';
 
 class PaymentScreen extends StatefulWidget {
   final int requestId;
@@ -53,10 +56,25 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _load() async {
-    final payment = await PaymentService().get(widget.requestId);
-    final methods = await _fetchMethods();
+    final paymentService = PaymentService();
+    final payment = await paymentService.get(widget.requestId);
+    final methods = await paymentService.fetchMethods();
     final loyalty = await LoyaltyService().summary();
+    final preferredMethod = await PaymentPreferences.defaultMethod();
     if (!mounted) return;
+    final availableCodes = methods
+        .map((m) => (m['code'] ?? m['name'] ?? 'cash').toString())
+        .toList();
+    final existingMethod = (payment?['payment_method'] ?? '').toString();
+    String resolvedMethod = 'cash';
+    if (existingMethod.isNotEmpty && availableCodes.contains(existingMethod)) {
+      resolvedMethod = existingMethod;
+    } else if (preferredMethod != null &&
+        availableCodes.contains(preferredMethod)) {
+      resolvedMethod = preferredMethod;
+    } else if (methods.isNotEmpty) {
+      resolvedMethod = (methods.first['code'] ?? 'cash').toString();
+    }
     setState(() {
       _methods = methods;
       _amount = _toDouble(payment?['amount']);
@@ -79,15 +97,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _couponDiscount = 0;
       }
 
-      final existingMethod = (payment?['payment_method'] ?? '').toString();
-      if (existingMethod.isNotEmpty &&
-          _methods.any((m) => (m['code'] ?? '').toString() == existingMethod)) {
-        _method = existingMethod;
-      } else if (_methods.isNotEmpty) {
-        _method = (_methods.first['code'] ?? 'cash').toString();
-      } else {
-        _method = 'cash';
-      }
+      _method = resolvedMethod;
 
       _serviceRequest = (payment?['service_request'] is Map)
           ? Map<String, dynamic>.from(payment!['service_request'] as Map)
@@ -141,34 +151,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     _recalculateLoyalty(reset: true);
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchMethods() async {
-    try {
-      final res = await http.get(
-        Uri.parse('${Api.baseUrl}/payment-methods'),
-        headers: {'Accept': 'application/json'},
-      );
-      if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        if (body is Map && body['data'] is List) {
-          return (body['data'] as List)
-              .whereType<Map>()
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList();
-        }
-        if (body is List) {
-          return body
-              .whereType<Map>()
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList();
-        }
-      }
-    } catch (_) {}
-    // Fallback to basic set
-    return [
-      {'name': 'Cash', 'code': 'cash'},
-    ];
   }
 
   @override
@@ -346,57 +328,80 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             ]),
                       const SizedBox(height: 24),
                       SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: (_amount == null || _submitting)
-                              ? null
-                              : () async {
-                                  setState(() => _submitting = true);
-                                  final result = await PaymentService().pay(
-                                    requestId: widget.requestId,
-                                    amount: _amount!,
-                                    originalAmount: _originalAmount,
-                                    method: _method,
-                                    transactionId: _ensureTransactionId(),
-                                    couponCode: _couponCode,
-                                    loyaltyPoints:
-                                        _useLoyalty ? _loyaltyToUse : 0,
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: (_amount == null || _submitting)
+                            ? null
+                            : () async {
+                                setState(() => _submitting = true);
+                                final result = await PaymentService().pay(
+                                  requestId: widget.requestId,
+                                  amount: _amount!,
+                                  originalAmount: _originalAmount,
+                                  method: _method,
+                                  transactionId: _ensureTransactionId(),
+                                  couponCode: _couponCode,
+                                  loyaltyPoints:
+                                      _useLoyalty ? _loyaltyToUse : 0,
+                                );
+                                if (!mounted) return;
+                                setState(() => _submitting = false);
+                                final analyticsPayload = {
+                                  'request_id': widget.requestId,
+                                  'method': _method,
+                                  'amount': _amount,
+                                  'coupon_applied':
+                                      _couponCode?.isNotEmpty ?? false,
+                                  'loyalty_points_used':
+                                      _useLoyalty ? _loyaltyToUse : 0,
+                                };
+                                if (!result.success) {
+                                  AppAnalytics.instance.logError(
+                                    'payment_failed',
+                                    message:
+                                        result.message ?? 'Unknown payment error',
+                                    parameters: {
+                                      ...analyticsPayload,
+                                      'status_code': result.statusCode,
+                                    },
                                   );
-                                  if (!mounted) return;
-                                  setState(() => _submitting = false);
-                                  if (!result.success) {
-                                    _showSnack(
-                                      message: result.message ??
-                                          'Payment failed. Please try again.',
-                                      success: false,
-                                    );
-                                    return;
-                                  }
-
-                                  if (result.data != null) {
-                                    final balance =
-                                        (result.data!['loyalty_points_balance']
-                                                as num?)
-                                            ?.toInt();
-                                    if (balance != null) {
-                                      setState(() {
-                                        _loyaltyBalance = balance;
-                                      });
-                                    }
-                                  }
-
                                   _showSnack(
                                     message: result.message ??
-                                        'Payment successful',
-                                    success: true,
+                                        'Payment failed. Please try again.',
+                                    success: false,
                                   );
+                                  return;
+                                }
 
-                                  await _promptRating();
-                                  if (!mounted) return;
-                                  Navigator.of(context).pop(true);
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: brand,
+                                AppAnalytics.instance.logEvent(
+                                  'payment_success',
+                                  parameters: analyticsPayload,
+                                );
+
+                                if (result.data != null) {
+                                  final balance =
+                                      (result.data!['loyalty_points_balance']
+                                              as num?)
+                                          ?.toInt();
+                                  if (balance != null) {
+                                    setState(() {
+                                      _loyaltyBalance = balance;
+                                    });
+                                  }
+                                }
+
+                                _showSnack(
+                                  message: result.message ??
+                                      'Payment successful',
+                                  success: true,
+                                );
+
+                                await _promptRating();
+                                if (!mounted) return;
+                                Navigator.of(context).pop(true);
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: brand,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),

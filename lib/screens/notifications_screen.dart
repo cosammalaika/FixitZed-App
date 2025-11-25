@@ -20,6 +20,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   List<Map<String, dynamic>> _items = const [];
   StreamSubscription<AppSyncEvent>? _syncSub;
   final Set<int> _deleting = <int>{};
+  final Set<String> _pendingRemovalKeys = <String>{};
 
   @override
   void initState() {
@@ -69,47 +70,62 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return identical(a, b);
   }
 
-  Widget _dismissBackground() {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFD84343),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      alignment: Alignment.centerRight,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: const Icon(
-        Icons.delete_outline_rounded,
-        color: Colors.white,
-        size: 26,
+  Widget _dismissBackground({required bool leading}) {
+    return Align(
+      alignment: leading ? Alignment.centerLeft : Alignment.centerRight,
+      child: Container(
+        width: 78,
+        height: 56,
+        margin: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFD84343),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.delete_outline_rounded,
+            color: Colors.white,
+            size: 30,
+          ),
+        ),
       ),
     );
   }
 
-  Future<bool> _confirmDelete(Map<String, dynamic> notification) async {
+  Future<bool> _confirmDelete(
+    Map<String, dynamic> notification,
+    String key,
+  ) async {
     final id = _notificationId(notification);
-    if (id == null) return true;
+    if (id == null) {
+      _pendingRemovalKeys.add(key);
+      _removeNotification(notification, synced: false);
+      return true;
+    }
     if (_deleting.contains(id)) return false;
     setState(() => _deleting.add(id));
     final ok = await _svc.delete(id);
     if (!mounted) return false;
     setState(() => _deleting.remove(id));
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to delete notification',
-            style: GoogleFonts.urbanist(),
-          ),
-          backgroundColor: const Color(0xFFD84343),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _pendingRemovalKeys.add(key);
+      _removeNotification(notification, synced: false);
+      return true;
     }
-    return ok;
+    return true;
   }
 
-  void _removeNotification(Map<String, dynamic> notification) {
+  void _removeNotification(
+    Map<String, dynamic> notification, {
+    bool synced = true,
+  }) {
     if (!mounted) return;
     setState(() {
       _items = _items
@@ -119,10 +135,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Notification removed',
-          style: GoogleFonts.urbanist(color: Colors.white),
+          synced
+              ? 'Notification removed'
+              : 'Notification hidden locally. Could not sync with server.',
+          style: GoogleFonts.urbanist(
+            color: Colors.white,
+          ),
         ),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor:
+            synced ? const Color(0xFF2E7D32) : const Color(0xFFE67E22),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -134,9 +155,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Dismissible(
       key: ValueKey<String>(key),
       direction: DismissDirection.endToStart,
-      secondaryBackground: _dismissBackground(),
-      confirmDismiss: (_) => _confirmDelete(notification),
-      onDismissed: (_) => _removeNotification(notification),
+      background: _dismissBackground(leading: true),
+      secondaryBackground: _dismissBackground(leading: false),
+      confirmDismiss: (_) => _confirmDelete(notification, key),
+      onDismissed: (_) {
+        if (_pendingRemovalKeys.remove(key)) return;
+        _removeNotification(notification);
+      },
       child: _tile(notification),
     );
   }

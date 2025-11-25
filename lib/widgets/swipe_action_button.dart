@@ -9,6 +9,7 @@ class SwipeActionButton extends StatefulWidget {
     required this.label,
     required this.onCompleted,
     this.loadingLabel,
+    this.releaseLabel,
     this.height = 56,
     this.enabled = true,
     this.icon = Icons.chevron_right_rounded,
@@ -16,10 +17,12 @@ class SwipeActionButton extends StatefulWidget {
     this.trackColor = const Color(0xFFF1592A),
     this.successIcon = Icons.check_rounded,
     this.gradient,
+    this.progressColor,
   });
 
   final String label;
   final String? loadingLabel;
+  final String? releaseLabel;
   final Future<bool> Function() onCompleted;
   final double height;
   final bool enabled;
@@ -28,6 +31,7 @@ class SwipeActionButton extends StatefulWidget {
   final Color knobColor;
   final Color trackColor;
   final Gradient? gradient;
+  final Color? progressColor;
 
   @override
   State<SwipeActionButton> createState() => _SwipeActionButtonState();
@@ -68,10 +72,14 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
 
   bool get _canInteract => widget.enabled && !_processing;
 
-  Gradient _resolveGradient() {
+  Gradient _resolveGradient(double progress) {
     if (widget.gradient != null) return widget.gradient!;
+    final base = widget.trackColor;
+    final softened = _lighten(base, 0.12);
+    final end = _mix(softened, base, progress.clamp(0.0, 1.0));
+    final start = _mix(_darken(base, 0.18), softened, progress.clamp(0.0, 1.0));
     return LinearGradient(
-      colors: [widget.trackColor, _lighten(widget.trackColor, 0.18)],
+      colors: [start, end],
       begin: Alignment.centerLeft,
       end: Alignment.centerRight,
     );
@@ -153,11 +161,28 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
         final height = widget.height;
         final knobSize = height - 12;
         final maxExtent = math.max(0.0, width - knobSize - 12);
-        final offset = maxExtent * _percent;
+        final progress = _percent.clamp(0.0, 1.0);
+        final offset = maxExtent * progress;
         final labelStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w700,
             );
+        final showReleaseLabel =
+            !_processing && !_completed && progress >= 0.75;
+        final displayLabel = showReleaseLabel
+            ? (widget.releaseLabel ?? 'Release to confirm')
+            : widget.label;
+        final baseProgressColor = widget.progressColor ?? Colors.white;
+        final overlayStart =
+            baseProgressColor.withOpacity(0.22 + (0.28 * progress));
+        final overlayEnd =
+            baseProgressColor.withOpacity(0.12 + (0.18 * progress));
+        final knobColor =
+            Color.lerp(widget.knobColor, Colors.white, progress * 0.35) ??
+            widget.knobColor;
+        final iconColor =
+            Color.lerp(widget.trackColor, Colors.white, progress * 0.45) ??
+            widget.trackColor;
 
         return Semantics(
           button: true,
@@ -177,7 +202,7 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
               child: Container(
                 height: height,
                 decoration: BoxDecoration(
-                  gradient: _resolveGradient(),
+                  gradient: _resolveGradient(progress),
                   borderRadius: BorderRadius.circular(height),
                   boxShadow: [
                     BoxShadow(
@@ -190,6 +215,66 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(height),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor:
+                                progress > 0 ? progress.clamp(0.0, 1.0) : 0.001,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    overlayStart,
+                                    overlayEnd,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: math.max(20, height * 0.6),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [0.2, 0.45, 0.7].map((threshold) {
+                              final arrowOpacity = progress >= threshold
+                                  ? math.min(
+                                      0.9,
+                                      math.max(
+                                        0.0,
+                                        0.35 + (progress - threshold) * 0.9,
+                                      ),
+                                    )
+                                  : 0.0;
+                              return AnimatedOpacity(
+                                duration: const Duration(milliseconds: 120),
+                                opacity: arrowOpacity,
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Colors.white.withOpacity(
+                                    0.55 + arrowOpacity * 0.4,
+                                  ),
+                                  size: constraints.biggest.height
+                                    .clamp(12.0, 18.0)
+                                    .toDouble(),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ),
                     if (_processing)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -212,14 +297,35 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
                         ],
                       )
                     else
-                      Text(widget.label, style: labelStyle),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 170),
+                        transitionBuilder: (child, animation) =>
+                            FadeTransition(opacity: animation, child: child),
+                        child: Container(
+                          key: ValueKey<bool>(showReleaseLabel),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(
+                              0.18 + (progress * 0.22),
+                            ),
+                            borderRadius: BorderRadius.circular(height),
+                          ),
+                          child: Text(
+                            displayLabel,
+                            style: labelStyle,
+                          ),
+                        ),
+                      ),
                     Positioned(
                       left: 6 + offset,
                       child: Container(
                         width: knobSize,
                         height: knobSize,
                         decoration: BoxDecoration(
-                          color: widget.knobColor,
+                          color: knobColor,
                           borderRadius: BorderRadius.circular(knobSize / 2),
                           boxShadow: [
                             BoxShadow(
@@ -231,7 +337,7 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
                         ),
                         child: Icon(
                           _completed ? widget.successIcon : widget.icon,
-                          color: widget.trackColor,
+                          color: iconColor,
                         ),
                       ),
                     ),
@@ -249,6 +355,16 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
     final hsl = HSLColor.fromColor(color);
     final lightness = (hsl.lightness + amount).clamp(0.0, 1.0);
     return hsl.withLightness(lightness).toColor();
+  }
+
+  static Color _darken(Color color, double amount) {
+    final hsl = HSLColor.fromColor(color);
+    final lightness = (hsl.lightness - amount).clamp(0.0, 1.0);
+    return hsl.withLightness(lightness).toColor();
+  }
+
+  static Color _mix(Color a, Color b, double t) {
+    return Color.lerp(a, b, t.clamp(0.0, 1.0)) ?? a;
   }
 
   void _handleStatus(AnimationStatus status) {

@@ -17,7 +17,9 @@ android {
     }
     namespace = "com.fixitzed.app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // The default Flutter NDK (28.2.13676358) is not fully installed locally, so target a
+    // version that is present to unblock builds.
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
