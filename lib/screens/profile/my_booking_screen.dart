@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/state/my_bookings_controller.dart';
+import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/screens/payment_sheet.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
 
@@ -133,9 +134,18 @@ class MyBookingScreen extends ConsumerWidget {
                     status != 'completed';
                 return InkWell(
                   onTap: () async {
+                    var requestData = Map<String, dynamic>.from(r);
+                    if (rid != null) {
+                      final detail = await ref
+                          .read(serviceRequestServiceProvider)
+                          .getRequest(rid);
+                      if (detail != null && detail.isNotEmpty) {
+                        requestData = {...requestData, ...detail};
+                      }
+                    }
                     final refresh = await showBookingDetailSheet(
                       context,
-                      Map<String, dynamic>.from(r),
+                      requestData,
                     );
                     if (refresh == true) {
                       await ref

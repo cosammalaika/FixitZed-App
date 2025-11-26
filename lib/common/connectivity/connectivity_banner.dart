@@ -40,16 +40,14 @@ class ConnectivityBanner extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.wifi_off_rounded,
-                      color: Colors.white,
-                    ),
+                    const Icon(Icons.wifi_off_rounded, color: Colors.white),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'You\'re offline. Changes will sync automatically.',
                         style: GoogleFonts.urbanist(
                           color: Colors.white,
+                          fontSize: 9,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

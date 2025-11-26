@@ -224,6 +224,28 @@ class ServiceRequestService {
     return <Map<String, dynamic>>[];
   }
 
+  Future<Map<String, dynamic>?> getRequest(int id) async {
+    try {
+      final token = await _getToken();
+      final headers = _headers(token: token);
+      for (final path in [
+        'requests/$id',
+        'service-requests/$id',
+        'bookings/$id',
+      ]) {
+        final res = await http.get(_uri(path), headers: headers);
+        await SessionGuard.evaluate(res);
+        if (res.statusCode == 404) continue;
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          final data = jsonDecode(res.body);
+          final map = _unwrapRequestMap(data);
+          if (map != null) return map;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> _maybeNotifyStatus(List<Map<String, dynamic>> requests) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -435,4 +457,15 @@ Map<String, String> _decodeStatusCache(String raw) {
 
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
+}
+
+Map<String, dynamic>? _unwrapRequestMap(dynamic data) {
+  if (data is Map<String, dynamic>) {
+    for (final key in ['data', 'request', 'service_request', 'booking']) {
+      final inner = data[key];
+      if (inner is Map) return Map<String, dynamic>.from(inner);
+    }
+    return Map<String, dynamic>.from(data);
+  }
+  return null;
 }
