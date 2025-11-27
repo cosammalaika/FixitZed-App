@@ -40,15 +40,15 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
           _supportTile(
             icon: Icons.chat_bubble_outline_rounded,
             label: 'Chat on WhatsApp',
-            subtitle: '+260 760 000 000',
-            onTap: () => _launchUrl('https://wa.me/260760000000'),
+            subtitle: '+260 979 871 199',
+            onTap: () => _launchUrl('https://wa.me/260979871199'),
           ),
           const SizedBox(height: 12),
           _supportTile(
             icon: Icons.call_outlined,
             label: 'Call support',
-            subtitle: '+260 760 000 000',
-            onTap: () => _launchUrl('tel:+260760000000'),
+            subtitle: '+260 979 871 199',
+            onTap: () => _launchUrl('tel:+260979871199'),
           ),
           const SizedBox(height: 12),
           _supportTile(
@@ -144,10 +144,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: GoogleFonts.urbanist(
-          fontWeight: FontWeight.w700,
-          fontSize: 16,
-        ),
+        style: GoogleFonts.urbanist(fontWeight: FontWeight.w700, fontSize: 16),
       ),
     );
   }
@@ -170,7 +167,10 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         ),
         child: Icon(icon, color: const Color(0xFFF1592A)),
       ),
-      title: Text(label, style: GoogleFonts.urbanist(fontWeight: FontWeight.w700)),
+      title: Text(
+        label,
+        style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
+      ),
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.open_in_new_rounded),
     );
@@ -212,7 +212,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: type,
-                decoration: const InputDecoration(labelText: 'Who is involved?'),
+                decoration: const InputDecoration(
+                  labelText: 'Who is involved?',
+                ),
                 items: const [
                   DropdownMenuItem(value: 'user', child: Text('Customer')),
                   DropdownMenuItem(value: 'fixer', child: Text('Fixer')),
@@ -261,7 +263,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          ok ? 'Report submitted. We will be in touch.' : 'Unable to send report',
+          ok
+              ? 'Report submitted. We will be in touch.'
+              : 'Unable to send report',
         ),
         backgroundColor: ok ? const Color(0xFF2E7D32) : Colors.redAccent,
       ),
@@ -274,9 +278,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to open link')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Unable to open link')));
     }
   }
 }

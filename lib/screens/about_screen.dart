@@ -5,7 +5,7 @@ class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
   static const String _supportEmail = 'support@fixitzed.com';
-  static const String _supportPhone = '+260 760 000 000';
+  static const String _supportPhone = '+260 979 871 199';
   static const String _supportHours = 'Mon – Fri, 08:00 – 18:00 CAT';
 
   @override

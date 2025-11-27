@@ -18,6 +18,12 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+
+    // Ensure all Java compilations use a modern toolchain to silence Java 8 warnings.
+    tasks.withType<JavaCompile>().configureEach {
+        sourceCompatibility = JavaVersion.VERSION_11.toString()
+        targetCompatibility = JavaVersion.VERSION_11.toString()
+    }
 }
 
 tasks.register<Delete>("clean") {
