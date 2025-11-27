@@ -1,13 +1,25 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 
 class Api {
   /// Resolve the API base URL.
   /// Override at build time with: --dart-define=API_BASE_URL=https://your.host/api
+  
+  // static String get baseUrl {
+  //   const fromEnv = String.fromEnvironment('API_BASE_URL');
+  //   if (fromEnv.isNotEmpty) return fromEnv;
+  //   return 'https://admin.fixitzed.com/api';
+  // }
   static String get baseUrl {
     const fromEnv = String.fromEnvironment('API_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
-    return 'https://admin.fixitzed.com/api';
+    if (kIsWeb) return 'http://localhost:8000/api';
+    try {
+      if (Platform.isAndroid) return 'http://10.0.2.2:8000/api';
+    } catch (_) {}
+    return 'http://localhost:8000/api';
   }
 
   /// Converts a possibly relative media path into an absolute URL that can be

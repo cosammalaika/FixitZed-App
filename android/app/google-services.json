@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "152694086564",
+    "project_id": "fixitzed-app",
+    "storage_bucket": "fixitzed-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:152694086564:android:0bfd9c4bdaf6b388547f31",
+        "android_client_info": {
+          "package_name": "com.fixitzed.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzIUYbrWNNMO-FBlGIXb4253Ub94CrEF0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
