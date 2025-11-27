@@ -6,9 +6,12 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:fixitzed_app/services/fixer_application_service.dart';
+import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/services/home_service.dart';
+import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 
 enum _AttachmentAction { camera, gallery, file }
@@ -34,7 +37,6 @@ class BecomeFixerScreen extends StatefulWidget {
 
 class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
   final _home = HomeService();
-  final _applyService = FixerApplicationService();
   final _bioCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -42,6 +44,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
 
   final Set<int> _selectedServices = <int>{};
   final List<PlatformFile> _supportingDocs = [];
+  final List<PlatformFile> _workPhotos = [];
 
   PlatformFile? _profilePhoto;
   PlatformFile? _nrcFront;
@@ -52,6 +55,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
   bool _loading = true;
   bool _submitting = false;
   bool _requestingLocation = false;
+  bool _acceptedTerms = false;
   int _step = 0;
 
   @override
@@ -105,6 +109,12 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
       _loading = false;
     });
   }
+
+  bool get _documentsComplete =>
+      _profilePhoto != null &&
+      _nrcFront != null &&
+      _nrcBack != null &&
+      _workPhotos.length >= 3;
 
   List<_ServiceCategoryGroup> _groupServicesByCategory(
     List<Map<String, dynamic>> services,
@@ -271,6 +281,71 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
         ),
       ),
     );
+  }
+
+  Future<bool> _submitApplication() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null || token.isEmpty) {
+        _showSnack('Not signed in. Please log in again.');
+        return false;
+      }
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${Api.baseUrl}/fixer/apply'),
+      );
+
+      request.headers['Accept'] = 'application/json';
+      request.headers['Authorization'] = 'Bearer $token';
+
+      request.fields['bio'] = _bioCtrl.text.trim();
+      final location = _locationCtrl.text.trim();
+      if (location.isNotEmpty) request.fields['location'] = location;
+      request.fields['accepted_terms'] = '1';
+      final services = _selectedServices.toList();
+      for (var i = 0; i < services.length; i++) {
+        request.fields['service_ids[$i]'] = services[i].toString();
+      }
+
+      Future<void> attach(String? path, String field) async {
+        if (path == null || path.isEmpty) return;
+        request.files.add(await http.MultipartFile.fromPath(field, path));
+      }
+
+      await attach(_profilePhoto?.path, 'profile_photo');
+      await attach(_nrcFront?.path, 'nrc_front');
+      await attach(_nrcBack?.path, 'nrc_back');
+
+      final workPhotoPaths = _workPhotos
+          .where((f) => f.path != null && f.path!.isNotEmpty)
+          .map((f) => f.path!)
+          .toList();
+      for (var i = 0; i < workPhotoPaths.length; i++) {
+        request.files.add(
+          await http.MultipartFile.fromPath('work_photos[$i]', workPhotoPaths[i]),
+        );
+      }
+
+      final supportingPaths = _supportingDocs
+          .where((f) => f.path != null && f.path!.isNotEmpty)
+          .map((f) => f.path!)
+          .toList();
+      for (var i = 0; i < supportingPaths.length; i++) {
+        request.files.add(
+          await http.MultipartFile.fromPath('supporting_documents[$i]', supportingPaths[i]),
+        );
+      }
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      await SessionGuard.evaluate(response);
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      _showSnack('Failed to submit application. Please try again.');
+      return false;
+    }
   }
 
   Widget? _buildServiceChip(Map<String, dynamic> service, Color brand) {
@@ -595,9 +670,19 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
       setState(() => _step = 0);
       return;
     }
+    if (_profilePhoto == null) {
+      setState(() => _step = 1);
+      _showSnack('Please upload a profile photo');
+      return;
+    }
     if (_nrcFront == null || _nrcBack == null) {
       setState(() => _step = 1);
       _showSnack('Please upload both sides of your NRC');
+      return;
+    }
+    if (_workPhotos.length < 3) {
+      setState(() => _step = 1);
+      _showSnack('Please upload 3 photos of your work');
       return;
     }
     if (_selectedServices.isEmpty) {
@@ -605,20 +690,14 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
       _showSnack('Select at least one service');
       return;
     }
+    if (!_acceptedTerms) {
+      setState(() => _step = 2);
+      _showSnack('Please accept the Terms & Conditions');
+      return;
+    }
 
     setState(() => _submitting = true);
-    final ok = await _applyService.apply(
-      bio: _bioCtrl.text.trim(),
-      location: _locationCtrl.text.trim(),
-      serviceIds: _selectedServices.toList(),
-      profilePhotoPath: _profilePhoto?.path,
-      nrcFrontPath: _nrcFront?.path,
-      nrcBackPath: _nrcBack?.path,
-      supportingDocuments: _supportingDocs
-          .where((f) => f.path != null && f.path!.isNotEmpty)
-          .map((f) => f.path!)
-          .toList(),
-    );
+    final ok = await _submitApplication();
     if (!mounted) return;
     setState(() => _submitting = false);
     if (ok) {
@@ -648,14 +727,26 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
       case 0:
         return _formKey.currentState?.validate() ?? false;
       case 1:
+        if (_profilePhoto == null) {
+          _showSnack('Please upload a profile photo');
+          return false;
+        }
         if (_nrcFront == null || _nrcBack == null) {
           _showSnack('Please upload both sides of your NRC');
+          return false;
+        }
+        if (_workPhotos.length < 3) {
+          _showSnack('Please upload 3 photos of your work');
           return false;
         }
         return true;
       case 2:
         if (_selectedServices.isEmpty) {
           _showSnack('Select at least one service');
+          return false;
+        }
+        if (!_acceptedTerms) {
+          _showSnack('Please accept the Terms & Conditions');
           return false;
         }
         return true;
@@ -876,16 +967,17 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                           isActive: _step >= 1,
                           state: _step > 1
                               ? StepState.complete
-                              : (_nrcFront != null && _nrcBack != null
-                                    ? StepState.editing
-                                    : StepState.indexed),
+                              : (_documentsComplete
+                                  ? StepState.editing
+                                  : StepState.indexed),
                           content: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _documentTile(
-                                label: 'Profile photo (optional)',
+                                label: 'Profile photo',
                                 file: _profilePhoto,
                                 allowPdf: false,
+                                requiredField: true,
                                 helper:
                                     'A clear headshot helps customers recognise you.',
                                 onSelected: (file) =>
@@ -924,6 +1016,8 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                                     : () => setState(() => _nrcBack = null),
                               ),
                               const SizedBox(height: 12),
+                              _workPhotosSection(),
+                              const SizedBox(height: 12),
                               _supportingDocsSection(),
                             ],
                           ),
@@ -931,9 +1025,11 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                         Step(
                           title: const Text('Services'),
                           isActive: _step >= 2,
-                          state: _selectedServices.isNotEmpty
-                              ? StepState.editing
-                              : StepState.indexed,
+                          state: _selectedServices.isNotEmpty && _acceptedTerms
+                              ? StepState.complete
+                              : (_selectedServices.isNotEmpty
+                                  ? StepState.editing
+                                  : StepState.indexed),
                           content: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -978,15 +1074,241 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                                     ),
                                   ),
                                 ),
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3F5F7),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: _acceptedTerms
+                                        ? brand.withValues(alpha: 0.35)
+                                        : const Color(0xFFE0E3EB),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Checkbox(
+                                      value: _acceptedTerms,
+                                      onChanged: (value) => setState(
+                                        () => _acceptedTerms = value ?? false,
+                                      ),
+                                      activeColor: brand,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'I accept the Terms & Conditions',
+                                            style: GoogleFonts.urbanist(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'You agree to provide accurate documents and follow FixitZed standards for all jobs.',
+                                            style: GoogleFonts.urbanist(
+                                              fontSize: 12,
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                          Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: TextButton(
+                                              onPressed: _showTermsSheet,
+                                              style: TextButton.styleFrom(
+                                                padding: EdgeInsets.zero,
+                                                minimumSize: const Size(0, 0),
+                                                tapTargetSize:
+                                                    MaterialTapTargetSize
+                                                        .shrinkWrap,
+                                              ),
+                                              child: const Text(
+                                                'View Terms & Conditions',
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _workPhotosSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F5F7),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Work photos (3 required)',
+                style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
               ),
+              TextButton.icon(
+                onPressed: () async {
+                  if (_workPhotos.length >= 3) {
+                    _showSnack(
+                      'You already added 3 work photos. Remove one to replace.',
+                    );
+                    return;
+                  }
+                  await _pickAttachment(
+                    allowPdf: false,
+                    onSelected: (file) {
+                      setState(() => _workPhotos.add(file));
+                    },
+                  );
+                },
+                icon: const Icon(Icons.upload_rounded),
+                label: const Text('Add'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Upload 3 clear photos of your recent work (JPG, PNG or WEBP, max 5MB each).',
+            style: GoogleFonts.urbanist(color: Colors.black54, fontSize: 12),
+          ),
+          if (_workPhotos.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: List.generate(_workPhotos.length, (index) {
+                final file = _workPhotos[index];
+                final path = file.path ?? '';
+                final hasPath = path.isNotEmpty;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 92,
+                      height: 92,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE0E3EB)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: hasPath
+                            ? Image.file(
+                                File(path),
+                                width: 92,
+                                height: 92,
+                                fit: BoxFit.cover,
+                              )
+                            : Container(
+                                alignment: Alignment.center,
+                                padding: const EdgeInsets.all(8),
+                                child: Text(
+                                  file.name,
+                                  style: GoogleFonts.urbanist(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -8,
+                      right: -8,
+                      child: IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        color: Colors.black87,
+                        splashRadius: 18,
+                        onPressed: () => setState(() {
+                          _workPhotos.removeAt(index);
+                        }),
+                      ),
+                    ),
+                  ],
+                );
+              }),
             ),
+          ],
+          if (_workPhotos.length < 3) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Add ${3 - _workPhotos.length} more photo${_workPhotos.length == 2 ? '' : 's'}.',
+              style: GoogleFonts.urbanist(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showTermsSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Terms & Conditions',
+                style: GoogleFonts.urbanist(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'By applying as a Fixer, you confirm your documents are genuine, '
+                'consent to verification checks, and agree to follow FixitZed service standards.',
+                style: GoogleFonts.urbanist(color: Colors.black87),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'For the full Terms & Conditions please review the FixitZed policy shared by our team or on our website.',
+                style: GoogleFonts.urbanist(color: Colors.black54, fontSize: 12),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
