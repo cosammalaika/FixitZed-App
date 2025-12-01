@@ -23,6 +23,7 @@ import 'package:fixitzed_app/screens/about_screen.dart';
 import 'package:fixitzed_app/screens/auth/account_blocked_screen.dart';
 import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
+import 'package:fixitzed_app/services/fcm_service.dart';
 import 'package:fixitzed_app/common/connectivity/connectivity_overlay.dart';
 import 'package:fixitzed_app/widgets/session_redirector.dart';
 
@@ -30,6 +31,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppTheme.load();
   await LocalNotificationService.instance.init();
+   await FcmService.instance.init();
   runApp(const ProviderScope(child: MyApp()));
 }
 
