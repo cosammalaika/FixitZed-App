@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:fixitzed_app/services/home_service.dart';
+import 'package:fixitzed_app/repositories/categories_repository.dart';
+import 'package:fixitzed_app/repositories/services_repository.dart';
+import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/services/favorites_service.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
@@ -13,7 +18,9 @@ class ServicesListScreen extends StatefulWidget {
 }
 
 class _ServicesListScreenState extends State<ServicesListScreen> {
-  final _svc = HomeService();
+  late final ServicesRepository _servicesRepository;
+  late final CategoriesRepository _categoriesRepository;
+  late final ProviderContainer _container;
   late final TextEditingController _searchCtrl;
   bool _loading = true;
   List<Map<String, dynamic>> _allServices = const <Map<String, dynamic>>[];
@@ -28,6 +35,9 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
   @override
   void initState() {
     super.initState();
+    _container = ProviderScope.containerOf(context, listen: false);
+    _servicesRepository = _container.read(servicesRepositoryProvider);
+    _categoriesRepository = _container.read(categoriesRepositoryProvider);
     _searchCtrl = TextEditingController();
     _categoryOptions = const <Map<String, dynamic>>[];
   }
@@ -79,7 +89,8 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
     }
     _categoryName ??= 'Services';
     _initialized = true;
-    _load();
+    _primeFromCache();
+    unawaited(_load());
   }
 
   @override
@@ -94,7 +105,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
         _loading = true;
       });
     }
-    final data = await _svc.fetchServices();
+    final data = await _servicesRepository.getServices();
     final fav = (await FavoritesService.all()).toSet();
     if (!mounted) return;
     final services = data
@@ -122,6 +133,32 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
       }
     });
     _applyFilters();
+  }
+
+  void _primeFromCache() {
+    final cachedServices = _servicesRepository.cached ?? const <dynamic>[];
+    if (cachedServices.isNotEmpty) {
+      final services = cachedServices
+          .whereType<Map>()
+          .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+          .toList();
+      _allServices = services;
+      _services = services;
+      if (_categoryOptions.isEmpty) {
+        _categoryOptions = _deriveCategoryOptions(services);
+      }
+      _loading = false;
+    }
+    if (_categoryOptions.isEmpty) {
+      final cachedCategories =
+          _categoriesRepository.cachedSubcategories ?? const <dynamic>[];
+      _categoryOptions = cachedCategories
+          .whereType<Map>()
+          .map<Map<String, dynamic>>(
+            (e) => e.map((key, value) => MapEntry(key.toString(), value)),
+          )
+          .toList();
+    }
   }
 
   int? _extractSubcategoryId(Map source) {
@@ -235,7 +272,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
                 itemCount: _services.length,
                 itemBuilder: (ctx, i) {
                   final s = _services[i];
-                  final id = (s['id'] ?? s['uuid'] ?? '$i').toString();
+                  final id = serviceId(s, fallbackIndex: i);
                   final title = (s['name'] ?? s['title'] ?? 'Service')
                       .toString();
                   final description =

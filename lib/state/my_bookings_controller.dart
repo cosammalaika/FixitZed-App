@@ -21,7 +21,9 @@ class MyBookingsController extends AutoDisposeAsyncNotifier<MyBookingsState> {
   @override
   FutureOr<MyBookingsState> build() {
     _registerSync();
-    return _fetch();
+    final cached = _initialFromCache();
+    unawaited(_refresh(fromCache: cached));
+    return cached;
   }
 
   Future<void> refresh() async {
@@ -29,22 +31,29 @@ class MyBookingsController extends AutoDisposeAsyncNotifier<MyBookingsState> {
     state = await AsyncValue.guard(_fetch);
   }
 
-  Future<MyBookingsState> _fetch() async {
-    final requestService = ref.read(serviceRequestServiceProvider);
-    final paymentService = ref.read(paymentServiceProvider);
+  Future<void> _refresh({MyBookingsState? fromCache}) async {
+    if (fromCache != null) {
+      state = AsyncValue<MyBookingsState>.data(fromCache)
+          .copyWithPrevious(state);
+    }
+    state = await AsyncValue.guard(_fetch);
+  }
 
-    final rawList = await requestService.listRequests();
-    final requests = rawList
+  Future<MyBookingsState> _fetch() async {
+    final bookingsRepo = ref.read(bookingsRepositoryProvider);
+
+    final requests = await bookingsRepo.getRequests(forceRefresh: true);
+    final normalizedRequests = requests
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
 
     final payments = <int, Map<String, dynamic>>{};
-    for (final r in requests) {
+    for (final r in normalizedRequests) {
       final id = (r['id'] as num?)?.toInt();
       if (id == null) continue;
       try {
-        final payment = await paymentService.get(id);
+        final payment = await bookingsRepo.getPayment(id);
         if (payment != null) {
           payments[id] = Map<String, dynamic>.from(payment);
         }
@@ -53,7 +62,7 @@ class MyBookingsController extends AutoDisposeAsyncNotifier<MyBookingsState> {
       }
     }
 
-    return MyBookingsState(requests: requests, payments: payments);
+    return MyBookingsState(requests: normalizedRequests, payments: payments);
   }
 
   void _registerSync() {
@@ -64,6 +73,13 @@ class MyBookingsController extends AutoDisposeAsyncNotifier<MyBookingsState> {
 
     ref.onAppSync(AppSyncTopic.bookings, handle);
     ref.onAppSync(AppSyncTopic.wallet, handle);
+  }
+
+  MyBookingsState _initialFromCache() {
+    final bookingsRepo = ref.read(bookingsRepositoryProvider);
+    final requests =
+        bookingsRepo.cachedRequests ?? const <Map<String, dynamic>>[];
+    return MyBookingsState(requests: requests);
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/utils/service_utils.dart';
 import 'package:fixitzed_app/widgets/fixer_list_item.dart';
 
 class DashboardGreeting extends StatelessWidget {
@@ -674,7 +675,7 @@ class PopularServicesBlock extends StatelessWidget {
               final items = <Widget>[];
               for (var i = 0; i < 2 && i < services.length; i++) {
                 final s = services[i] as Map;
-                final id = (s['id'] ?? s['uuid'] ?? '$i').toString();
+                final id = serviceId(s, fallbackIndex: i);
                 final title = (s['name'] ?? s['title'] ?? 'Service').toString();
                 final img = (s['image'] ?? s['image_url'] ?? '').toString();
                 if (items.isNotEmpty) items.add(const SizedBox(width: 12));

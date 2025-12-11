@@ -9,8 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/screens/sign_up_screen.dart';
 import 'package:fixitzed_app/screens/auth/forgot_password_sheet.dart';
-import 'package:fixitzed_app/state/dashboard_controller.dart';
-import 'package:fixitzed_app/state/fixers_providers.dart';
+import 'package:fixitzed_app/services/preload_service.dart';
+import 'package:fixitzed_app/state/service_providers.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -54,18 +54,6 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
-  Future<void> _preloadAppData() async {
-    if (!mounted) return;
-    final container = ProviderScope.containerOf(context, listen: false);
-    final futures = <Future<void>>[
-      container
-          .read(dashboardControllerProvider.future)
-          .then((_) {}, onError: (_) {}),
-      container.read(topFixersProvider.future).then((_) {}, onError: (_) {}),
-    ];
-    await Future.wait(futures);
-  }
-
   // Biometrics removed
 
   Future<void> _submit() async {
@@ -94,7 +82,8 @@ class _SignInScreenState extends State<SignInScreen> {
           await prefs.remove('remember_identifier');
           await prefs.remove('remember_email');
         }
-        await _preloadAppData();
+        final container = ProviderScope.containerOf(context, listen: false);
+        unawaited(container.read(preloadServiceProvider).preloadAll());
         if (!mounted) return;
         unawaited(Navigator.of(context).pushReplacementNamed('/home'));
       } else if (result.message == 'inactive') {

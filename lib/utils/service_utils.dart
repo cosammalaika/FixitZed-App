@@ -12,6 +12,18 @@ Map<String, dynamic>? normalizeService(dynamic raw) {
   return null;
 }
 
+/// Extracts a consistent service id across varied API payloads.
+String serviceId(Map<dynamic, dynamic> service, {int? fallbackIndex}) {
+  final dynamic id = service['id'] ??
+      service['uuid'] ??
+      service['service_id'] ??
+      service['serviceId'] ??
+      service['serviceID'];
+  if (id != null) return id.toString();
+  if (fallbackIndex != null) return fallbackIndex.toString();
+  return service.hashCode.toString();
+}
+
 String? serviceCategoryLabel(Map<dynamic, dynamic> service) {
   final subcategory = service['subcategory'];
   if (subcategory is Map) {

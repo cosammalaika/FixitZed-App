@@ -52,8 +52,11 @@ class DashboardController extends AsyncNotifier<DashboardState> {
   @override
   FutureOr<DashboardState> build() {
     _registerSync();
-    unawaited(_refreshFromNetwork(showLoading: true));
-    return const DashboardState();
+    final initial = _initialFromCache();
+    unawaited(
+      _refreshFromNetwork(showLoading: initial.categories.isEmpty),
+    );
+    return initial;
   }
 
   Future<void> refresh() async {
@@ -84,8 +87,10 @@ class DashboardController extends AsyncNotifier<DashboardState> {
   }
 
   Future<DashboardState> _fetchDashboard() async {
-    final homeService = ref.read(homeServiceProvider);
-    final notificationService = ref.read(notificationServiceProvider);
+    final profileRepo = ref.read(profileRepositoryProvider);
+    final categoriesRepo = ref.read(categoriesRepositoryProvider);
+    final servicesRepo = ref.read(servicesRepositoryProvider);
+    final notificationsRepo = ref.read(notificationsRepositoryProvider);
 
     Map<String, dynamic>? me;
     var categories = <dynamic>[];
@@ -94,10 +99,10 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     String? error;
 
     try {
-      final meFuture = homeService.fetchMe();
-      final categoriesFuture = homeService.fetchSubcategories();
-      final servicesFuture = homeService.fetchServices();
-      final notificationsFuture = notificationService.fetch(page: 1);
+      final meFuture = profileRepo.getProfile();
+      final categoriesFuture = categoriesRepo.getSubcategories();
+      final servicesFuture = servicesRepo.getServices();
+      final notificationsFuture = notificationsRepo.getNotifications();
 
       me = await meFuture;
       categories = await categoriesFuture;
@@ -203,6 +208,33 @@ class DashboardController extends AsyncNotifier<DashboardState> {
       if (!read) return true;
     }
     return false;
+  }
+
+  DashboardState _initialFromCache() {
+    final profileRepo = ref.read(profileRepositoryProvider);
+    final categoriesRepo = ref.read(categoriesRepositoryProvider);
+    final servicesRepo = ref.read(servicesRepositoryProvider);
+    final notificationsRepo = ref.read(notificationsRepositoryProvider);
+
+    final me = profileRepo.cached;
+    final categories = categoriesRepo.cachedSubcategories ?? const <dynamic>[];
+    final services = servicesRepo.cached ?? const <dynamic>[];
+    final notifications = notificationsRepo.cached ?? const <Map<String, dynamic>>[];
+
+    final userMap = _extractUserMap(me);
+    final name = _resolveName(userMap);
+    final location = _resolveLocation(userMap);
+    final avatarUrl = _resolveAvatar(userMap);
+    final hasUnread = _detectUnread(notifications);
+
+    return DashboardState(
+      name: name,
+      location: location,
+      avatarUrl: avatarUrl,
+      categories: List<dynamic>.from(categories),
+      services: List<dynamic>.from(services),
+      hasUnread: hasUnread,
+    );
   }
 }
 

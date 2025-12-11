@@ -7,6 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fixitzed_app/services/home_service.dart';
 import 'package:fixitzed_app/services/notification_service.dart';
 import 'package:fixitzed_app/services/token_storage.dart';
+import 'package:fixitzed_app/services/preload_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fixitzed_app/state/service_providers.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,11 +18,24 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+
   @override
   void initState() {
     super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
     _bootstrap();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
   }
 
   Future<void> _bootstrap() async {
@@ -53,6 +69,10 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     if (!mounted) return;
+    if (route == '/home') {
+      final container = ProviderScope.containerOf(context, listen: false);
+      unawaited(container.read(preloadServiceProvider).preloadAll());
+    }
     unawaited(Navigator.of(context).pushReplacementNamed(route));
   }
 
@@ -84,6 +104,56 @@ class _SplashScreenState extends State<SplashScreen> {
                 'assets/images/logo.png',
                 width: 350, // adjust size
                 height: 350,
+              ),
+            ),
+
+            // Bottom loader
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 42),
+                child: SizedBox(
+                  height: 22,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(3, (index) {
+                      final animation = CurvedAnimation(
+                        parent: _pulseController,
+                        curve: Interval(
+                          0.15 * index,
+                          0.6 + 0.15 * index,
+                          curve: Curves.easeInOut,
+                        ),
+                      );
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: Tween<double>(begin: 0.65, end: 1.05)
+                                .animate(animation),
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: Colors.deepOrange.shade400,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.deepOrange.shade400
+                                        .withOpacity(0.35),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
               ),
             ),
           ],

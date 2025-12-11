@@ -32,7 +32,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     for (var i = 0; i < services.length; i++) {
       final s = services[i];
       if (s is Map) {
-        final id = (s['id'] ?? s['uuid'] ?? '$i').toString();
+        final id = serviceId(s, fallbackIndex: i);
         if (fav.contains(id)) {
           favList.add(Map<String, dynamic>.from(s));
         }
@@ -76,7 +76,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     itemCount: _favoriteServices.length,
                     itemBuilder: (ctx, i) {
                       final s = _favoriteServices[i];
-                      final id = (s['id'] ?? s['uuid'] ?? '$i').toString();
+                      final id = serviceId(s, fallbackIndex: i);
                       final title = (s['name'] ?? s['title'] ?? 'Service').toString();
                       final description =
                           (s['description'] ?? s['summary'] ?? '')
