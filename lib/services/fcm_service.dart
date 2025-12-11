@@ -6,8 +6,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> fcmBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -77,11 +77,18 @@ class FcmService {
     _initialized = true;
   }
 
+  Future<void> deleteToken() async {
+    try {
+      await FirebaseMessaging.instance.deleteToken();
+    } catch (e) {
+      if (kDebugMode) log('FCM delete token failed: $e');
+    }
+  }
+
   Future<void> _persistToken(String token) async {
     if (kDebugMode) log('FCM token: $token');
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final authToken = prefs.getString('auth_token');
+      final authToken = await TokenStorage.instance.getToken();
       if (authToken == null || authToken.isEmpty) return;
 
       final uri = Uri.parse('${Api.baseUrl}/device-tokens');

@@ -2,8 +2,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/services/api_client.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
 import 'package:fixitzed_app/services/session_manager.dart';
+import 'package:fixitzed_app/services/fcm_service.dart';
 
 class AuthResult {
   final bool success;
@@ -32,13 +34,6 @@ class AuthService {
 
   final AppSync _sync;
 
-  /// WHY: Ensure Laravel returns JSON validation; send JSON bodies for consistency.
-  Map<String, String> _headers({String? token}) => {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-  };
-
   Uri _uri(String path) => Uri.parse('${Api.baseUrl}/$path');
 
   Future<http.Response> _postJson(
@@ -46,10 +41,10 @@ class AuthService {
     Map<String, dynamic> body, {
     String? token,
   }) {
-    return http.post(
-      _uri(path),
-      headers: _headers(token: token),
-      body: jsonEncode(body),
+    return ApiClient.instance.post(
+      path,
+      body: body,
+      auth: token != null,
     );
   }
 
@@ -58,10 +53,10 @@ class AuthService {
     Map<String, dynamic> body, {
     String? token,
   }) {
-    return http.patch(
-      _uri(path),
-      headers: _headers(token: token),
-      body: jsonEncode(body),
+    return ApiClient.instance.patch(
+      path,
+      body: body,
+      auth: token != null,
     );
   }
 
@@ -70,10 +65,10 @@ class AuthService {
     Map<String, dynamic> body, {
     String? token,
   }) {
-    return http.put(
-      _uri(path),
-      headers: _headers(token: token),
-      body: jsonEncode(body),
+    return ApiClient.instance.put(
+      path,
+      body: body,
+      auth: token != null,
     );
   }
 
@@ -224,17 +219,12 @@ class AuthService {
 
   Future<void> logout() async {
     try {
-      final token = await _getToken();
-      if (token != null && token.isNotEmpty) {
-        await http.post(
-          _uri('logout'),
-          headers: _headers(token: token),
-          body: jsonEncode({}),
-        );
-      }
+      await ApiClient.instance.post('logout', body: const {}, auth: true);
     } catch (_) {
       // WHY: Network/API failures shouldn't block local logout.
     } finally {
+      // Clear device push token so notifications stop for this account.
+      await FcmService.instance.deleteToken();
       await SessionManager.instance.finalizeLogout(reason: 'manual');
     }
   }

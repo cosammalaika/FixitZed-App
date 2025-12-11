@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/services/app_analytics.dart';
@@ -12,6 +11,7 @@ import 'package:fixitzed_app/services/coupon_service.dart';
 import 'package:fixitzed_app/services/loyalty_service.dart';
 import 'package:fixitzed_app/services/payment_preferences.dart';
 import 'package:fixitzed_app/services/payment_service.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 
 class PaymentScreen extends StatefulWidget {
   final int requestId;
@@ -1288,11 +1288,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 : () async {
                                     setLocal(() => submitting = true);
                                     try {
-                                      final prefs =
-                                          await SharedPreferences.getInstance();
-                                      final token = prefs.getString(
-                                        'auth_token',
-                                      );
+                                      final token = await TokenStorage.instance
+                                          .getToken();
                                       final res = await http.post(
                                         Uri.parse(
                                           '${Api.baseUrl}/service-requests/${widget.requestId}/ratings',

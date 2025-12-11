@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/services/session_guard.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeService {
   static List<dynamic>? _servicesCache;
@@ -50,8 +50,7 @@ class HomeService {
   }
 
   Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    return TokenStorage.instance.getToken();
   }
 
   Future<Map<String, dynamic>?> fetchMe() async {

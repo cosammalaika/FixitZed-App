@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fixitzed_app/services/home_service.dart';
+import 'package:fixitzed_app/services/notification_service.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,15 +23,35 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _bootstrap() async {
-    final preload = HomeService()
-        .preloadServices()
-        .timeout(const Duration(seconds: 10))
-        .catchError((_) {});
-    await Future.wait([Future.delayed(const Duration(seconds: 2)), preload]);
+    final home = HomeService();
+    final preload = Future.wait([
+      home.preloadServices(forceRefresh: true),
+      home.fetchCategories().catchError((_) => <dynamic>[]),
+      home.fetchSubcategories().catchError((_) => <dynamic>[]),
+      NotificationService().fetch(page: 1).catchError((_) => <Map>[]),
+    ]).timeout(const Duration(seconds: 12), onTimeout: () => []);
+
+    await Future.wait([
+      Future.delayed(const Duration(seconds: 2)),
+      preload,
+    ]).catchError((_) {});
+
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('onboarding_seen') ?? false;
-    final route = hasSeenOnboarding ? '/auth' : '/onboarding';
+    final token = await TokenStorage.instance.getToken();
+
+    String route;
+    if (!hasSeenOnboarding) {
+      route = '/onboarding';
+    } else if (token == null || token.isEmpty) {
+      route = '/auth';
+    } else {
+      // Lightweight validation: ensure token still works.
+      final me = await home.fetchMe();
+      route = me != null ? '/home' : '/auth';
+    }
+
     if (!mounted) return;
     unawaited(Navigator.of(context).pushReplacementNamed(route));
   }

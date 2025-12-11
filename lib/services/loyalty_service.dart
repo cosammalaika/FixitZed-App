@@ -1,14 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/services/session_guard.dart';
 
 class LoyaltyService {
   Future<Map<String, dynamic>?> summary() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final token = await TokenStorage.instance.getToken();
     if (token == null) return null;
 
     final res = await http.get(

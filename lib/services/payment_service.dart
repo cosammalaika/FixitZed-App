@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/services/app_analytics.dart';
@@ -36,8 +36,7 @@ class PaymentService {
   Uri _uri(String path) => Uri.parse('${Api.baseUrl}/$path');
 
   Future<String?> _token() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    return TokenStorage.instance.getToken();
   }
 
   Future<Map<String, dynamic>?> get(int requestId) async {

@@ -1,14 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/services/session_guard.dart';
 
 class CouponService {
   Future<Map<String, String>> _headers() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final token = await TokenStorage.instance.getToken();
     final headers = <String, String>{
       'Accept': 'application/json',
       'Content-Type': 'application/json',

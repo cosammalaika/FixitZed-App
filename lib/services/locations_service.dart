@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/services/session_guard.dart';
@@ -14,8 +14,7 @@ class LocationsService {
   };
 
   Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    return TokenStorage.instance.getToken();
   }
 
   Uri _uri(String path) => Uri.parse('${Api.baseUrl}/$path');

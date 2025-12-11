@@ -7,7 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/services/home_service.dart';
@@ -285,8 +285,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
 
   Future<bool> _submitApplication() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await TokenStorage.instance.getToken();
       if (token == null || token.isEmpty) {
         _showSnack('Not signed in. Please log in again.');
         return false;

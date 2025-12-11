@@ -3,13 +3,14 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/services/local_notification_service.dart';
 import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ServiceRequestResult {
   const ServiceRequestResult.success()
@@ -37,8 +38,7 @@ class ServiceRequestService {
   };
 
   Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    return TokenStorage.instance.getToken();
   }
 
   Uri _uri(String path) => Uri.parse('${Api.baseUrl}/$path');
