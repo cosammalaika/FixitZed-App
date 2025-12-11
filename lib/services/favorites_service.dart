@@ -14,15 +14,21 @@ class FavoritesService {
     return set.contains(id);
   }
 
-  static Future<void> toggle(String id) async {
+  static Future<Set<String>> loadSet() => _load();
+
+  static Future<void> setAll(Set<String> ids) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_key, ids.toList());
+  }
+
+  static Future<void> toggle(String id) async {
     final set = await _load();
     if (set.contains(id)) {
       set.remove(id);
     } else {
       set.add(id);
     }
-    await prefs.setStringList(_key, set.toList());
+    await setAll(set);
   }
 
   static Future<List<String>> all() async {

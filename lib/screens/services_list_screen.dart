@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/repositories/categories_repository.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
-import 'package:fixitzed_app/services/favorites_service.dart';
+import 'package:fixitzed_app/repositories/favorites_repository.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
 
@@ -20,6 +20,7 @@ class ServicesListScreen extends StatefulWidget {
 class _ServicesListScreenState extends State<ServicesListScreen> {
   late final ServicesRepository _servicesRepository;
   late final CategoriesRepository _categoriesRepository;
+  late final FavoritesRepository _favoritesRepository;
   late final ProviderContainer _container;
   late final TextEditingController _searchCtrl;
   bool _loading = true;
@@ -31,6 +32,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
   bool _initialized = false;
   String _searchTerm = '';
   List<Map<String, dynamic>> _categoryOptions = const <Map<String, dynamic>>[];
+  late final VoidCallback _favListener;
 
   @override
   void initState() {
@@ -38,8 +40,16 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
     _container = ProviderScope.containerOf(context, listen: false);
     _servicesRepository = _container.read(servicesRepositoryProvider);
     _categoriesRepository = _container.read(categoriesRepositoryProvider);
+    _favoritesRepository = _container.read(favoritesRepositoryProvider);
     _searchCtrl = TextEditingController();
     _categoryOptions = const <Map<String, dynamic>>[];
+    _favListener = () {
+      if (!mounted) return;
+      setState(() {
+        _fav = _favoritesRepository.ids;
+      });
+    };
+    _favoritesRepository.addListener(_favListener);
   }
 
   @override
@@ -96,6 +106,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _favoritesRepository.removeListener(_favListener);
     super.dispose();
   }
 
@@ -106,7 +117,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
       });
     }
     final data = await _servicesRepository.getServices();
-    final fav = (await FavoritesService.all()).toSet();
+    final fav = await _favoritesRepository.getFavoriteIds();
     if (!mounted) return;
     final services = data
         .whereType<Map>()
@@ -346,11 +357,30 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
                                         color: liked ? Colors.red : Colors.grey,
                                       ),
                                       onPressed: () async {
-                                        await FavoritesService.toggle(id);
-                                        final fav = (await FavoritesService.all())
-                                            .toSet();
-                                        if (!mounted) return;
-                                        setState(() => _fav = fav);
+                                        final previous = Set<String>.from(_fav);
+                                        final optimistic = Set<String>.from(_fav);
+                                        if (optimistic.contains(id)) {
+                                          optimistic.remove(id);
+                                        } else {
+                                          optimistic.add(id);
+                                        }
+                                        if (mounted) {
+                                          setState(() => _fav = optimistic);
+                                        }
+                                        try {
+                                          await _favoritesRepository.toggle(id);
+                                          if (!mounted) return;
+                                          setState(() => _fav = _favoritesRepository.ids);
+                                        } catch (_) {
+                                          if (!mounted) return;
+                                          setState(() => _fav = previous);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content:
+                                                  Text('Could not update favorites right now.'),
+                                            ),
+                                          );
+                                        }
                                       },
                                     ),
                                   ],

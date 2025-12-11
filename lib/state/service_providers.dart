@@ -7,6 +7,7 @@ import 'package:fixitzed_app/services/payment_service.dart';
 import 'package:fixitzed_app/services/preload_service.dart';
 import 'package:fixitzed_app/repositories/bookings_repository.dart';
 import 'package:fixitzed_app/repositories/categories_repository.dart';
+import 'package:fixitzed_app/repositories/favorites_repository.dart';
 import 'package:fixitzed_app/repositories/notifications_repository.dart';
 import 'package:fixitzed_app/repositories/profile_repository.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
@@ -31,6 +32,9 @@ final categoriesRepositoryProvider = Provider<CategoriesRepository>(
 final servicesRepositoryProvider = Provider<ServicesRepository>(
   (ref) => ServicesRepository(ref.read(homeServiceProvider)),
 );
+final favoritesRepositoryProvider = ChangeNotifierProvider<FavoritesRepository>(
+  (ref) => FavoritesRepository(),
+);
 final notificationsRepositoryProvider = Provider<NotificationsRepository>(
   (ref) => NotificationsRepository(ref.read(notificationServiceProvider)),
 );
@@ -46,6 +50,7 @@ final preloadServiceProvider = Provider<PreloadService>(
     profileRepository: ref.read(profileRepositoryProvider),
     categoriesRepository: ref.read(categoriesRepositoryProvider),
     servicesRepository: ref.read(servicesRepositoryProvider),
+    favoritesRepository: ref.read(favoritesRepositoryProvider),
     notificationsRepository: ref.read(notificationsRepositoryProvider),
     bookingsRepository: ref.read(bookingsRepositoryProvider),
   ),

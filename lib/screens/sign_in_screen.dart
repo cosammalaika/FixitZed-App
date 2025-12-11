@@ -494,6 +494,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                         Checkbox(
                                           value: _rememberMe,
                                           activeColor: orange,
+                                          shape: const CircleBorder(),
                                           onChanged: _loading
                                               ? null
                                               : (val) => setState(

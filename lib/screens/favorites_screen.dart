@@ -1,49 +1,64 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:fixitzed_app/services/home_service.dart';
-import 'package:fixitzed_app/services/favorites_service.dart';
+import 'package:fixitzed_app/repositories/favorites_repository.dart';
+import 'package:fixitzed_app/repositories/services_repository.dart';
+import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 
-class FavoritesScreen extends StatefulWidget {
+class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
 
   @override
-  State<FavoritesScreen> createState() => _FavoritesScreenState();
+  ConsumerState<FavoritesScreen> createState() => _FavoritesScreenState();
 }
 
-class _FavoritesScreenState extends State<FavoritesScreen> {
-  final _svc = HomeService();
+class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
   bool _loading = true;
   List<Map<String, dynamic>> _favoriteServices = const [];
   Set<String> _favIds = {};
+  FavoritesRepository? _favoritesRepository;
+  ServicesRepository? _servicesRepository;
+  late final VoidCallback _favListener;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _favListener = () => _load();
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final services = await _svc.fetchServices();
-    final fav = (await FavoritesService.all()).toSet();
-    final favList = <Map<String, dynamic>>[];
-    for (var i = 0; i < services.length; i++) {
-      final s = services[i];
-      if (s is Map) {
-        final id = serviceId(s, fallbackIndex: i);
-        if (fav.contains(id)) {
-          favList.add(Map<String, dynamic>.from(s));
-        }
-      }
-    }
+    _favoritesRepository ??= ref.read(favoritesRepositoryProvider);
+    _servicesRepository ??= ref.read(servicesRepositoryProvider);
+    final favRepo = _favoritesRepository!;
+    final servicesRepo = _servicesRepository!;
+    if (mounted) setState(() => _loading = true);
+    final favList = await favRepo.getFavoriteServices(servicesRepo);
+    final favIds = await favRepo.getFavoriteIds();
     if (!mounted) return;
     setState(() {
-      _favIds = fav;
+      _favIds = favIds;
       _favoriteServices = favList;
       _loading = false;
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _favoritesRepository ??= ref.read(favoritesRepositoryProvider);
+    _favoritesRepository?.removeListener(_favListener);
+    _favoritesRepository?.addListener(_favListener);
+    unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _favoritesRepository?.removeListener(_favListener);
+    super.dispose();
   }
 
   @override
@@ -149,7 +164,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                             color: liked ? Colors.red : Colors.grey,
                                           ),
                                           onPressed: () async {
-                                            await FavoritesService.toggle(id);
+                                            final repo =
+                                                ref.read(favoritesRepositoryProvider);
+                                            await repo.toggle(id);
                                             await _load();
                                           },
                                         ),
