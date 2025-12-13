@@ -35,7 +35,8 @@ class BecomeFixerScreen extends StatefulWidget {
   State<BecomeFixerScreen> createState() => _BecomeFixerScreenState();
 }
 
-class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
+class _BecomeFixerScreenState extends State<BecomeFixerScreen>
+    with SingleTickerProviderStateMixin {
   final _home = HomeService();
   final _bioCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
@@ -57,18 +58,40 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
   bool _requestingLocation = false;
   bool _acceptedTerms = false;
   int _step = 0;
+  TabController? _tabController;
 
   @override
   void initState() {
     super.initState();
+    _ensureTabController();
     _load();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Hot reload safety: make sure the controller exists even if initState
+    // ran before the late field was introduced.
+    _ensureTabController();
+  }
+
+  @override
   void dispose() {
+    _tabController?.dispose();
     _bioCtrl.dispose();
     _locationCtrl.dispose();
     super.dispose();
+  }
+
+  void _ensureTabController() {
+    if (_tabController != null) return;
+    final controller = TabController(length: 3, vsync: this);
+    controller.addListener(() {
+      if (!controller.indexIsChanging) {
+        setState(() => _step = controller.index);
+      }
+    });
+    _tabController = controller;
   }
 
   Future<void> _load() async {
@@ -754,6 +777,26 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
     }
   }
 
+  void _goNext() {
+    final valid = _validateCurrentStep();
+    if (!valid) return;
+    if (_step == 2) {
+      _submit();
+      return;
+    }
+    _ensureTabController();
+    _tabController!.animateTo(_step + 1);
+  }
+
+  void _goBack() {
+    if (_step == 0) {
+      Navigator.of(context).pop();
+      return;
+    }
+    _ensureTabController();
+    _tabController!.animateTo(_step - 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     const brand = Color(0xFFF1592A);
@@ -772,89 +815,82 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
         ),
         centerTitle: true,
       ),
+      backgroundColor: const Color(0xFFFEFAF6),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
               child: Column(
                 children: [
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [brand, accent],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                  _hero(brand, accent),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: brand.withValues(alpha: 0.12)),
                       ),
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: [
-                        BoxShadow(
-                          color: brand.withValues(alpha: 0.20),
-                          blurRadius: 18,
-                          offset: const Offset(0, 12),
+                      child: TabBar(
+                        controller: _tabController,
+                        labelColor: brand,
+                        unselectedLabelColor: Colors.black54,
+                        indicator: BoxDecoration(
+                          color: brand.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ],
+                        labelStyle: GoogleFonts.urbanist(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                        tabs: const [
+                          Tab(text: 'Profile'),
+                          Tab(text: 'Documents'),
+                          Tab(text: 'Services'),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.handyman_rounded,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Become a Fixer',
-                                style: GoogleFonts.urbanist(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 18,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Tell us about yourself and upload your documents to get started.',
-                                style: GoogleFonts.urbanist(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        _profileTab(brand),
+                        _documentsTab(brand),
+                        _servicesTab(brand),
                       ],
                     ),
                   ),
-                  Expanded(
-                    child: Stepper(
-                      currentStep: _step,
-                      onStepTapped: (value) => setState(() => _step = value),
-                      controlsBuilder: (context, details) {
-                        return Row(
-                          children: [
-                            ElevatedButton(
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
                               onPressed: _submitting
                                   ? null
-                                  : () {
-                                      final valid = _validateCurrentStep();
-                                      if (!valid) return;
-                                      if (_step == 2) {
-                                        _submit();
-                                      } else {
-                                        setState(() => _step += 1);
-                                      }
-                                    },
+                                  : (_step == 0
+                                      ? () => Navigator.of(context).pop()
+                                      : _goBack),
+                              style: OutlinedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                              ),
+                              child: Text(_step == 0 ? 'Close' : 'Back'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _submitting ? null : _goNext,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: brand,
                                 foregroundColor: Colors.white,
@@ -872,277 +908,283 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
                                     : 'Next',
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            OutlinedButton(
-                              onPressed: _step == 0
-                                  ? () => Navigator.of(context).pop()
-                                  : () => setState(() => _step -= 1),
-                              style: OutlinedButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 12,
-                                ),
-                              ),
-                              child: const Text('Back'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _profileTab(Color brand) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: _cardShell(
+        brand,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _chip(icon: Icons.person, label: 'About you'),
+                const SizedBox(width: 8),
+                _chip(
+                  icon: Icons.location_on_outlined,
+                  label: 'Where you work',
+                  subtle: true,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Tell us about your skills and where you operate. This helps customers know you better.',
+              style: GoogleFonts.urbanist(
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _bioCtrl,
+              maxLines: 5,
+              decoration: InputDecoration(
+                hintText:
+                    'Describe your experience, qualifications, and preferred areas.',
+                filled: true,
+                fillColor: const Color(0xFFF7F9FC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: brand.withValues(alpha: 0.2),
+                  ),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Tell us a bit about your experience';
+                }
+                if (value.trim().length < 30) {
+                  return 'Please provide at least 30 characters';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _locationCtrl,
+              decoration: InputDecoration(
+                hintText: 'Business location (optional)',
+                filled: true,
+                fillColor: const Color(0xFFF7F9FC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: brand.withValues(alpha: 0.2),
+                  ),
+                ),
+                suffixIcon: IconButton(
+                  icon: _requestingLocation
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.my_location_rounded),
+                  onPressed:
+                      _requestingLocation ? null : _useCurrentLocation,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _documentsTab(Color brand) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: _cardShell(
+        brand,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _chip(icon: Icons.verified_rounded, label: 'Identity'),
+                const SizedBox(width: 8),
+                _chip(icon: Icons.image, label: 'Work photos', subtle: true),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _documentTile(
+              label: 'Profile photo',
+              file: _profilePhoto,
+              allowPdf: false,
+              requiredField: true,
+              helper: 'A clear headshot helps customers recognise you.',
+              onSelected: (file) => setState(() => _profilePhoto = file),
+              onRemove: _profilePhoto == null
+                  ? null
+                  : () => setState(() => _profilePhoto = null),
+            ),
+            const SizedBox(height: 12),
+            _documentTile(
+              label: 'NRC front',
+              file: _nrcFront,
+              allowPdf: true,
+              requiredField: true,
+              helper: 'Accepted: JPG, PNG, WEBP or PDF (max 5MB).',
+              onSelected: (file) => setState(() => _nrcFront = file),
+              onRemove: _nrcFront == null
+                  ? null
+                  : () => setState(() => _nrcFront = null),
+            ),
+            const SizedBox(height: 12),
+            _documentTile(
+              label: 'NRC back',
+              file: _nrcBack,
+              allowPdf: true,
+              requiredField: true,
+              helper: 'Accepted: JPG, PNG, WEBP or PDF (max 5MB).',
+              onSelected: (file) => setState(() => _nrcBack = file),
+              onRemove: _nrcBack == null
+                  ? null
+                  : () => setState(() => _nrcBack = null),
+            ),
+            const SizedBox(height: 12),
+            _workPhotosSection(),
+            const SizedBox(height: 12),
+            _supportingDocsSection(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _servicesTab(Color brand) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: _cardShell(
+        brand,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _chip(
+                  icon: Icons.build_circle_rounded,
+                  label: 'Offerings',
+                ),
+                const SizedBox(width: 8),
+                _chip(
+                  icon: Icons.rule_folder_outlined,
+                  label: 'Terms',
+                  subtle: true,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Select the services you can handle. Customers will see these on your profile.',
+              style: GoogleFonts.urbanist(
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_serviceCategories.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'No services available yet. Please try again later.',
+                  style: GoogleFonts.urbanist(
+                    color: Colors.black54,
+                  ),
+                ),
+              )
+            else
+              Column(
+                children: _serviceCategories
+                    .map((category) => _buildCategoryTile(category, brand))
+                    .toList(),
+              ),
+            if (_selectedServices.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Select at least one service you offer.',
+                  style: GoogleFonts.urbanist(
+                    fontSize: 12,
+                    color: Colors.black54,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F9FC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _acceptedTerms
+                      ? brand.withValues(alpha: 0.35)
+                      : const Color(0xFFE0E3EB),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Checkbox(
+                    value: _acceptedTerms,
+                    onChanged: (value) =>
+                        setState(() => _acceptedTerms = value ?? false),
+                    activeColor: brand,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'I accept the Terms & Conditions',
+                          style: GoogleFonts.urbanist(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'You agree to provide accurate documents and follow FixitZed standards for all jobs.',
+                          style: GoogleFonts.urbanist(
+                            fontSize: 12,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: _showTermsSheet,
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(0, 0),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                          ],
-                        );
-                      },
-                      steps: [
-                        Step(
-                          title: const Text('Profile'),
-                          isActive: _step >= 0,
-                          state: _step > 0
-                              ? StepState.complete
-                              : StepState.indexed,
-                          content: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Tell us about your skills and where you operate. This helps customers know you better.',
-                                style: GoogleFonts.urbanist(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _bioCtrl,
-                                maxLines: 5,
-                                decoration: InputDecoration(
-                                  hintText:
-                                      'Describe your experience, qualifications, and preferred areas.',
-                                  filled: true,
-                                  fillColor: const Color(0xFFF3F5F7),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Tell us a bit about your experience';
-                                  }
-                                  if (value.trim().length < 30) {
-                                    return 'Please provide at least 30 characters';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 20),
-                              TextFormField(
-                                controller: _locationCtrl,
-                                decoration: InputDecoration(
-                                  hintText: 'Business location (optional)',
-                                  filled: true,
-                                  fillColor: const Color(0xFFF3F5F7),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  suffixIcon: IconButton(
-                                    icon: _requestingLocation
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : const Icon(Icons.my_location_rounded),
-                                    onPressed: _requestingLocation
-                                        ? null
-                                        : _useCurrentLocation,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Step(
-                          title: const Text('Documents'),
-                          isActive: _step >= 1,
-                          state: _step > 1
-                              ? StepState.complete
-                              : (_documentsComplete
-                                  ? StepState.editing
-                                  : StepState.indexed),
-                          content: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _documentTile(
-                                label: 'Profile photo',
-                                file: _profilePhoto,
-                                allowPdf: false,
-                                requiredField: true,
-                                helper:
-                                    'A clear headshot helps customers recognise you.',
-                                onSelected: (file) =>
-                                    setState(() => _profilePhoto = file),
-                                onRemove: _profilePhoto == null
-                                    ? null
-                                    : () =>
-                                          setState(() => _profilePhoto = null),
-                              ),
-                              const SizedBox(height: 12),
-                              _documentTile(
-                                label: 'NRC front',
-                                file: _nrcFront,
-                                allowPdf: true,
-                                requiredField: true,
-                                helper:
-                                    'Accepted: JPG, PNG, WEBP or PDF (max 5MB).',
-                                onSelected: (file) =>
-                                    setState(() => _nrcFront = file),
-                                onRemove: _nrcFront == null
-                                    ? null
-                                    : () => setState(() => _nrcFront = null),
-                              ),
-                              const SizedBox(height: 12),
-                              _documentTile(
-                                label: 'NRC back',
-                                file: _nrcBack,
-                                allowPdf: true,
-                                requiredField: true,
-                                helper:
-                                    'Accepted: JPG, PNG, WEBP or PDF (max 5MB).',
-                                onSelected: (file) =>
-                                    setState(() => _nrcBack = file),
-                                onRemove: _nrcBack == null
-                                    ? null
-                                    : () => setState(() => _nrcBack = null),
-                              ),
-                              const SizedBox(height: 12),
-                              _workPhotosSection(),
-                              const SizedBox(height: 12),
-                              _supportingDocsSection(),
-                            ],
-                          ),
-                        ),
-                        Step(
-                          title: const Text('Services'),
-                          isActive: _step >= 2,
-                          state: _selectedServices.isNotEmpty && _acceptedTerms
-                              ? StepState.complete
-                              : (_selectedServices.isNotEmpty
-                                  ? StepState.editing
-                                  : StepState.indexed),
-                          content: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Select the services you can handle. Customers will see these on your profile.',
-                                style: GoogleFonts.urbanist(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              if (_serviceCategories.isEmpty)
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF3E9),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    'No services available yet. Please try again later.',
-                                    style: GoogleFonts.urbanist(
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                )
-                              else
-                                Column(
-                                  children: _serviceCategories
-                                      .map(
-                                        (category) =>
-                                            _buildCategoryTile(category, brand),
-                                      )
-                                      .toList(),
-                                ),
-                              if (_selectedServices.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Text(
-                                    'Select at least one service you offer.',
-                                    style: GoogleFonts.urbanist(
-                                      fontSize: 12,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                ),
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF3F5F7),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: _acceptedTerms
-                                        ? brand.withValues(alpha: 0.35)
-                                        : const Color(0xFFE0E3EB),
-                                  ),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Checkbox(
-                                      value: _acceptedTerms,
-                                      onChanged: (value) => setState(
-                                        () => _acceptedTerms = value ?? false,
-                                      ),
-                                      activeColor: brand,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'I accept the Terms & Conditions',
-                                            style: GoogleFonts.urbanist(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'You agree to provide accurate documents and follow FixitZed standards for all jobs.',
-                                            style: GoogleFonts.urbanist(
-                                              fontSize: 12,
-                                              color: Colors.black54,
-                                            ),
-                                          ),
-                                          Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: TextButton(
-                                              onPressed: _showTermsSheet,
-                                              style: TextButton.styleFrom(
-                                                padding: EdgeInsets.zero,
-                                                minimumSize: const Size(0, 0),
-                                                tapTargetSize:
-                                                    MaterialTapTargetSize
-                                                        .shrinkWrap,
-                                              ),
-                                              child: const Text(
-                                                'View Terms & Conditions',
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                            child: const Text('View Terms & Conditions'),
                           ),
                         ),
                       ],
                     ),
                   ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -1308,6 +1350,174 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _hero(Color brand, Color accent) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [brand, accent],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: brand.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -12,
+            top: -18,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.10),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -30,
+            bottom: -40,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+            ),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.handyman_rounded,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Become a Fixer',
+                      style: GoogleFonts.urbanist(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tell us about yourself and upload your documents to get started.',
+                      style: GoogleFonts.urbanist(
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: const [
+                        _Tag(text: '3 steps'),
+                        _Tag(text: 'Takes ~3 mins'),
+                        _Tag(text: 'Secure review'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cardShell(Color brand, Widget child) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: brand.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 12,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _chip({required IconData icon, required String label, bool subtle = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: subtle ? const Color(0xFFFFF1E8) : const Color(0xFFFFE5D8),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFFF1592A)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.urbanist(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF6A2B0A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Tag extends StatelessWidget {
+  final String text;
+  const _Tag({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.22)),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.urbanist(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
     );
   }
 }

@@ -9,6 +9,7 @@ class ProfilePhotoService {
 
   static final ProfilePhotoService instance = ProfilePhotoService._();
   final ImagePicker _picker = ImagePicker();
+  // One-time image picking only; no persistent storage/media permissions are required.
 
   Future<String?> pickFromCamera() async {
     if (kIsWeb) return null;

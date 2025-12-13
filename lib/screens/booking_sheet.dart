@@ -160,56 +160,62 @@ class _BookingSheetState extends State<BookingSheet> {
   }
 
   Future<void> _load() async {
-    final servicesFuture = _svc.fetchServices();
-    final fixersFuture = _svc.fetchAllFixers();
-    final locationsFuture = LocationsService().list();
+    final servicesFuture =
+        _svc.fetchServices().timeout(const Duration(seconds: 12));
+    final fixersFuture =
+        _svc.fetchAllFixers().timeout(const Duration(seconds: 12));
+    final locationsFuture =
+        LocationsService().list().timeout(const Duration(seconds: 12));
 
     List<dynamic> servicesRaw = const [];
     List<dynamic> fixersRaw = const [];
     List<Map<String, dynamic>> locsRaw = const <Map<String, dynamic>>[];
 
     try {
-      servicesRaw = await servicesFuture;
-    } catch (_) {
-      servicesRaw = const [];
-    }
-    try {
-      fixersRaw = await fixersFuture;
-    } catch (_) {
-      fixersRaw = const [];
-    }
-    try {
-      locsRaw = await locationsFuture;
-    } catch (_) {
-      locsRaw = const <Map<String, dynamic>>[];
-    }
+      try {
+        servicesRaw = await servicesFuture;
+      } catch (_) {
+        servicesRaw = const [];
+      }
+      try {
+        fixersRaw = await fixersFuture;
+      } catch (_) {
+        fixersRaw = const [];
+      }
+      try {
+        locsRaw = await locationsFuture;
+      } catch (_) {
+        locsRaw = const <Map<String, dynamic>>[];
+      }
 
-    final services = servicesRaw
-        .whereType<Map>()
-        .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
-        .toList();
-    final filtered = _filterServicesByActiveFixers(services, fixersRaw);
-    if (!mounted) return;
-    setState(() {
-      _services = filtered;
-      _savedLocations = locsRaw;
-      if (_serviceId != null) {
-        Map<String, dynamic>? found;
-        for (final service in _services) {
-          if (_extractServiceId(service) == _serviceId) {
-            found = service;
-            break;
+      final services = servicesRaw
+          .whereType<Map>()
+          .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+          .toList();
+      final filtered = _filterServicesByActiveFixers(services, fixersRaw);
+      if (!mounted) return;
+      setState(() {
+        _services = filtered;
+        _savedLocations = locsRaw;
+        if (_serviceId != null) {
+          Map<String, dynamic>? found;
+          for (final service in _services) {
+            if (_extractServiceId(service) == _serviceId) {
+              found = service;
+              break;
+            }
+          }
+          if (found != null) {
+            _serviceName = _extractServiceName(found);
+          } else {
+            _serviceId = null;
+            _serviceName = null;
           }
         }
-        if (found != null) {
-          _serviceName = _extractServiceName(found);
-        } else {
-          _serviceId = null;
-          _serviceName = null;
-        }
-      }
-    });
-    _initialLoad = null;
+      });
+    } finally {
+      _initialLoad = null;
+    }
   }
 
   Future<void> _refreshSavedLocations() async {
