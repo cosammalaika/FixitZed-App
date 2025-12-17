@@ -7,6 +7,8 @@ class AboutScreen extends StatelessWidget {
   static const String _supportEmail = 'support@fixitzed.com';
   static const String _supportPhone = '+260 979 871 199';
   static const String _supportHours = 'Mon – Fri, 08:00 – 18:00 CAT';
+  static const String _scripture =
+      '“Whatever you do, work at it with all your heart.” — Colossians 3:23';
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +136,48 @@ class AboutScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0x1AF1592A),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.menu_book_rounded,
+                        color: Color(0xFFF1592A)),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      _scripture,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: Colors.black87,
+                        height: 1.45,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             infoCard(
               icon: Icons.apartment_rounded,
               title: 'Who We Are',

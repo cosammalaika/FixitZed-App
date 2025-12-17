@@ -58,40 +58,26 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
   bool _requestingLocation = false;
   bool _acceptedTerms = false;
   int _step = 0;
-  TabController? _tabController;
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _ensureTabController();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() => _step = _tabController.index);
+      }
+    });
     _load();
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Hot reload safety: make sure the controller exists even if initState
-    // ran before the late field was introduced.
-    _ensureTabController();
-  }
-
-  @override
   void dispose() {
-    _tabController?.dispose();
+    _tabController.dispose();
     _bioCtrl.dispose();
     _locationCtrl.dispose();
     super.dispose();
-  }
-
-  void _ensureTabController() {
-    if (_tabController != null) return;
-    final controller = TabController(length: 3, vsync: this);
-    controller.addListener(() {
-      if (!controller.indexIsChanging) {
-        setState(() => _step = controller.index);
-      }
-    });
-    _tabController = controller;
   }
 
   Future<void> _load() async {
@@ -784,8 +770,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
       _submit();
       return;
     }
-    _ensureTabController();
-    _tabController!.animateTo(_step + 1);
+    _tabController.animateTo(_step + 1);
   }
 
   void _goBack() {
@@ -793,8 +778,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
       Navigator.of(context).pop();
       return;
     }
-    _ensureTabController();
-    _tabController!.animateTo(_step - 1);
+    _tabController.animateTo(_step - 1);
   }
 
   @override
