@@ -132,6 +132,7 @@ class AuthService {
             AppSyncTopic.wallet,
             payload: const <String, dynamic>{'source': 'auth'},
           );
+          await FcmService.instance.registerTokenForCurrentUser();
           return AuthResult(success: true, message: msg);
         }
       }
@@ -197,6 +198,7 @@ class AuthService {
           );
         }
         await _saveToken(token);
+        await FcmService.instance.registerTokenForCurrentUser();
         final msg = _extractMessage(data);
         _sync.emit(
           AppSyncTopic.profile,
@@ -224,6 +226,7 @@ class AuthService {
       // WHY: Network/API failures shouldn't block local logout.
     } finally {
       // Clear device push token so notifications stop for this account.
+      await FcmService.instance.unregisterTokenForCurrentUser();
       await FcmService.instance.deleteToken();
       await SessionManager.instance.finalizeLogout(reason: 'manual');
     }

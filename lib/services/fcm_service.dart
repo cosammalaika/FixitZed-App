@@ -27,6 +27,7 @@ Future<void> fcmBackgroundHandler(RemoteMessage message) async {
 class FcmService {
   FcmService._();
   static final FcmService instance = FcmService._();
+  static const String appType = 'customer';
 
   bool _initialized = false;
 
@@ -99,7 +100,7 @@ class FcmService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $authToken',
         },
-        body: '{"token":"$token","platform":"${Platform.isIOS ? 'ios' : 'android'}"}',
+        body: '{"token":"$token","platform":"${Platform.isIOS ? 'ios' : 'android'}","app":"$appType"}',
       );
       if (res.statusCode >= 200 && res.statusCode < 300) {
         if (kDebugMode) print('FCM token persisted (${res.statusCode})');
@@ -110,6 +111,40 @@ class FcmService {
       }
     } catch (e) {
       if (kDebugMode) print('Failed to persist token: $e');
+    }
+  }
+
+  Future<void> registerTokenForCurrentUser() async {
+    try {
+      final authToken = await TokenStorage.instance.getToken();
+      if (authToken == null || authToken.isEmpty) return;
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null || token.isEmpty) return;
+      await _persistToken(token);
+    } catch (e) {
+      if (kDebugMode) log('registerTokenForCurrentUser failed: $e');
+    }
+  }
+
+  Future<void> unregisterTokenForCurrentUser() async {
+    try {
+      final authToken = await TokenStorage.instance.getToken();
+      if (authToken == null || authToken.isEmpty) return;
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null || token.isEmpty) return;
+
+      final uri = Uri.parse('${Api.baseUrl}/device-tokens');
+      await http.delete(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $authToken',
+        },
+        body: '{"token":"$token"}',
+      );
+    } catch (e) {
+      if (kDebugMode) log('unregisterTokenForCurrentUser failed: $e');
     }
   }
 }
