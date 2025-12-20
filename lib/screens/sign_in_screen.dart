@@ -260,7 +260,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           'Welcome back',
                           style: GoogleFonts.urbanist(
                             color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -272,7 +272,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     style: GoogleFonts.urbanist(
                       color: Colors.white,
                       fontSize: 24,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
@@ -397,7 +397,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                   'Forgot password?',
                                   style: GoogleFonts.urbanist(
                                     color: orange,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
@@ -428,7 +428,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                     'Sign In',
                                     style: GoogleFonts.urbanist(
                                       fontSize: 15,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                           ),
@@ -456,7 +456,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                   style: GoogleFonts.urbanist(
                                     fontSize: 15,
                                     color: orange,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),

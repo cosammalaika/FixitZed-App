@@ -71,7 +71,6 @@ class AppTextField extends StatelessWidget {
       focusNode: focusNode,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
-      textCapitalization: textCapitalization,
       obscureText: obscureText,
       validator: validator,
       onChanged: onChanged,
