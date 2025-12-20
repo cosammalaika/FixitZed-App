@@ -101,6 +101,79 @@ class HomeService {
     return [];
   }
 
+  int? _parseReadyFixersCount(dynamic value) {
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  bool? _parseReadyFixersFlag(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value > 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+        return false;
+      }
+    }
+    return null;
+  }
+
+  List<dynamic> _normalizeServicesAvailability(List<dynamic> raw) {
+    if (raw.isEmpty) return const [];
+    final normalized = <dynamic>[];
+    for (final item in raw) {
+      if (item is Map) {
+        final map = item.map((key, value) => MapEntry(key.toString(), value));
+        final count = _parseReadyFixersCount(
+          map['opted_in_fixers_count'] ??
+              map['ready_fixers_count'] ??
+              map['readyFixersCount'] ??
+              map['ready_fixers'] ??
+              map['readyFixers'] ??
+              map['fixers_count'] ??
+              map['fixersCount'] ??
+              map['active_fixers_count'] ??
+              map['activeFixersCount'],
+        );
+        final hasFlag = _parseReadyFixersFlag(
+          map['has_opted_in_fixers'] ??
+              map['hasOptedInFixers'] ??
+              map['has_ready_fixers'] ??
+              map['hasReadyFixers'] ??
+              map['has_fixers'] ??
+              map['hasFixers'] ??
+              map['has_ready'],
+        );
+        final inferredFromFixers =
+            map['fixers'] is List ? (map['fixers'] as List).length : null;
+        final resolvedCount = count ??
+            (hasFlag != null ? (hasFlag ? 1 : 0) : inferredFromFixers);
+        if (resolvedCount != null) {
+          map['opted_in_fixers_count'] = resolvedCount;
+          map['ready_fixers_count'] = resolvedCount;
+          map['readyFixersCount'] = resolvedCount;
+          map['has_opted_in_fixers'] = resolvedCount > 0;
+          map['hasOptedInFixers'] = resolvedCount > 0;
+          map['has_ready_fixers'] = resolvedCount > 0;
+          map['hasReadyFixers'] = resolvedCount > 0;
+        } else if (hasFlag != null) {
+          map['has_opted_in_fixers'] = hasFlag;
+          map['hasOptedInFixers'] = hasFlag;
+          map['has_ready_fixers'] = hasFlag;
+          map['hasReadyFixers'] = hasFlag;
+        }
+        normalized.add(map);
+      } else {
+        normalized.add(item);
+      }
+    }
+    return normalized;
+  }
+
   bool _hasFreshServiceCache() {
     final cached = _servicesCache;
     final fetchedAt = _servicesCacheFetchedAt;
@@ -148,7 +221,8 @@ class HomeService {
           final data = jsonDecode(res.body);
           final list = _extractList(data);
           if (list.isNotEmpty) {
-            _servicesCache = List<dynamic>.from(list);
+            final normalized = _normalizeServicesAvailability(list);
+            _servicesCache = List<dynamic>.from(normalized);
             _servicesCacheFetchedAt = DateTime.now();
             return _cloneServicesCache();
           }

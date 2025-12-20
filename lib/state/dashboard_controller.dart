@@ -15,6 +15,7 @@ class DashboardState {
     this.services = const <dynamic>[],
     this.hasUnread = false,
     this.error,
+    this.isInactive = false,
   });
 
   final String name;
@@ -24,6 +25,7 @@ class DashboardState {
   final List<dynamic> services;
   final bool hasUnread;
   final String? error;
+  final bool isInactive;
 
   DashboardState copyWith({
     String? name,
@@ -33,6 +35,7 @@ class DashboardState {
     List<dynamic>? services,
     bool? hasUnread,
     String? error,
+    bool? isInactive,
   }) {
     return DashboardState(
       name: name ?? this.name,
@@ -42,6 +45,7 @@ class DashboardState {
       services: services ?? this.services,
       hasUnread: hasUnread ?? this.hasUnread,
       error: error ?? this.error,
+      isInactive: isInactive ?? this.isInactive,
     );
   }
 }
@@ -97,17 +101,21 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     var services = <dynamic>[];
     var notifications = <dynamic>[];
     String? error;
+    bool inactive = false;
 
     try {
-      final meFuture = profileRepo.getProfile();
-      final categoriesFuture = categoriesRepo.getSubcategories();
-      final servicesFuture = servicesRepo.getServices();
-      final notificationsFuture = notificationsRepo.getNotifications();
+      me = await profileRepo.getProfile();
+      final userMap = _extractUserMap(me);
+      inactive = _isInactive(userMap);
+      if (!inactive) {
+        final categoriesFuture = categoriesRepo.getSubcategories();
+        final servicesFuture = servicesRepo.getServices();
+        final notificationsFuture = notificationsRepo.getNotifications();
 
-      me = await meFuture;
-      categories = await categoriesFuture;
-      services = await servicesFuture;
-      notifications = await notificationsFuture;
+        categories = await categoriesFuture;
+        services = await servicesFuture;
+        notifications = await notificationsFuture;
+      }
     } catch (err) {
       error = err.toString();
     }
@@ -126,6 +134,7 @@ class DashboardController extends AsyncNotifier<DashboardState> {
       services: List<dynamic>.from(services),
       hasUnread: hasUnread,
       error: error,
+      isInactive: inactive,
     );
   }
 
@@ -210,6 +219,38 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     return false;
   }
 
+  bool _isInactive(Map<String, dynamic> user) {
+    final status = (user['status'] ??
+            user['account_status'] ??
+            user['state'] ??
+            '')
+        .toString()
+        .toLowerCase()
+        .trim();
+    final activeField = user['active'] ?? user['is_active'] ?? user['isActive'];
+    if (activeField is bool) {
+      if (activeField) return false;
+      return true;
+    }
+    if (activeField is num) {
+      if (activeField == 1) return false;
+      if (activeField == 0) return true;
+    }
+    if (activeField is String) {
+      final v = activeField.toLowerCase().trim();
+      if (v == '1' || v == 'true' || v == 'yes') return false;
+      if (v == '0' || v == 'false' || v == 'no') return true;
+    }
+    const blockedValues = {
+      'inactive',
+      'blocked',
+      'disabled',
+      'suspended',
+      'deactivated',
+    };
+    return blockedValues.contains(status);
+  }
+
   DashboardState _initialFromCache() {
     final profileRepo = ref.read(profileRepositoryProvider);
     final categoriesRepo = ref.read(categoriesRepositoryProvider);
@@ -234,6 +275,7 @@ class DashboardController extends AsyncNotifier<DashboardState> {
       categories: List<dynamic>.from(categories),
       services: List<dynamic>.from(services),
       hasUnread: hasUnread,
+      isInactive: _isInactive(userMap),
     );
   }
 }

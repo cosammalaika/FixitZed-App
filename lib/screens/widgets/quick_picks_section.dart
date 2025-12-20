@@ -24,9 +24,40 @@ class QuickPicksSection extends StatelessWidget {
   }
 
   int? _readyCount(Map<dynamic, dynamic> service) {
-    final val = service['ready_fixers_count'] ?? service['readyFixersCount'];
+    final val = service['opted_in_fixers_count'] ??
+        service['ready_fixers_count'] ??
+        service['readyFixersCount'] ??
+        service['fixers_count'] ??
+        service['fixersCount'];
     if (val is num) return val.toInt();
     if (val is String) return int.tryParse(val);
+    final hasFlag = _hasReadyFlag(service);
+    if (hasFlag != null) return hasFlag ? 1 : 0;
+    final fixers = service['fixers'];
+    if (fixers is List) return fixers.length;
+    return null;
+  }
+
+  bool? _hasReadyFlag(Map<dynamic, dynamic> service) {
+    final raw = service['has_fixers'] ??
+        service['hasFixers'] ??
+        service['has_ready_fixers'] ??
+        service['hasReadyFixers'] ??
+        service['has_opted_in_fixers'] ??
+        service['hasOptedInFixers'];
+    if (raw is bool) return raw;
+    if (raw is num) return raw > 0;
+    if (raw is String) {
+      final normalized = raw.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' ||
+          normalized == '0' ||
+          normalized == 'no') {
+        return false;
+      }
+    }
     return null;
   }
 
@@ -37,10 +68,11 @@ class QuickPicksSection extends StatelessWidget {
         .where((map) {
           final id = _serviceId(map);
           final count = _readyCount(map);
-          final hasCount = count != null && count > 0;
-          final inActiveSet =
-              availableServiceIds.isNotEmpty && availableServiceIds.contains(id);
-          return hasCount || inActiveSet;
+          final hasFixers = count != null
+              ? count > 0
+              : (_hasReadyFlag(map) ?? false) ||
+                  availableServiceIds.contains(id);
+          return hasFixers || services.length <= limit;
         })
         .take(limit)
         .map((e) => Map<String, dynamic>.from(e))
@@ -78,18 +110,23 @@ class QuickPicksSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         ...filtered.map(
-          (svc) => QuickPickTile(
-            title: (svc['name'] ?? svc['title'] ?? 'Service').toString(),
-            subtitle: (svc['category_name'] ??
-                    svc['subcategory_name'] ??
-                    svc['category']?['name'] ??
-                    svc['subcategory']?['name'] ??
-                    svc['description'] ??
-                    '')
-                .toString(),
-            icon: Icons.build_rounded,
-            onTap: () => onTapService(svc),
-          ),
+          (svc) {
+            final hasFixers = (_readyCount(svc) ?? 0) > 0 ||
+                (_hasReadyFlag(svc) ?? availableServiceIds.contains(_serviceId(svc)));
+            return QuickPickTile(
+              title: (svc['name'] ?? svc['title'] ?? 'Service').toString(),
+              subtitle: (svc['category_name'] ??
+                      svc['subcategory_name'] ??
+                      svc['category']?['name'] ??
+                      svc['subcategory']?['name'] ??
+                      svc['description'] ??
+                      '')
+                  .toString(),
+              icon: Icons.build_rounded,
+              available: hasFixers,
+              onTap: () => onTapService(svc),
+            );
+          },
         ),
       ],
     );
@@ -102,12 +139,14 @@ class QuickPickTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
+    required this.available,
     this.onTap,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
+  final bool available;
   final VoidCallback? onTap;
 
   @override
@@ -161,6 +200,9 @@ class QuickPickTile extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                _AvailabilityPill(available: available),
+                const SizedBox(width: 8),
                 const Icon(
                   Icons.chevron_right_rounded,
                   color: Colors.black38,
@@ -169,6 +211,46 @@ class QuickPickTile extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AvailabilityPill extends StatelessWidget {
+  final bool available;
+  const _AvailabilityPill({required this.available});
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = available
+        ? Colors.green.withOpacity(0.12)
+        : Colors.black.withOpacity(0.06);
+    final text = available ? Colors.green.shade800 : Colors.black54;
+    final label = available ? 'Available' : 'No fixers';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            available ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+            size: 14,
+            color: text,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.urbanist(
+              color: text,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }

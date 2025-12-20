@@ -11,6 +11,8 @@ import 'package:fixitzed_app/repositories/favorites_repository.dart';
 import 'package:fixitzed_app/repositories/notifications_repository.dart';
 import 'package:fixitzed_app/repositories/profile_repository.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
+import 'package:fixitzed_app/state/services_controller.dart';
+import 'package:fixitzed_app/state/services_controller.dart';
 
 final homeServiceProvider = Provider<HomeService>((ref) => HomeService());
 final notificationServiceProvider = Provider<NotificationService>(
@@ -31,6 +33,9 @@ final categoriesRepositoryProvider = Provider<CategoriesRepository>(
 );
 final servicesRepositoryProvider = Provider<ServicesRepository>(
   (ref) => ServicesRepository(ref.read(homeServiceProvider)),
+);
+final servicesControllerProvider = ChangeNotifierProvider<ServicesController>(
+  (ref) => ServicesController(ref.read(servicesRepositoryProvider)),
 );
 final favoritesRepositoryProvider = ChangeNotifierProvider<FavoritesRepository>(
   (ref) => FavoritesRepository(),

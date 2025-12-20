@@ -9,6 +9,8 @@ import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/repositories/favorites_repository.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
+import 'package:fixitzed_app/screens/widgets/service_list_tile.dart';
+import 'package:fixitzed_app/utils/app_snack.dart';
 
 class ServicesListScreen extends StatefulWidget {
   const ServicesListScreen({super.key});
@@ -27,6 +29,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
   List<Map<String, dynamic>> _allServices = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _services = const <Map<String, dynamic>>[];
   Set<String> _fav = {};
+  final Set<String> _availabilityLog = <String>{};
   Map<String, dynamic>? _category;
   String? _categoryName;
   bool _initialized = false;
@@ -297,8 +300,19 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
                           : description);
                   final img = (s['image'] ?? s['image_url'] ?? '').toString();
                   final liked = _fav.contains(id);
+                  final availability = _availabilityForService(s, id);
                   return GestureDetector(
-                    onTap: () => showBookingSheet(context, service: s),
+                    onTap: () {
+                      if (availability == ServiceAvailability.unavailable) {
+                        AppSnack.show(
+                          'No fixer opted in yet',
+                          actionLabel: 'Browse',
+                          onAction: () => AppSnack.scaffoldMessengerKey.currentState?.hideCurrentSnackBar(),
+                        );
+                        return;
+                      }
+                      showBookingSheet(context, service: s);
+                    },
                     child: Container(
                       margin: const EdgeInsets.symmetric(vertical: 8),
                       padding: const EdgeInsets.all(14),
@@ -340,15 +354,40 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Expanded(
-                                      child: Text(
-                                        title,
-                                        style: GoogleFonts.urbanist(
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            title,
+                                            style: GoogleFonts.urbanist(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          if (subtitle.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 4,
+                                                right: 8,
+                                              ),
+                                              child: Text(
+                                                subtitle,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: GoogleFonts.urbanist(
+                                                  color: Colors.black54,
+                                                ),
+                                              ),
+                                            ),
+                                          const SizedBox(height: 8),
+                                        ],
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
+                                    _AvailabilityPill(availability: availability),
                                     IconButton(
                                       icon: Icon(
                                         liked
@@ -385,15 +424,6 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
                                     ),
                                   ],
                                 ),
-                                if (subtitle.isNotEmpty)
-                                  Text(
-                                    subtitle,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.urbanist(
-                                      color: Colors.black54,
-                                    ),
-                                  ),
                               ],
                             ),
                           ),
@@ -502,6 +532,65 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
       }
     }
     return options;
+  }
+
+  int? _readyCount(Map<dynamic, dynamic> service) {
+    final val = service['opted_in_fixers_count'] ??
+        service['ready_fixers_count'] ??
+        service['readyFixersCount'] ??
+        service['fixers_count'] ??
+        service['fixersCount'];
+    if (val is num) return val.toInt();
+    if (val is String) return int.tryParse(val);
+    final hasFlag = _hasReadyFlag(service);
+    if (hasFlag != null) return hasFlag ? 1 : 0;
+    final fixers = service['fixers'];
+    if (fixers is List) return fixers.length;
+    return null;
+  }
+
+  bool? _hasReadyFlag(Map<dynamic, dynamic> service) {
+    final raw = service['has_ready_fixers'] ??
+        service['hasReadyFixers'] ??
+        service['has_fixers'] ??
+        service['hasFixers'] ??
+        service['has_opted_in_fixers'] ??
+        service['hasOptedInFixers'];
+    if (raw is bool) return raw;
+    if (raw is num) return raw > 0;
+    if (raw is String) {
+      final normalized = raw.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' ||
+          normalized == '0' ||
+          normalized == 'no') {
+        return false;
+      }
+    }
+    return null;
+  }
+
+  ServiceAvailability _availabilityForService(
+    Map<dynamic, dynamic> service,
+    String id,
+  ) {
+    final readyCount = _readyCount(service);
+    final hasFixers = readyCount != null
+        ? readyCount > 0
+        : (_hasReadyFlag(service) ?? false);
+    assert(() {
+      if (_availabilityLog.add(id)) {
+        debugPrint(
+          'Service availability: ${service['name'] ?? service['title'] ?? 'service'} -> opted_in_fixers_count=${readyCount ?? 'n/a'}; hasFixers=$hasFixers',
+        );
+      }
+      return true;
+    }());
+    return hasFixers
+        ? ServiceAvailability.available
+        : ServiceAvailability.unavailable;
   }
 
   Future<void> _openFilterSheet() async {
@@ -622,6 +711,52 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
       });
     }
     _applyFilters();
+  }
+}
+
+class _AvailabilityPill extends StatelessWidget {
+  final ServiceAvailability availability;
+  const _AvailabilityPill({required this.availability});
+
+  @override
+  Widget build(BuildContext context) {
+    Color bg;
+    Color text;
+    String label;
+
+    switch (availability) {
+      case ServiceAvailability.available:
+        bg = Colors.green.withOpacity(0.12);
+        text = Colors.green.shade800;
+        label = 'Fixers available';
+        break;
+      case ServiceAvailability.unavailable:
+        bg = Colors.orange.withOpacity(0.12);
+        text = Colors.orange.shade800;
+        label = 'No fixers yet';
+        break;
+      case ServiceAvailability.unknown:
+      default:
+        bg = Colors.black.withOpacity(0.06);
+        text = Colors.black54;
+        label = 'Availability unknown';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.urbanist(
+          color: text,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+      ),
+    );
   }
 }
 

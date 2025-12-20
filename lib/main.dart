@@ -26,6 +26,7 @@ import 'package:fixitzed_app/services/local_notification_service.dart';
 import 'package:fixitzed_app/services/fcm_service.dart';
 import 'package:fixitzed_app/common/connectivity/connectivity_overlay.dart';
 import 'package:fixitzed_app/widgets/session_redirector.dart';
+import 'package:fixitzed_app/utils/app_snack.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +45,7 @@ class MyApp extends ConsumerWidget {
       valueListenable: AppTheme.mode,
       builder: (context, mode, _) {
         return MaterialApp(
+          scaffoldMessengerKey: AppSnack.scaffoldMessengerKey,
           title: 'FixItZed',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light().copyWith(
