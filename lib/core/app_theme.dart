@@ -25,7 +25,7 @@ class AppTheme {
     const accent = Color(0xFFFF8A5C);
     const background = Color(0xFFFEFAF7);
     const surface = Colors.white;
-    const fill = Color.fromRGBO(255, 255, 255, 0.94);
+    const fill = Color.fromRGBO(255, 255, 255, 0.95);
 
     final scheme = ColorScheme.fromSeed(
       seedColor: brand,
@@ -84,36 +84,44 @@ class AppTheme {
       inputDecorationTheme: base.inputDecorationTheme.copyWith(
         filled: true,
         fillColor: fill,
+        isDense: false,
         labelStyle: base.textTheme.bodyMedium?.copyWith(
-          color: const Color(0xFF2D1C15),
-          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+          fontWeight: FontWeight.w400,
         ),
         hintStyle: base.textTheme.bodyMedium?.copyWith(
-          color: const Color(0xFF4B3B32).withOpacity(0.75),
+          color: Colors.black54,
+          fontWeight: FontWeight.w400,
         ),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
+          horizontal: 16,
           vertical: 16,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.outline.withOpacity(0.35)),
+          borderSide: BorderSide(
+            color: Colors.black.withOpacity(0.14),
+            width: 1.1,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.outline.withOpacity(0.28)),
+          borderSide: BorderSide(
+            color: Colors.black.withOpacity(0.14),
+            width: 1.1,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: brand, width: 1.6),
+          borderSide: const BorderSide(color: brand, width: 1.3),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.error, width: 1.3),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.1),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.error, width: 1.6),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
         ),
         errorStyle: base.textTheme.bodySmall?.copyWith(
           color: scheme.error,
@@ -196,36 +204,41 @@ class AppTheme {
       inputDecorationTheme: base.inputDecorationTheme.copyWith(
         filled: true,
         fillColor: fill,
+        isDense: false,
         labelStyle: base.textTheme.bodyMedium?.copyWith(
           color: const Color(0xFFF5F1EB),
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
         ),
         hintStyle: base.textTheme.bodyMedium?.copyWith(
           color: const Color(0xFFE0D7D0).withOpacity(0.8),
+          fontWeight: FontWeight.w400,
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 16,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.outline.withOpacity(0.35)),
+          borderSide: BorderSide(
+            color: Colors.white.withOpacity(0.14),
+            width: 1.1,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.outline.withOpacity(0.3)),
+          borderSide: BorderSide(
+            color: Colors.white.withOpacity(0.14),
+            width: 1.1,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: brand, width: 1.5),
+          borderSide: const BorderSide(color: brand, width: 1.3),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.error, width: 1.3),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.1),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.error, width: 1.6),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
         ),
         errorStyle: base.textTheme.bodySmall?.copyWith(
           color: scheme.error,

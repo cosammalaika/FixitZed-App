@@ -1257,176 +1257,193 @@ class _BookingSheetState extends State<BookingSheet> {
 
           searchFocus.addListener(ensureVisible);
 
-          return AnimatedPadding(
-            duration: const Duration(milliseconds: 200),
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(ctx).bottom,
-            ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-              child: DraggableScrollableSheet(
-                expand: false,
-                initialChildSize: 0.85,
-                minChildSize: 0.5,
-                maxChildSize: 0.95,
-                builder: (context, sheetController) {
-                  return FutureBuilder<void>(
-                    future: _ensureServicesLoaded(),
-                    builder: (context, snapshot) {
-                      final loading =
-                          snapshot.connectionState != ConnectionState.done;
-                      final services = List<Map<String, dynamic>>.of(_services);
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final screenH = MediaQuery.sizeOf(ctx).height;
+              final minH = screenH * 0.45;
+              final maxH = screenH * 0.8;
+              final initialH = screenH * 0.6;
 
-                      List<Map<String, dynamic>> filteredServices() {
-                        final query = queryCtrl.text.trim().toLowerCase();
-                        if (query.isEmpty) return services;
-                        return services
-                            .where((s) {
-                              final name = (s['name'] ?? s['title'] ?? 'Service')
-                                  .toString()
-                                  .toLowerCase();
-                              final desc =
-                                  (s['description'] ?? s['summary'] ?? '')
-                                      .toString()
-                                      .toLowerCase();
-                              return name.contains(query) || desc.contains(query);
-                            })
-                            .map((s) => Map<String, dynamic>.from(s))
-                            .toList();
-                      }
+              return AnimatedPadding(
+                duration: const Duration(milliseconds: 200),
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: minH,
+                      maxHeight: maxH,
+                      maxWidth: 560,
+                    ),
+                    child: SizedBox(
+                      height: initialH.clamp(minH, maxH),
+                      child: Material(
+                        color: Colors.white,
+                        borderRadius:
+                            const BorderRadius.vertical(top: Radius.circular(20)),
+                        clipBehavior: Clip.antiAlias,
+                        child: FutureBuilder<void>(
+                          future: _ensureServicesLoaded(),
+                          builder: (context, snapshot) {
+                            final loading =
+                                snapshot.connectionState != ConnectionState.done;
+                            final services = List<Map<String, dynamic>>.of(_services);
 
-                      return StatefulBuilder(
-                        builder: (context, setSt) {
-                          final filtered = filteredServices();
-                          return GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () =>
-                                FocusManager.instance.primaryFocus?.unfocus(),
-                            child: Container(
-                              color: Colors.white,
-                              child: Column(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      AppSpacing.lg,
-                                      AppSpacing.md,
-                                      AppSpacing.lg,
-                                      AppSpacing.md,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            'Choose a service',
-                                            style: GoogleFonts.urbanist(
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 18,
+                            List<Map<String, dynamic>> filteredServices() {
+                              final query = queryCtrl.text.trim().toLowerCase();
+                              if (query.isEmpty) return services;
+                              return services
+                                  .where((s) {
+                                    final name =
+                                        (s['name'] ?? s['title'] ?? 'Service')
+                                            .toString()
+                                            .toLowerCase();
+                                    final desc =
+                                        (s['description'] ?? s['summary'] ?? '')
+                                            .toString()
+                                            .toLowerCase();
+                                    return name.contains(query) ||
+                                        desc.contains(query);
+                                  })
+                                  .map((s) => Map<String, dynamic>.from(s))
+                                  .toList();
+                            }
+
+                            return StatefulBuilder(
+                              builder: (context, setSt) {
+                                final filtered = filteredServices();
+                                return GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () =>
+                                      FocusManager.instance.primaryFocus?.unfocus(),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.max,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          AppSpacing.lg,
+                                          AppSpacing.md,
+                                          AppSpacing.lg,
+                                          AppSpacing.md,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                'Choose a service',
+                                                style: GoogleFonts.urbanist(
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 18,
+                                                ),
+                                              ),
                                             ),
+                                            IconButton(
+                                              icon: const Icon(Icons.close_rounded),
+                                              onPressed: () =>
+                                                  Navigator.of(ctx).pop(),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: AppSpacing.lg,
+                                        ),
+                                        child: FocusAware(
+                                          focusNode: searchFocus,
+                                          child: AppTextField(
+                                            key: fieldKey,
+                                            controller: queryCtrl,
+                                            focusNode: searchFocus,
+                                            textInputAction: TextInputAction.search,
+                                            labelText: 'Search services',
+                                            hintText: 'Type to filter…',
+                                            prefixIcon:
+                                                const Icon(Icons.search_rounded),
+                                            onChanged: (_) => setSt(() {}),
                                           ),
                                         ),
-                                        IconButton(
-                                          icon: const Icon(Icons.close_rounded),
-                                          onPressed: () =>
-                                              Navigator.of(ctx).pop(),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: AppSpacing.lg,
-                                    ),
-                                    child: FocusAware(
-                                      focusNode: searchFocus,
-                                      child: AppTextField(
-                                        key: fieldKey,
-                                        controller: queryCtrl,
-                                        focusNode: searchFocus,
-                                        textInputAction: TextInputAction.search,
-                                        labelText: 'Search services',
-                                        hintText: 'Type to filter…',
-                                        prefixIcon:
-                                            const Icon(Icons.search_rounded),
-                                        onChanged: (_) => setSt(() {}),
                                       ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: AppSpacing.md),
-                                  Expanded(
-                                    child: loading
-                                        ? const Center(
-                                            child: CircularProgressIndicator(),
-                                          )
-                                        : (services.isEmpty
-                                            ? Padding(
-                                                padding:
-                                                    const EdgeInsets.all(24.0),
-                                                child: Text(
-                                                  'Services are still syncing. Please try again shortly.',
-                                                  style: GoogleFonts.urbanist(
-                                                    color: Colors.black54,
-                                                  ),
-                                                  textAlign: TextAlign.center,
-                                                ),
+                                      const SizedBox(height: AppSpacing.md),
+                                      Expanded(
+                                        child: loading
+                                            ? const Center(
+                                                child: CircularProgressIndicator(),
                                               )
-                                            : ListView.separated(
-                                                controller: sheetController,
-                                                itemCount: filtered.length,
-                                                separatorBuilder: (_, __) =>
-                                                    const Divider(height: 1),
-                                                itemBuilder: (context, i) {
-                                                  final s = filtered[i];
-                                                  final id =
-                                                      (s['id'] ?? s['uuid'] ?? '$i')
-                                                          .toString();
-                                                  final name = (s['name'] ??
-                                                          s['title'] ??
-                                                          'Service')
-                                                      .toString();
-                                                  final desc =
-                                                      (s['description'] ??
-                                                              s['summary'] ??
-                                                              '')
-                                                          .toString();
-                                                  return ListTile(
-                                                    leading: const Icon(
-                                                      Icons.handyman_outlined,
-                                                      color: Color(0xFFF1592A),
-                                                    ),
-                                                    title: Text(
-                                                      name,
+                                            : (services.isEmpty
+                                                ? Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(24.0),
+                                                    child: Text(
+                                                      'Services are still syncing. Please try again shortly.',
                                                       style: GoogleFonts.urbanist(
-                                                        fontWeight: FontWeight.w600,
+                                                        color: Colors.black54,
                                                       ),
+                                                      textAlign: TextAlign.center,
                                                     ),
-                                                    subtitle: desc.isNotEmpty
-                                                        ? Text(
-                                                            desc,
-                                                            maxLines: 1,
-                                                            overflow: TextOverflow
-                                                                .ellipsis,
-                                                          )
-                                                        : null,
-                                                    onTap: () => Navigator.of(
-                                                      ctx,
-                                                    ).pop({'id': id, 'name': name}),
-                                                  );
-                                                },
-                                              )),
+                                                  )
+                                                : ListView.separated(
+                                                    itemCount: filtered.length,
+                                                    separatorBuilder: (_, __) =>
+                                                        const Divider(height: 1),
+                                                    itemBuilder: (context, i) {
+                                                      final s = filtered[i];
+                                                      final id = (s['id'] ??
+                                                              s['uuid'] ??
+                                                              '$i')
+                                                          .toString();
+                                                      final name = (s['name'] ??
+                                                              s['title'] ??
+                                                              'Service')
+                                                          .toString();
+                                                      final desc =
+                                                          (s['description'] ??
+                                                                  s['summary'] ??
+                                                                  '')
+                                                              .toString();
+                                                      return ListTile(
+                                                        leading: const Icon(
+                                                          Icons.handyman_outlined,
+                                                          color: Color(0xFFF1592A),
+                                                        ),
+                                                        title: Text(
+                                                          name,
+                                                          style:
+                                                              GoogleFonts.urbanist(
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                        subtitle: desc.isNotEmpty
+                                                            ? Text(
+                                                                desc,
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              )
+                                                            : null,
+                                                        onTap: () => Navigator.of(
+                                                          ctx,
+                                                        ).pop({'id': id, 'name': name}),
+                                                      );
+                                                    },
+                                                  )),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           );
         },
       );

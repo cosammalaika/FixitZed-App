@@ -340,52 +340,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   InputDecoration _dec(String label, {Widget? suffix}) {
-    final theme = Theme.of(context);
-    final surface = theme.colorScheme.surfaceContainerHighest.withValues(alpha: 
-      theme.brightness == Brightness.dark ? 0.22 : 0.55,
-    );
     return InputDecoration(
       labelText: label,
-      floatingLabelBehavior: FloatingLabelBehavior.auto,
-      filled: true,
-      fillColor: surface,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-      labelStyle: theme.textTheme.bodyMedium?.copyWith(
-        color: theme.hintColor,
-        fontWeight: FontWeight.w500,
-      ),
-      hintStyle: theme.textTheme.bodyMedium?.copyWith(
-        color: theme.hintColor.withValues(alpha: 0.75),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(
-          color: theme.dividerColor.withValues(alpha: 0.4),
-          width: 1,
-        ),
-      ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(
-          color: theme.dividerColor.withValues(alpha: 0.4),
-          width: 1,
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFF1592A), width: 1.4),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(
-          color: theme.colorScheme.error.withValues(alpha: 0.8),
-          width: 1.2,
-        ),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: theme.colorScheme.error, width: 1.2),
-      ),
       suffixIcon: suffix,
     );
   }
@@ -416,8 +372,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.black.withValues(alpha: 0.92),
-                  brand.withValues(alpha: 0.85),
+                  Colors.black.withOpacity(0.9),
+                  brand.withOpacity(0.9),
                   const Color(0xFF1F1F1F),
                 ],
                 begin: Alignment.topLeft,
@@ -432,7 +388,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               width: 180,
               height: 180,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
+                color: Colors.white.withOpacity(0.06),
                 shape: BoxShape.circle,
               ),
             ),
@@ -444,7 +400,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               width: 160,
               height: 160,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
+                color: Colors.white.withOpacity(0.05),
                 shape: BoxShape.circle,
               ),
             ),
@@ -592,15 +548,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 focusNode: _lastFocus,
                 child: AppTextField(
                   controller: lastNameCtrl,
-                  focusNode: _lastFocus,
-                  nextFocusNode: _usernameFocus,
-                  textInputAction: TextInputAction.next,
-                  labelText: 'Last Name',
-                   validator: (v) => v == null || v.trim().isEmpty
+                focusNode: _lastFocus,
+                nextFocusNode: _usernameFocus,
+                textInputAction: TextInputAction.next,
+                labelText: 'Last Name',
+                validator: (v) => v == null || v.trim().isEmpty
                       ? 'Last Name is required'
                       : null,
-                ),
               ),
+            ),
             ),
             FocusAware(
               focusNode: _usernameFocus,
@@ -869,17 +825,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
     List<Widget> footer = const [],
   }) {
     final step = _steps[index];
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),
+    final theme = Theme.of(context);
+    final cardColor = theme.colorScheme.surface.withOpacity(
+      theme.brightness == Brightness.dark ? 0.9 : 0.94,
+    );
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(28),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 12),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -893,13 +855,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [orange.withValues(alpha: 0.85), orange],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: orange.withOpacity(0.14),
                 ),
-                child: Icon(step.icon, color: Colors.white),
+                child: Icon(step.icon, color: orange),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -908,10 +866,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   children: [
                     Text(
                       step.title,
-                      style: GoogleFonts.urbanist(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -926,12 +883,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.lg),
           for (var i = 0; i < fields.length; i++) ...[
-            if (i != 0) const SizedBox(height: 14),
+            if (i != 0) const SizedBox(height: AppSpacing.md),
             fields[i],
           ],
-          if (footer.isNotEmpty) ...[const SizedBox(height: 22), ...footer],
+          if (footer.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.lg),
+            ...footer
+          ],
         ],
       ),
     );
@@ -1053,87 +1013,99 @@ class _SignUpScreenState extends State<SignUpScreen> {
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
       ),
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            final heroHeight = (constraints.maxHeight * 0.3)
-                .clamp(220.0, 280.0)
-                .toDouble();
-            return KeyboardSafeForm(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  _buildHeroSection(heroHeight, brand),
-                  Container(
-                    color: Theme.of(context).scaffoldBackgroundColor,
-                    child: Transform.translate(
-                      offset: const Offset(0, -32),
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(32),
-                        ),
-                        child: Container(
-                          color: Theme.of(context).canvasColor,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              AppSpacing.lg,
-                              AppSpacing.xxl,
-                              AppSpacing.lg,
-                              AppSpacing.md,
-                            ),
-                            child: Column(
-                              children: [
-                                _buildProgressOverview(brand),
-                                const SizedBox(height: AppSpacing.md),
-                                AnimatedSize(
-                                  duration: const Duration(
-                                    milliseconds: 250,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Scaffold(
+          resizeToAvoidBottomInset: true,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: SafeArea(
+            top: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final heroHeight = (constraints.maxHeight * 0.3)
+                    .clamp(220.0, 280.0)
+                    .toDouble();
+                final bottomInset =
+                    MediaQuery.viewInsetsOf(context).bottom + AppSpacing.lg;
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.only(bottom: bottomInset),
+                  child: Column(
+                    children: [
+                      _buildHeroSection(heroHeight, brand),
+                      Align(
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 560),
+                          child: Transform.translate(
+                            offset: const Offset(0, -26),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color:
+                                    Theme.of(context).canvasColor.withOpacity(
+                                          Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? 0.92
+                                              : 0.96,
+                                        ),
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(26),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.03),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 10),
                                   ),
-                                  curve: Curves.easeOut,
-                                  child: IndexedStack(
-                                    index: _currentStep,
-                                    children: List.generate(
-                                      _stepCount,
-                                      (index) => LayoutBuilder(
-                                        builder: (context, _) {
-                                          final bottom =
-                                              MediaQuery.viewInsetsOf(context)
-                                                  .bottom;
-                                          return Form(
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppSpacing.lg,
+                                  AppSpacing.xxl,
+                                  AppSpacing.lg,
+                                  AppSpacing.md,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildProgressOverview(brand),
+                                    const SizedBox(height: AppSpacing.md),
+                                    AnimatedSize(
+                                      duration:
+                                          const Duration(milliseconds: 250),
+                                      curve: Curves.easeOut,
+                                      child: IndexedStack(
+                                        index: _currentStep,
+                                        children: List.generate(
+                                          _stepCount,
+                                          (index) => Form(
                                             key: _stepKeys[index],
                                             autovalidateMode: AutovalidateMode
                                                 .onUserInteraction,
-                                            child: SingleChildScrollView(
-                                              physics:
-                                                  const BouncingScrollPhysics(),
-                                              padding: EdgeInsets.only(
-                                                bottom:
-                                                    bottom + AppSpacing.xl,
-                                              ),
-                                              child: _buildStepContent(index),
-                                            ),
-                                          );
-                                        },
+                                            child: _buildStepContent(index),
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                    const SizedBox(height: AppSpacing.md),
+                                    _buildNavigationBar(brand),
+                                    const SizedBox(height: AppSpacing.md),
+                                    _buildLoginPrompt(brand),
+                                  ],
                                 ),
-                                const SizedBox(height: AppSpacing.md),
-                                _buildNavigationBar(brand),
-                                const SizedBox(height: AppSpacing.md),
-                                _buildLoginPrompt(brand),
-                              ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          },
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
