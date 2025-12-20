@@ -148,12 +148,15 @@ class _BookingSheetState extends State<BookingSheet> {
   }
 
   Future<void> _load() async {
-    final servicesFuture =
-        _svc.fetchServices().timeout(const Duration(seconds: 12));
-    final fixersFuture =
-        _svc.fetchAllFixers().timeout(const Duration(seconds: 12));
-    final locationsFuture =
-        LocationsService().list().timeout(const Duration(seconds: 12));
+    final servicesFuture = _svc.fetchServices().timeout(
+      const Duration(seconds: 12),
+    );
+    final fixersFuture = _svc.fetchAllFixers().timeout(
+      const Duration(seconds: 12),
+    );
+    final locationsFuture = LocationsService().list().timeout(
+      const Duration(seconds: 12),
+    );
 
     List<dynamic> servicesRaw = const [];
     List<dynamic> fixersRaw = const [];
@@ -914,7 +917,9 @@ class _BookingSheetState extends State<BookingSheet> {
                   child: Container(
                     decoration: const BoxDecoration(
                       color: Color(0xFFFFF7F2),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(20),
+                      ),
                     ),
                     child: Center(
                       child: ConstrainedBox(
@@ -971,10 +976,6 @@ class _BookingSheetState extends State<BookingSheet> {
           _buildServiceSection(),
           const SizedBox(height: AppSpacing.md),
           _buildLocationSection(),
-          const SizedBox(height: AppSpacing.md),
-          _buildScheduleSection(),
-          const SizedBox(height: AppSpacing.md),
-          _buildSummaryCard(),
           const SizedBox(height: AppSpacing.lg),
           SizedBox(
             width: double.infinity,
@@ -1091,8 +1092,9 @@ class _BookingSheetState extends State<BookingSheet> {
                     _locationLng = null;
                   }
                 },
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Location is required' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Location is required'
+                    : null,
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -1125,7 +1127,9 @@ class _BookingSheetState extends State<BookingSheet> {
                       icon: const Icon(Icons.history_toggle_off),
                       label: Text(
                         'Saved locations',
-                        style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
+                        style: GoogleFonts.urbanist(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
@@ -1137,94 +1141,6 @@ class _BookingSheetState extends State<BookingSheet> {
     );
   }
 
-  Widget _buildScheduleSection() {
-    return _sectionCard(
-      icon: Icons.schedule_rounded,
-      title: 'Schedule',
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7F7F7),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE6E6E6)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.flash_on_rounded, color: Color(0xFFF1592A)),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  'We\'ll dispatch the next available fixer as soon as possible.',
-                  style: GoogleFonts.urbanist(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Need a specific time? Mention it in the notes after selecting a fixer.',
-          style: GoogleFonts.urbanist(
-            color: Colors.black54,
-            fontSize: 13,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryCard() {
-    final location = _locationCtrl.text.trim();
-    final service = _serviceName ?? 'Service not selected';
-    return _sectionCard(
-      icon: Icons.receipt_long_rounded,
-      title: 'Summary',
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.handyman_outlined, color: Color(0xFFF1592A)),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                service,
-                style: GoogleFonts.urbanist(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.place_outlined, color: Color(0xFFF1592A)),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                location.isEmpty ? 'Add your service location' : location,
-                style: GoogleFonts.urbanist(
-                  fontWeight: FontWeight.w600,
-                  color: location.isEmpty ? Colors.black45 : Colors.black87,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-
   Future<void> _pickService() async {
     if (_servicePickerOpen || !mounted) return;
 
@@ -1234,9 +1150,8 @@ class _BookingSheetState extends State<BookingSheet> {
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black54,
         builder: (ctx) {
           final queryCtrl = TextEditingController();
           final searchFocus = FocusNode();
@@ -1259,36 +1174,37 @@ class _BookingSheetState extends State<BookingSheet> {
 
           return LayoutBuilder(
             builder: (context, constraints) {
-              final screenH = MediaQuery.sizeOf(ctx).height;
-              final minH = screenH * 0.45;
-              final maxH = screenH * 0.8;
-              final initialH = screenH * 0.6;
+              final h = MediaQuery.sizeOf(ctx).height;
+              final maxH = h * 0.75;
+              final initialH = h * 0.62;
 
               return AnimatedPadding(
                 duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.viewInsetsOf(ctx).bottom,
                 ),
-                child: Center(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: minH,
-                      maxHeight: maxH,
-                      maxWidth: 560,
-                    ),
+                    constraints: BoxConstraints(maxHeight: maxH, maxWidth: 560),
                     child: SizedBox(
-                      height: initialH.clamp(minH, maxH),
+                      height: initialH.clamp(320.0, maxH),
                       child: Material(
                         color: Colors.white,
-                        borderRadius:
-                            const BorderRadius.vertical(top: Radius.circular(20)),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(28),
+                        ),
                         clipBehavior: Clip.antiAlias,
                         child: FutureBuilder<void>(
                           future: _ensureServicesLoaded(),
                           builder: (context, snapshot) {
                             final loading =
-                                snapshot.connectionState != ConnectionState.done;
-                            final services = List<Map<String, dynamic>>.of(_services);
+                                snapshot.connectionState !=
+                                ConnectionState.done;
+                            final services = List<Map<String, dynamic>>.of(
+                              _services,
+                            );
 
                             List<Map<String, dynamic>> filteredServices() {
                               final query = queryCtrl.text.trim().toLowerCase();
@@ -1315,17 +1231,30 @@ class _BookingSheetState extends State<BookingSheet> {
                                 final filtered = filteredServices();
                                 return GestureDetector(
                                   behavior: HitTestBehavior.opaque,
-                                  onTap: () =>
-                                      FocusManager.instance.primaryFocus?.unfocus(),
+                                  onTap: () => FocusManager
+                                      .instance
+                                      .primaryFocus
+                                      ?.unfocus(),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.max,
                                     children: [
+                                      const SizedBox(height: 10),
+                                      Container(
+                                        width: 44,
+                                        height: 4,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade300,
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
+                                        ),
+                                      ),
                                       Padding(
                                         padding: const EdgeInsets.fromLTRB(
-                                          AppSpacing.lg,
-                                          AppSpacing.md,
-                                          AppSpacing.lg,
-                                          AppSpacing.md,
+                                          20,
+                                          16,
+                                          12,
+                                          8,
                                         ),
                                         child: Row(
                                           children: [
@@ -1333,13 +1262,15 @@ class _BookingSheetState extends State<BookingSheet> {
                                               child: Text(
                                                 'Choose a service',
                                                 style: GoogleFonts.urbanist(
-                                                  fontWeight: FontWeight.w800,
-                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 20,
                                                 ),
                                               ),
                                             ),
                                             IconButton(
-                                              icon: const Icon(Icons.close_rounded),
+                                              icon: const Icon(
+                                                Icons.close_rounded,
+                                              ),
                                               onPressed: () =>
                                                   Navigator.of(ctx).pop(),
                                             ),
@@ -1348,88 +1279,152 @@ class _BookingSheetState extends State<BookingSheet> {
                                       ),
                                       Padding(
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: AppSpacing.lg,
+                                          horizontal: 20,
                                         ),
                                         child: FocusAware(
                                           focusNode: searchFocus,
-                                          child: AppTextField(
+                                          child: TextField(
                                             key: fieldKey,
                                             controller: queryCtrl,
                                             focusNode: searchFocus,
-                                            textInputAction: TextInputAction.search,
-                                            labelText: 'Search services',
-                                            hintText: 'Type to filter…',
-                                            prefixIcon:
-                                                const Icon(Icons.search_rounded),
+                                            textInputAction:
+                                                TextInputAction.search,
                                             onChanged: (_) => setSt(() {}),
+                                            decoration: InputDecoration(
+                                              filled: true,
+                                              fillColor: Colors.grey.shade100,
+                                              hintText: 'Search services',
+                                              hintStyle: const TextStyle(
+                                                fontSize: 15,
+                                              ),
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 14,
+                                                  ),
+                                              prefixIcon: const Icon(
+                                                Icons.search_rounded,
+                                                color: Colors.black54,
+                                              ),
+                                              border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                borderSide: BorderSide.none,
+                                              ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                borderSide: BorderSide.none,
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                borderSide: const BorderSide(
+                                                  color: Color(0xFFF1592A),
+                                                  width: 1.2,
+                                                ),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: AppSpacing.md),
+                                      const SizedBox(height: 10),
+                                      const Divider(height: 1),
                                       Expanded(
                                         child: loading
                                             ? const Center(
-                                                child: CircularProgressIndicator(),
+                                                child:
+                                                    CircularProgressIndicator(),
                                               )
                                             : (services.isEmpty
-                                                ? Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(24.0),
-                                                    child: Text(
-                                                      'Services are still syncing. Please try again shortly.',
-                                                      style: GoogleFonts.urbanist(
-                                                        color: Colors.black54,
-                                                      ),
-                                                      textAlign: TextAlign.center,
-                                                    ),
-                                                  )
-                                                : ListView.separated(
-                                                    itemCount: filtered.length,
-                                                    separatorBuilder: (_, __) =>
-                                                        const Divider(height: 1),
-                                                    itemBuilder: (context, i) {
-                                                      final s = filtered[i];
-                                                      final id = (s['id'] ??
-                                                              s['uuid'] ??
-                                                              '$i')
-                                                          .toString();
-                                                      final name = (s['name'] ??
-                                                              s['title'] ??
-                                                              'Service')
-                                                          .toString();
-                                                      final desc =
-                                                          (s['description'] ??
-                                                                  s['summary'] ??
-                                                                  '')
-                                                              .toString();
-                                                      return ListTile(
-                                                        leading: const Icon(
-                                                          Icons.handyman_outlined,
-                                                          color: Color(0xFFF1592A),
-                                                        ),
-                                                        title: Text(
-                                                          name,
-                                                          style:
-                                                              GoogleFonts.urbanist(
-                                                            fontWeight:
-                                                                FontWeight.w600,
+                                                  ? Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            24.0,
                                                           ),
-                                                        ),
-                                                        subtitle: desc.isNotEmpty
-                                                            ? Text(
-                                                                desc,
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
-                                                              )
-                                                            : null,
-                                                        onTap: () => Navigator.of(
-                                                          ctx,
-                                                        ).pop({'id': id, 'name': name}),
-                                                      );
-                                                    },
-                                                  )),
+                                                      child: Text(
+                                                        'Services are still syncing. Please try again shortly.',
+                                                        style:
+                                                            GoogleFonts.urbanist(
+                                                              color: Colors
+                                                                  .black54,
+                                                            ),
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                      ),
+                                                    )
+                                                  : ListView.separated(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            top: 8,
+                                                            bottom: 12,
+                                                          ),
+                                                      itemCount:
+                                                          filtered.length,
+                                                      separatorBuilder:
+                                                          (_, __) =>
+                                                              const Divider(
+                                                                height: 1,
+                                                              ),
+                                                      itemBuilder: (context, i) {
+                                                        final s = filtered[i];
+                                                        final id =
+                                                            (s['id'] ??
+                                                                    s['uuid'] ??
+                                                                    '$i')
+                                                                .toString();
+                                                        final name =
+                                                            (s['name'] ??
+                                                                    s['title'] ??
+                                                                    'Service')
+                                                                .toString();
+                                                        final desc =
+                                                            (s['description'] ??
+                                                                    s['summary'] ??
+                                                                    '')
+                                                                .toString();
+                                                        return ListTile(
+                                                          leading: const Icon(
+                                                            Icons
+                                                                .handyman_outlined,
+                                                            color: Color(
+                                                              0xFFF1592A,
+                                                            ),
+                                                          ),
+                                                          title: Text(
+                                                            name,
+                                                            style:
+                                                                GoogleFonts.urbanist(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  fontSize: 16,
+                                                                ),
+                                                          ),
+                                                          subtitle:
+                                                              desc.isNotEmpty
+                                                              ? Text(
+                                                                  desc,
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style: TextStyle(
+                                                                    color: Colors
+                                                                        .black54,
+                                                                  ),
+                                                                )
+                                                              : null,
+                                                          onTap: () =>
+                                                              Navigator.of(
+                                                                ctx,
+                                                              ).pop({
+                                                                'id': id,
+                                                                'name': name,
+                                                              }),
+                                                        );
+                                                      },
+                                                    )),
                                       ),
                                     ],
                                   ),
@@ -1543,9 +1538,9 @@ class _BookingSheetState extends State<BookingSheet> {
                 child: TextButton.icon(
                   onPressed: () async {
                     Navigator.of(ctx).pop();
-                    final dirty = await Navigator.of(context).pushNamed(
-                      '/profile/addresses',
-                    );
+                    final dirty = await Navigator.of(
+                      context,
+                    ).pushNamed('/profile/addresses');
                     if (!mounted) return;
                     if (dirty == true) {
                       await _refreshSavedLocations();
@@ -1774,8 +1769,9 @@ class _BookingSheetState extends State<BookingSheet> {
       SnackBar(
         content: Text(message),
         duration: duration,
-        backgroundColor:
-            success ? const Color(0xFF4CAF50) : const Color(0xFFD32F2F),
+        backgroundColor: success
+            ? const Color(0xFF4CAF50)
+            : const Color(0xFFD32F2F),
         behavior: SnackBarBehavior.floating,
       ),
     );

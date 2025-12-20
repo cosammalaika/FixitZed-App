@@ -340,10 +340,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   InputDecoration _dec(String label, {Widget? suffix}) {
-    return InputDecoration(
-      labelText: label,
-      suffixIcon: suffix,
-    );
+    return InputDecoration(labelText: label, suffixIcon: suffix);
   }
 
   Widget _row2(BuildContext context, Widget a, Widget b) {
@@ -415,39 +412,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Text(
-                              'Create your Fixer profile',
-                              style: GoogleFonts.urbanist(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            'A few guided steps\nand you’re ready to go.',
-                            style: GoogleFonts.urbanist(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 24,
-                              height: 1.15,
-                            ),
-                          ),
-                        ],
-                      ),
                       Image.asset(
                         'assets/images/logo.png',
                         height: 85,
@@ -515,7 +479,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
           child: LinearProgressIndicator(
             minHeight: 6,
             value: progress,
-            backgroundColor: Theme.of(context).dividerColor.withValues(alpha: 0.24),
+            backgroundColor: Theme.of(
+              context,
+            ).dividerColor.withValues(alpha: 0.24),
             valueColor: AlwaysStoppedAnimation<Color>(brand),
           ),
         ),
@@ -548,15 +514,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 focusNode: _lastFocus,
                 child: AppTextField(
                   controller: lastNameCtrl,
-                focusNode: _lastFocus,
-                nextFocusNode: _usernameFocus,
-                textInputAction: TextInputAction.next,
-                labelText: 'Last Name',
-                validator: (v) => v == null || v.trim().isEmpty
+                  focusNode: _lastFocus,
+                  nextFocusNode: _usernameFocus,
+                  textInputAction: TextInputAction.next,
+                  labelText: 'Last Name',
+                  validator: (v) => v == null || v.trim().isEmpty
                       ? 'Last Name is required'
                       : null,
+                ),
               ),
-            ),
             ),
             FocusAware(
               focusNode: _usernameFocus,
@@ -595,7 +561,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 validator: (v) {
                   final s = (v ?? '').trim();
                   if (s.isEmpty) return 'Email is required';
-                  final ok = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$').hasMatch(s);
+                  final ok = RegExp(
+                    r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$',
+                  ).hasMatch(s);
                   return ok ? null : 'Enter a valid email';
                 },
               ),
@@ -867,8 +835,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     Text(
                       step.title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -890,7 +858,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ],
           if (footer.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.lg),
-            ...footer
+            ...footer,
           ],
         ],
       ),
@@ -1042,13 +1010,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             offset: const Offset(0, -26),
                             child: Container(
                               decoration: BoxDecoration(
-                                color:
-                                    Theme.of(context).canvasColor.withOpacity(
-                                          Theme.of(context).brightness ==
-                                                  Brightness.dark
-                                              ? 0.92
-                                              : 0.96,
-                                        ),
+                                color: Theme.of(context).canvasColor
+                                    .withOpacity(
+                                      Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? 0.92
+                                          : 0.96,
+                                    ),
                                 borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(26),
                                 ),
@@ -1073,8 +1041,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     _buildProgressOverview(brand),
                                     const SizedBox(height: AppSpacing.md),
                                     AnimatedSize(
-                                      duration:
-                                          const Duration(milliseconds: 250),
+                                      duration: const Duration(
+                                        milliseconds: 250,
+                                      ),
                                       curve: Curves.easeOut,
                                       child: IndexedStack(
                                         index: _currentStep,
