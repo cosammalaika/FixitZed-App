@@ -25,6 +25,7 @@ class AppTextField extends StatelessWidget {
     this.minLines,
     this.helperText,
     this.helperStyle,
+    this.textCapitalization = TextCapitalization.sentences,
   });
 
   final TextEditingController? controller;
@@ -48,6 +49,7 @@ class AppTextField extends StatelessWidget {
   final int? minLines;
   final String? helperText;
   final TextStyle? helperStyle;
+  final TextCapitalization textCapitalization;
 
   void _handleSubmit(BuildContext context, String value) {
     if (onFieldSubmitted != null) {
@@ -69,6 +71,7 @@ class AppTextField extends StatelessWidget {
       focusNode: focusNode,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
+      textCapitalization: textCapitalization,
       obscureText: obscureText,
       validator: validator,
       onChanged: onChanged,

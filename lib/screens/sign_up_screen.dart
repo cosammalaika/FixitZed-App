@@ -595,7 +595,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   focusNode: _lastFocus,
                   nextFocusNode: _usernameFocus,
                   textInputAction: TextInputAction.next,
-                  labelText: 'Last Name (optional)',
+                  labelText: 'Last Name',
+                   validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Last Name is required'
+                      : null,
                 ),
               ),
             ),

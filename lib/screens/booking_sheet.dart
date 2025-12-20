@@ -12,6 +12,9 @@ import 'package:fixitzed_app/services/local_notification_service.dart';
 import 'package:fixitzed_app/services/service_request_service.dart';
 import 'package:fixitzed_app/services/locations_service.dart';
 import 'package:fixitzed_app/widgets/swipe_action_button.dart';
+import 'package:fixitzed_app/core/app_spacing.dart';
+import 'package:fixitzed_app/widgets/app_text_field.dart';
+import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
 class _ActiveFixerServiceSet {
   const _ActiveFixerServiceSet({
@@ -80,6 +83,8 @@ class _BookingSheetState extends State<BookingSheet> {
   bool _submitting = false;
   final _locationCtrl = TextEditingController();
   final _customServiceCtrl = TextEditingController();
+  final _locationFocus = FocusNode();
+  final _customFocus = FocusNode();
   final _formKey = GlobalKey<FormState>();
   List<Map<String, dynamic>> _savedLocations = const <Map<String, dynamic>>[];
   double? _locationLat;
@@ -123,6 +128,8 @@ class _BookingSheetState extends State<BookingSheet> {
   void dispose() {
     _locationCtrl.dispose();
     _customServiceCtrl.dispose();
+    _locationFocus.dispose();
+    _customFocus.dispose();
     super.dispose();
   }
 
@@ -132,30 +139,11 @@ class _BookingSheetState extends State<BookingSheet> {
     String? hint,
     String? helper,
   }) {
-    final ctx = context;
-    final scheme = Theme.of(ctx).colorScheme;
     return InputDecoration(
       labelText: label,
       hintText: hint,
       helperText: helper,
-      filled: true,
-      fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.18),
       prefixIcon: icon,
-      labelStyle: TextStyle(color: Theme.of(ctx).hintColor),
-      hintStyle: TextStyle(color: Theme.of(ctx).hintColor),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(ctx).dividerColor, width: 1),
-      ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(ctx).dividerColor, width: 1),
-      ),
-      focusedBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(12)),
-        borderSide: BorderSide(color: Color(0xFFF1592A), width: 1.2),
-      ),
     );
   }
 
@@ -906,265 +894,336 @@ class _BookingSheetState extends State<BookingSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return FractionallySizedBox(
-      heightFactor: 0.82,
-      child: SafeArea(
-        top: false,
-        child: DecoratedBox(
-          decoration: const BoxDecoration(color: Color(0xFFFFF7F2)),
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, bottomInset + 16),
-            physics: const BouncingScrollPhysics(),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 44,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+    final viewInsets = MediaQuery.viewInsetsOf(context).bottom;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 200),
+      padding: EdgeInsets.only(bottom: viewInsets),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.85,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            builder: (context, scrollController) {
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                child: SafeArea(
+                  top: false,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFF7F2),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildHeroHeader(),
-                  const SizedBox(height: 16),
-                  _sectionCard(
-                    icon: Icons.assignment_turned_in_rounded,
-                    title: 'Service details',
-                    children: [
-                      FormField<String>(
-                        validator: (_) =>
-                            (_serviceId == null || _serviceId!.isEmpty)
-                            ? 'Please select a service'
-                            : null,
-                        builder: (state) => Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _selectTile(
-                              label: 'Service',
-                              value: _serviceName ?? 'Select a service',
-                              icon: Icons.handyman_outlined,
-                              onTap: _pickService,
-                            ),
-                            if (state.hasError)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(
-                                  state.errorText!,
-                                  style: GoogleFonts.urbanist(
-                                    color: const Color(0xFFD32F2F),
-                                    fontSize: 12,
-                                  ),
-                                ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 560),
+                        child: Form(
+                          key: _formKey,
+                          child: CustomScrollView(
+                            controller: scrollController,
+                            physics: const BouncingScrollPhysics(),
+                            slivers: [
+                              SliverToBoxAdapter(child: _buildBodyContent()),
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: AppSpacing.lg),
                               ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      if (_requiresCustomService)
-                        TextFormField(
-                          controller: _customServiceCtrl,
-                          textCapitalization: TextCapitalization.sentences,
-                          maxLines: 4,
-                          minLines: 3,
-                          decoration: _fieldDecoration(
-                            label: 'Describe the service',
-                            hint:
-                                'Share a few details so we can match the right fixer',
-                          ),
-                          validator: (value) {
-                            if (!_requiresCustomService) return null;
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Please tell us what you need done';
-                            }
-                            return null;
-                          },
-                        ),
-                      if (_requiresCustomService) const SizedBox(height: 14),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _sectionCard(
-                    icon: Icons.place_outlined,
-                    title: 'Location',
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          TextFormField(
-                            controller: _locationCtrl,
-                            decoration:
-                                _fieldDecoration(
-                                  label: 'Service location',
-                                  hint: 'e.g., Plot 123, Kabwata, Lusaka',
-                                  icon: const Icon(Icons.location_on_outlined),
-                                ).copyWith(
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      Icons.my_location_rounded,
-                                      color: _locating
-                                          ? Theme.of(
-                                              context,
-                                            ).colorScheme.outline
-                                          : const Color(0xFFF1592A),
-                                    ),
-                                    onPressed: _locating
-                                        ? null
-                                        : () async {
-                                            await _useCurrentLocation();
-                                          },
-                                  ),
-                                ),
-                            textInputAction: TextInputAction.next,
-                            onChanged: (_) {
-                              if (_locationLat != null ||
-                                  _locationLng != null) {
-                                _locationLat = null;
-                                _locationLng = null;
-                              }
-                            },
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Location is required'
-                                : null,
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: [
-                              SizedBox(
-                                height: 36,
-                                child: OutlinedButton.icon(
-                                  onPressed: _locating
-                                      ? null
-                                      : () async {
-                                          await _useCurrentLocation();
-                                        },
-                                  icon: _locating
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(
-                                          Icons.my_location_rounded,
-                                          size: 18,
-                                        ),
-                                  label: Text(
-                                    _locating ? 'Locating…' : 'Use current',
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    foregroundColor: const Color(0xFFF1592A),
-                                    side: const BorderSide(
-                                      color: Color(0xFFF1592A),
-                                    ),
-                                    textStyle: GoogleFonts.urbanist(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (_savedLocations.isNotEmpty)
-                                SizedBox(
-                                  height: 36,
-                                  child: OutlinedButton.icon(
-                                    onPressed: _pickSavedLocation,
-                                    icon: const Icon(
-                                      Icons.maps_home_work_outlined,
-                                      size: 18,
-                                    ),
-                                    label: const Text('Saved'),
-                                    style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 8,
-                                      ),
-                                      foregroundColor: const Color(0xFFF1592A),
-                                      side: const BorderSide(
-                                        color: Color(0xFFF1592A),
-                                      ),
-                                      textStyle: GoogleFonts.urbanist(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                                ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: SwipeActionButton(
-                      label: 'Swipe to request service',
-                      loadingLabel: 'Requesting…',
-                      releaseLabel: 'Release to submit',
-                      enabled: !_submitting,
-                      trackColor: const Color(0xFFF1592A),
-                      onCompleted: _submit,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  _infoBanner(
-                    icon: Icons.local_offer_outlined,
-                    message:
-                        'Coupons and loyalty points can be applied once your fixer shares a bill.',
-                    background: const Color(0x1AF1592A),
-                    foreground: Colors.black87,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
 
-  void _showSnack({required String message, required bool success}) {
-    final color = success ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);
-    final icon = success ? Icons.check_circle_rounded : Icons.error_rounded;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: color,
-        content: Row(
+  Widget _buildBodyContent() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 44,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildHeroHeader(),
+          const SizedBox(height: AppSpacing.lg),
+          _buildServiceSection(),
+          const SizedBox(height: AppSpacing.md),
+          _buildLocationSection(),
+          const SizedBox(height: AppSpacing.md),
+          _buildScheduleSection(),
+          const SizedBox(height: AppSpacing.md),
+          _buildSummaryCard(),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: SwipeActionButton(
+              label: 'Swipe to request service',
+              loadingLabel: 'Requesting…',
+              releaseLabel: 'Release to submit',
+              enabled: !_submitting,
+              trackColor: const Color(0xFFF1592A),
+              onCompleted: _submit,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _infoBanner(
+            icon: Icons.local_offer_outlined,
+            message:
+                'Coupons and loyalty points can be applied once your fixer shares a bill.',
+            background: const Color(0x1AF1592A),
+            foreground: Colors.black87,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceSection() {
+    return _sectionCard(
+      icon: Icons.assignment_turned_in_rounded,
+      title: 'Service details',
+      children: [
+        FormField<String>(
+          validator: (_) => (_serviceId == null || _serviceId!.isEmpty)
+              ? 'Please select a service'
+              : null,
+          builder: (state) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _selectTile(
+                label: 'Service',
+                value: _serviceName ?? 'Select a service',
+                icon: Icons.handyman_outlined,
+                onTap: _pickService,
+              ),
+              if (state.hasError)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xs),
+                  child: Text(
+                    state.errorText!,
+                    style: GoogleFonts.urbanist(
+                      color: const Color(0xFFD32F2F),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (_requiresCustomService) ...[
+          const SizedBox(height: AppSpacing.md),
+          FocusAware(
+            focusNode: _customFocus,
+            child: AppTextField(
+              controller: _customServiceCtrl,
+              focusNode: _customFocus,
+              textCapitalization: TextCapitalization.sentences,
+              maxLines: 4,
+              minLines: 3,
+              labelText: 'Describe the service',
+              hintText: 'Share a few details so we can match the right fixer',
+              validator: (value) {
+                if (!_requiresCustomService) return null;
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please tell us what you need done';
+                }
+                return null;
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLocationSection() {
+    return _sectionCard(
+      icon: Icons.place_outlined,
+      title: 'Location',
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(width: 8),
+            FocusAware(
+              focusNode: _locationFocus,
+              child: AppTextField(
+                controller: _locationCtrl,
+                focusNode: _locationFocus,
+                textInputAction: TextInputAction.next,
+                labelText: 'Service location',
+                hintText: 'e.g., Plot 123, Kabwata, Lusaka',
+                prefixIcon: const Icon(Icons.location_on_outlined),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    Icons.my_location_rounded,
+                    color: _locating
+                        ? Theme.of(context).colorScheme.outline
+                        : const Color(0xFFF1592A),
+                  ),
+                  onPressed: _locating ? null : _useCurrentLocation,
+                ),
+                onChanged: (_) {
+                  if (_locationLat != null || _locationLng != null) {
+                    _locationLat = null;
+                    _locationLng = null;
+                  }
+                },
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Location is required' : null,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              children: [
+                SizedBox(
+                  height: 40,
+                  child: OutlinedButton.icon(
+                    onPressed: _locating ? null : _useCurrentLocation,
+                    icon: _locating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.my_location_rounded),
+                    label: Text(
+                      _locating ? 'Locating…' : 'Use current',
+                      style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                if (_savedLocations.isNotEmpty)
+                  SizedBox(
+                    height: 40,
+                    child: OutlinedButton.icon(
+                      onPressed: _locating ? null : _pickSavedLocation,
+                      icon: const Icon(Icons.history_toggle_off),
+                      label: Text(
+                        'Saved locations',
+                        style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScheduleSection() {
+    return _sectionCard(
+      icon: Icons.schedule_rounded,
+      title: 'Schedule',
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F7F7),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE6E6E6)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.flash_on_rounded, color: Color(0xFFF1592A)),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'We\'ll dispatch the next available fixer as soon as possible.',
+                  style: GoogleFonts.urbanist(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Need a specific time? Mention it in the notes after selecting a fixer.',
+          style: GoogleFonts.urbanist(
+            color: Colors.black54,
+            fontSize: 13,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryCard() {
+    final location = _locationCtrl.text.trim();
+    final service = _serviceName ?? 'Service not selected';
+    return _sectionCard(
+      icon: Icons.receipt_long_rounded,
+      title: 'Summary',
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.handyman_outlined, color: Color(0xFFF1592A)),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
-                message,
-                style: GoogleFonts.urbanist(color: Colors.white),
+                service,
+                style: GoogleFonts.urbanist(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.place_outlined, color: Color(0xFFF1592A)),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                location.isEmpty ? 'Add your service location' : location,
+                style: GoogleFonts.urbanist(
+                  fontWeight: FontWeight.w600,
+                  color: location.isEmpty ? Colors.black45 : Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
+
 
   Future<void> _pickService() async {
     if (_servicePickerOpen || !mounted) return;
@@ -1174,170 +1233,200 @@ class _BookingSheetState extends State<BookingSheet> {
       final selected = await showModalBottomSheet<Map<String, String>>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         builder: (ctx) {
           final queryCtrl = TextEditingController();
-          return FutureBuilder<void>(
-            future: _ensureServicesLoaded(),
-            builder: (ctx, snapshot) {
-              final loading = snapshot.connectionState != ConnectionState.done;
-              final services = List<Map<String, dynamic>>.of(_services);
+          final searchFocus = FocusNode();
+          final fieldKey = GlobalKey();
 
-              Widget buildList() {
-                if (loading) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 60),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                if (services.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32),
-                    child: Center(
-                      child: Text(
-                        'Services are still syncing. Please try again shortly.',
-                        style: GoogleFonts.urbanist(color: Colors.black54),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
-                }
+          void ensureVisible() {
+            final context = fieldKey.currentContext;
+            if (searchFocus.hasFocus && context != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.25,
+                  duration: const Duration(milliseconds: 250),
+                );
+              });
+            }
+          }
 
-                List<Map<String, dynamic>> filteredServices() {
-                  final query = queryCtrl.text.trim().toLowerCase();
-                  if (query.isEmpty) return services;
-                  return services
-                      .where((s) {
-                        final name = (s['name'] ?? s['title'] ?? 'Service')
-                            .toString()
-                            .toLowerCase();
-                        final desc = (s['description'] ?? s['summary'] ?? '')
-                            .toString()
-                            .toLowerCase();
-                        return name.contains(query) || desc.contains(query);
-                      })
-                      .map((s) => Map<String, dynamic>.from(s))
-                      .toList();
-                }
+          searchFocus.addListener(ensureVisible);
 
-                return StatefulBuilder(
-                  builder: (ctx, setSt) {
-                    final filtered = filteredServices();
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          controller: queryCtrl,
-                          autofocus: true,
-                          decoration: _fieldDecoration(
-                            label: 'Search services',
-                            icon: const Icon(Icons.search_rounded),
-                            hint: 'Type to filter…',
-                          ),
-                          onChanged: (_) => setSt(() {}),
-                        ),
-                        const SizedBox(height: 12),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 420),
-                          child: filtered.isEmpty
-                              ? Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(24.0),
-                                    child: Text(
-                                      'No services match your search',
-                                      style: GoogleFonts.urbanist(
-                                        color: Colors.black54,
+          return AnimatedPadding(
+            duration: const Duration(milliseconds: 200),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+              child: DraggableScrollableSheet(
+                expand: false,
+                initialChildSize: 0.85,
+                minChildSize: 0.5,
+                maxChildSize: 0.95,
+                builder: (context, sheetController) {
+                  return FutureBuilder<void>(
+                    future: _ensureServicesLoaded(),
+                    builder: (context, snapshot) {
+                      final loading =
+                          snapshot.connectionState != ConnectionState.done;
+                      final services = List<Map<String, dynamic>>.of(_services);
+
+                      List<Map<String, dynamic>> filteredServices() {
+                        final query = queryCtrl.text.trim().toLowerCase();
+                        if (query.isEmpty) return services;
+                        return services
+                            .where((s) {
+                              final name = (s['name'] ?? s['title'] ?? 'Service')
+                                  .toString()
+                                  .toLowerCase();
+                              final desc =
+                                  (s['description'] ?? s['summary'] ?? '')
+                                      .toString()
+                                      .toLowerCase();
+                              return name.contains(query) || desc.contains(query);
+                            })
+                            .map((s) => Map<String, dynamic>.from(s))
+                            .toList();
+                      }
+
+                      return StatefulBuilder(
+                        builder: (context, setSt) {
+                          final filtered = filteredServices();
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () =>
+                                FocusManager.instance.primaryFocus?.unfocus(),
+                            child: Container(
+                              color: Colors.white,
+                              child: Column(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      AppSpacing.lg,
+                                      AppSpacing.md,
+                                      AppSpacing.lg,
+                                      AppSpacing.md,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'Choose a service',
+                                            style: GoogleFonts.urbanist(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 18,
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.close_rounded),
+                                          onPressed: () =>
+                                              Navigator.of(ctx).pop(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.lg,
+                                    ),
+                                    child: FocusAware(
+                                      focusNode: searchFocus,
+                                      child: AppTextField(
+                                        key: fieldKey,
+                                        controller: queryCtrl,
+                                        focusNode: searchFocus,
+                                        textInputAction: TextInputAction.search,
+                                        labelText: 'Search services',
+                                        hintText: 'Type to filter…',
+                                        prefixIcon:
+                                            const Icon(Icons.search_rounded),
+                                        onChanged: (_) => setSt(() {}),
                                       ),
                                     ),
                                   ),
-                                )
-                              : ListView.separated(
-                                  shrinkWrap: true,
-                                  itemCount: filtered.length,
-                                  separatorBuilder: (_, __) =>
-                                      const Divider(height: 1),
-                                  itemBuilder: (ctx, i) {
-                                    final s = filtered[i];
-                                    final id = (s['id'] ?? s['uuid'] ?? '$i')
-                                        .toString();
-                                    final name =
-                                        (s['name'] ?? s['title'] ?? 'Service')
-                                            .toString();
-                                    final desc =
-                                        (s['description'] ?? s['summary'] ?? '')
-                                            .toString();
-                                    return ListTile(
-                                      leading: const Icon(
-                                        Icons.handyman_outlined,
-                                        color: Color(0xFFF1592A),
-                                      ),
-                                      title: Text(
-                                        name,
-                                        style: GoogleFonts.urbanist(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      subtitle: desc.isNotEmpty
-                                          ? Text(
-                                              desc,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            )
-                                          : null,
-                                      onTap: () => Navigator.of(
-                                        ctx,
-                                      ).pop({'id': id, 'name': name}),
-                                    );
-                                  },
-                                ),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              }
-
-              return SafeArea(
-                top: false,
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-                    top: 12,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 44,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Choose Service',
-                        style: GoogleFonts.urbanist(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      buildList(),
-                    ],
-                  ),
-                ),
-              );
-            },
+                                  const SizedBox(height: AppSpacing.md),
+                                  Expanded(
+                                    child: loading
+                                        ? const Center(
+                                            child: CircularProgressIndicator(),
+                                          )
+                                        : (services.isEmpty
+                                            ? Padding(
+                                                padding:
+                                                    const EdgeInsets.all(24.0),
+                                                child: Text(
+                                                  'Services are still syncing. Please try again shortly.',
+                                                  style: GoogleFonts.urbanist(
+                                                    color: Colors.black54,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              )
+                                            : ListView.separated(
+                                                controller: sheetController,
+                                                itemCount: filtered.length,
+                                                separatorBuilder: (_, __) =>
+                                                    const Divider(height: 1),
+                                                itemBuilder: (context, i) {
+                                                  final s = filtered[i];
+                                                  final id =
+                                                      (s['id'] ?? s['uuid'] ?? '$i')
+                                                          .toString();
+                                                  final name = (s['name'] ??
+                                                          s['title'] ??
+                                                          'Service')
+                                                      .toString();
+                                                  final desc =
+                                                      (s['description'] ??
+                                                              s['summary'] ??
+                                                              '')
+                                                          .toString();
+                                                  return ListTile(
+                                                    leading: const Icon(
+                                                      Icons.handyman_outlined,
+                                                      color: Color(0xFFF1592A),
+                                                    ),
+                                                    title: Text(
+                                                      name,
+                                                      style: GoogleFonts.urbanist(
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    subtitle: desc.isNotEmpty
+                                                        ? Text(
+                                                            desc,
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow
+                                                                .ellipsis,
+                                                          )
+                                                        : null,
+                                                    onTap: () => Navigator.of(
+                                                      ctx,
+                                                    ).pop({'id': id, 'name': name}),
+                                                  );
+                                                },
+                                              )),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
           );
         },
       );
@@ -1654,5 +1743,24 @@ class _BookingSheetState extends State<BookingSheet> {
         await prefs.remove(_lastLocationLngKey);
       }
     } catch (_) {}
+  }
+
+  void _showSnack({
+    required String message,
+    bool success = true,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: duration,
+        backgroundColor:
+            success ? const Color(0xFF4CAF50) : const Color(0xFFD32F2F),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }
