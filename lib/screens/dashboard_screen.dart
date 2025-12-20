@@ -221,11 +221,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final rawCat = items[i];
               var category = <String, dynamic>{};
               category = Map<String, dynamic>.from(rawCat);
-                          if (category.isEmpty) {
+              if (category.isEmpty) {
                 category = {'name': rawCat.toString()};
               }
-              final name = (category['name'] ?? category['title'] ?? 'Subcategory')
-                  .toString();
+              final name =
+                  (category['name'] ?? category['title'] ?? 'Subcategory')
+                      .toString();
               return GestureDetector(
                 onTap: () => Navigator.pushNamed(
                   context,
@@ -455,7 +456,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             next.whenOrNull(
               data: (_) {
                 if (!mounted) return;
-        _checkPendingBills(ref);
+                _checkPendingBills(ref);
               },
             );
           });

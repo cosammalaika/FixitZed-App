@@ -78,6 +78,7 @@ class _BookingSheetState extends State<BookingSheet> {
   static const _lastLocationLngKey = 'booking:last_location_lng';
 
   List<Map<String, dynamic>> _services = const <Map<String, dynamic>>[];
+  Set<String> _activeServiceIds = const <String>{};
   String? _serviceId;
   String? _serviceName;
   bool _submitting = false;
@@ -184,9 +185,15 @@ class _BookingSheetState extends State<BookingSheet> {
           .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
           .toList();
       final filtered = _filterServicesByActiveFixers(services, fixersRaw);
+      final activeIds = filtered
+          .map(_extractServiceId)
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toSet();
       if (!mounted) return;
       setState(() {
-        _services = filtered;
+        _services = services; // show all services, not just active
+        _activeServiceIds = activeIds;
         _savedLocations = locsRaw;
         if (_serviceId != null) {
           Map<String, dynamic>? found;
@@ -1383,6 +1390,9 @@ class _BookingSheetState extends State<BookingSheet> {
                                                                     s['summary'] ??
                                                                     '')
                                                                 .toString();
+                                                        final hasFixer =
+                                                            _activeServiceIds
+                                                                .contains(id);
                                                         return ListTile(
                                                           leading: const Icon(
                                                             Icons
@@ -1415,15 +1425,39 @@ class _BookingSheetState extends State<BookingSheet> {
                                                                   ),
                                                                 )
                                                               : null,
-                                                          onTap: () =>
-                                                              Navigator.of(
-                                                                ctx,
-                                                              ).pop({
+                                                      trailing: hasFixer
+                                                          ? const Icon(
+                                                              Icons
+                                                                  .check_circle_rounded,
+                                                              color:
+                                                                  Colors.green,
+                                                              size: 18,
+                                                            )
+                                                          : const Icon(
+                                                              Icons
+                                                                  .error_outline_rounded,
+                                                              color: Colors
+                                                                  .redAccent,
+                                                              size: 18,
+                                                            ),
+                                                      enabled: hasFixer,
+                                                      onTap: hasFixer
+                                                          ? () {
+                                                              Navigator.of(ctx)
+                                                                  .pop({
                                                                 'id': id,
                                                                 'name': name,
-                                                              }),
-                                                        );
-                                                      },
+                                                              });
+                                                            }
+                                                          : () {
+                                                              _showSnack(
+                                                                message:
+                                                                    'We don’t have an available fixer for "$name" at the moment.',
+                                                                success: false,
+                                                              );
+                                                            },
+                                                    );
+                                                  },
                                                     )),
                                       ),
                                     ],
