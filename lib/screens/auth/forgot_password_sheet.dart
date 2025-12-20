@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fixitzed_app/services/auth_service.dart';
+import 'package:fixitzed_app/core/app_spacing.dart';
+import 'package:fixitzed_app/widgets/app_text_field.dart';
+import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
 class ForgotPasswordSheet extends StatefulWidget {
   const ForgotPasswordSheet({
@@ -20,6 +23,10 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
   final _codeCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  final _identifierFocus = FocusNode();
+  final _codeFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _confirmFocus = FocusNode();
 
   final _requestKey = GlobalKey<FormState>();
   final _resetKey = GlobalKey<FormState>();
@@ -43,6 +50,10 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
     _codeCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
+    _identifierFocus.dispose();
+    _codeFocus.dispose();
+    _passwordFocus.dispose();
+    _confirmFocus.dispose();
     super.dispose();
   }
 
@@ -106,92 +117,89 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final theme = Theme.of(context);
     const accent = Color(0xFFF1592A);
 
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 16, 20, bottomInset + 24),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 26),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 48,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.black12,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+    return KeyboardSafeForm(
+      padding: const EdgeInsets.fromLTRB(0, AppSpacing.md, 0, 0),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 26),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 48,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black12,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                const SizedBox(height: 18),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        _codeSent ? Icons.lock_reset_rounded : Icons.mark_email_read_outlined,
-                        color: accent,
-                      ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Reset password',
-                            style: GoogleFonts.urbanist(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 20,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _codeSent
-                                ? 'We just sent you a 6-digit code. Enter it below and set a new password to finish.'
-                                : 'Forgot your password? Enter the email or phone number on your account and we’ll email you a reset code.',
-                            style: GoogleFonts.urbanist(
-                              color: theme.hintColor,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: Icon(
+                      _codeSent ? Icons.lock_reset_rounded : Icons.mark_email_read_outlined,
+                      color: accent,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 22),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  child: _codeSent ? _buildResetForm(accent) : _buildRequestForm(accent),
-                ),
-              ],
-            ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Reset password',
+                          style: GoogleFonts.urbanist(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 20,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _codeSent
+                              ? 'We just sent you a 6-digit code. Enter it below and set a new password to finish.'
+                              : 'Forgot your password? Enter the email or phone number on your account and we’ll email you a reset code.',
+                          style: GoogleFonts.urbanist(
+                            color: theme.hintColor,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: _codeSent ? _buildResetForm(accent) : _buildRequestForm(accent),
+              ),
+            ],
           ),
         ),
       ),
@@ -203,20 +211,23 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
       key: _requestKey,
       child: Column(
         children: [
-          TextFormField(
-            controller: _identifierCtrl,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
+          FocusAware(
+            focusNode: _identifierFocus,
+            child: AppTextField(
+              controller: _identifierCtrl,
+              focusNode: _identifierFocus,
+              nextFocusNode: _codeFocus,
+              keyboardType: TextInputType.emailAddress,
               labelText: 'Email or phone number',
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter the email or phone number for your account.';
+                }
+                return null;
+              },
             ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter the email or phone number for your account.';
-              }
-              return null;
-            },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.xl),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -253,50 +264,62 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextFormField(
-            controller: _codeCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
+          FocusAware(
+            focusNode: _codeFocus,
+            child: AppTextField(
+              controller: _codeCtrl,
+              focusNode: _codeFocus,
+              nextFocusNode: _passwordFocus,
+              keyboardType: TextInputType.number,
               labelText: '6-digit code',
+              textInputAction: TextInputAction.next,
+              validator: (value) {
+                final text = value?.trim() ?? '';
+                if (text.length != 6) {
+                  return 'Enter the 6-digit code from the email.';
+                }
+                return null;
+              },
             ),
-            validator: (value) {
-              final text = value?.trim() ?? '';
-              if (text.length != 6) {
-                return 'Enter the 6-digit code from the email.';
-              }
-              return null;
-            },
           ),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _passwordCtrl,
-            obscureText: true,
-            decoration: const InputDecoration(
+          const SizedBox(height: AppSpacing.md),
+          FocusAware(
+            focusNode: _passwordFocus,
+            child: AppTextField(
+              controller: _passwordCtrl,
+              focusNode: _passwordFocus,
+              nextFocusNode: _confirmFocus,
+              textInputAction: TextInputAction.next,
+              obscureText: true,
               labelText: 'New password',
+              validator: (value) {
+                final text = value ?? '';
+                if (text.length < 8) {
+                  return 'Password must be at least 8 characters.';
+                }
+                return null;
+              },
             ),
-            validator: (value) {
-              final text = value ?? '';
-              if (text.length < 8) {
-                return 'Password must be at least 8 characters.';
-              }
-              return null;
-            },
           ),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _confirmCtrl,
-            obscureText: true,
-            decoration: const InputDecoration(
+          const SizedBox(height: AppSpacing.md),
+          FocusAware(
+            focusNode: _confirmFocus,
+            child: AppTextField(
+              controller: _confirmCtrl,
+              focusNode: _confirmFocus,
+              textInputAction: TextInputAction.done,
+              obscureText: true,
               labelText: 'Confirm password',
+              onFieldSubmitted: (_) => _resetPassword(),
+              validator: (value) {
+                if (value != _passwordCtrl.text) {
+                  return 'Passwords do not match.';
+                }
+                return null;
+              },
             ),
-            validator: (value) {
-              if (value != _passwordCtrl.text) {
-                return 'Passwords do not match.';
-              }
-              return null;
-            },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.xl),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(

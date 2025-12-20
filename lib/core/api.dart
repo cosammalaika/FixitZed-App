@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart'
 class Api {
   /// Resolve the API base URL.
   /// Override at build time with: --dart-define=API_BASE_URL=https://your.host/api
-  
+
   static String get baseUrl {
     const fromEnv = String.fromEnvironment('API_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;

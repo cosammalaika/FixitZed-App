@@ -25,19 +25,19 @@ class AppTheme {
     const accent = Color(0xFFFF8A5C);
     const background = Color(0xFFFEFAF7);
     const surface = Colors.white;
+    const fill = Color.fromRGBO(255, 255, 255, 0.94);
 
-    final scheme =
-        ColorScheme.fromSeed(
-          seedColor: brand,
-          brightness: Brightness.light,
-        ).copyWith(
-          primary: brand,
-          secondary: accent,
-          background: background,
-          surface: surface,
-          onSurface: const Color(0xFF332319),
-          onBackground: const Color(0xFF332319),
-        );
+    final scheme = ColorScheme.fromSeed(
+      seedColor: brand,
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: brand,
+      secondary: accent,
+      background: background,
+      surface: surface,
+      onSurface: const Color(0xFF332319),
+      onBackground: const Color(0xFF332319),
+    );
 
     final base = ThemeData(
       brightness: Brightness.light,
@@ -49,6 +49,11 @@ class AppTheme {
     );
 
     return base.copyWith(
+      textSelectionTheme: const TextSelectionThemeData(
+        cursorColor: brand,
+        selectionColor: Color.fromRGBO(0, 0, 0, 0.08),
+        selectionHandleColor: brand,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: background,
         elevation: 0,
@@ -78,18 +83,41 @@ class AppTheme {
       ),
       inputDecorationTheme: base.inputDecorationTheme.copyWith(
         filled: true,
-        fillColor: surface,
+        fillColor: fill,
+        labelStyle: base.textTheme.bodyMedium?.copyWith(
+          color: const Color(0xFF2D1C15),
+          fontWeight: FontWeight.w600,
+        ),
+        hintStyle: base.textTheme.bodyMedium?.copyWith(
+          color: const Color(0xFF4B3B32).withOpacity(0.75),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.outline.withOpacity(0.25)),
+          borderSide: BorderSide(color: scheme.outline.withOpacity(0.35)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.outline.withOpacity(0.18)),
+          borderSide: BorderSide(color: scheme.outline.withOpacity(0.28)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: brand, width: 1.5),
+          borderSide: const BorderSide(color: brand, width: 1.6),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.error, width: 1.3),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.error, width: 1.6),
+        ),
+        errorStyle: base.textTheme.bodySmall?.copyWith(
+          color: scheme.error,
+          fontWeight: FontWeight.w600,
         ),
       ),
       dividerColor: scheme.outline.withOpacity(0.08),
@@ -109,19 +137,19 @@ class AppTheme {
     const accent = Color(0xFFFF8A5C);
     const background = Color(0xFF101112);
     const surface = Color(0xFF181C20);
+    const fill = Color.fromRGBO(33, 36, 42, 0.96);
 
-    final scheme =
-        ColorScheme.fromSeed(
-          seedColor: brand,
-          brightness: Brightness.dark,
-        ).copyWith(
-          primary: brand,
-          secondary: accent,
-          background: background,
-          surface: surface,
-          onSurface: const Color(0xFFF2EAE4),
-          onBackground: const Color(0xFFF2EAE4),
-        );
+    final scheme = ColorScheme.fromSeed(
+      seedColor: brand,
+      brightness: Brightness.dark,
+    ).copyWith(
+      primary: brand,
+      secondary: accent,
+      background: background,
+      surface: surface,
+      onSurface: const Color(0xFFF2EAE4),
+      onBackground: const Color(0xFFF2EAE4),
+    );
 
     final base = ThemeData(
       brightness: Brightness.dark,
@@ -133,6 +161,11 @@ class AppTheme {
     );
 
     return base.copyWith(
+      textSelectionTheme: const TextSelectionThemeData(
+        cursorColor: brand,
+        selectionColor: Color.fromRGBO(255, 255, 255, 0.16),
+        selectionHandleColor: brand,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: background,
         elevation: 0,
@@ -162,7 +195,18 @@ class AppTheme {
       ),
       inputDecorationTheme: base.inputDecorationTheme.copyWith(
         filled: true,
-        fillColor: const Color(0xFF1F242C),
+        fillColor: fill,
+        labelStyle: base.textTheme.bodyMedium?.copyWith(
+          color: const Color(0xFFF5F1EB),
+          fontWeight: FontWeight.w600,
+        ),
+        hintStyle: base.textTheme.bodyMedium?.copyWith(
+          color: const Color(0xFFE0D7D0).withOpacity(0.8),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: scheme.outline.withOpacity(0.35)),
@@ -174,6 +218,18 @@ class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: brand, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.error, width: 1.3),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.error, width: 1.6),
+        ),
+        errorStyle: base.textTheme.bodySmall?.copyWith(
+          color: scheme.error,
+          fontWeight: FontWeight.w600,
         ),
       ),
       dividerColor: scheme.outline.withOpacity(0.15),

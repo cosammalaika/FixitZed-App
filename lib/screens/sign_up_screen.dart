@@ -8,6 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fixitzed_app/data/province_districts.dart';
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/services/location_service.dart';
+import 'package:fixitzed_app/core/app_spacing.dart';
+import 'package:fixitzed_app/widgets/app_text_field.dart';
+import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -59,6 +62,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final phoneCtrl = TextEditingController();
   final passCtrl = TextEditingController();
   final confirmPassCtrl = TextEditingController();
+  final _firstFocus = FocusNode();
+  final _lastFocus = FocusNode();
+  final _usernameFocus = FocusNode();
+  final _emailFocus = FocusNode();
+  final _phoneFocus = FocusNode();
+  final _passFocus = FocusNode();
+  final _confirmFocus = FocusNode();
 
   final _locationService = LocationService();
   Map<String, List<String>> _provinceMap = ProvinceData.asMutable();
@@ -161,6 +171,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
     phoneCtrl.dispose();
     passCtrl.dispose();
     confirmPassCtrl.dispose();
+    _firstFocus.dispose();
+    _lastFocus.dispose();
+    _usernameFocus.dispose();
+    _emailFocus.dispose();
+    _phoneFocus.dispose();
+    _passFocus.dispose();
+    _confirmFocus.dispose();
     super.dispose();
   }
 
@@ -558,70 +575,71 @@ class _SignUpScreenState extends State<SignUpScreen> {
           fields: [
             _row2(
               context,
-              TextFormField(
-                controller: firstNameCtrl,
-                textInputAction: TextInputAction.next,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 15,
+              FocusAware(
+                focusNode: _firstFocus,
+                child: AppTextField(
+                  controller: firstNameCtrl,
+                  focusNode: _firstFocus,
+                  nextFocusNode: _lastFocus,
+                  textInputAction: TextInputAction.next,
+                  labelText: 'First Name',
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'First name is required'
+                      : null,
                 ),
-                cursorColor: orange,
-                decoration: _dec('First Name'),
-                validator: (v) => v == null || v.trim().isEmpty
-                    ? 'First name is required'
-                    : null,
               ),
-              TextFormField(
-                controller: lastNameCtrl,
-                textInputAction: TextInputAction.next,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 15,
+              FocusAware(
+                focusNode: _lastFocus,
+                child: AppTextField(
+                  controller: lastNameCtrl,
+                  focusNode: _lastFocus,
+                  nextFocusNode: _usernameFocus,
+                  textInputAction: TextInputAction.next,
+                  labelText: 'Last Name (optional)',
                 ),
-                cursorColor: orange,
-                decoration: _dec('Last Name (optional)'),
               ),
             ),
-            TextFormField(
-              controller: usernameCtrl,
-              textInputAction: TextInputAction.next,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 15,
-              ),
-              cursorColor: orange,
-              decoration: _dec('Username (optional)').copyWith(
+            FocusAware(
+              focusNode: _usernameFocus,
+              child: AppTextField(
+                controller: usernameCtrl,
+                focusNode: _usernameFocus,
+                nextFocusNode: _emailFocus,
+                textInputAction: TextInputAction.next,
+                labelText: 'Username (optional)',
+                hintText: 'Public handle',
                 helperText: 'Clients will see this as your public handle.',
                 helperStyle: GoogleFonts.urbanist(
                   fontSize: 12,
                   color: Theme.of(context).hintColor,
                 ),
+                suffixIcon: const Icon(Icons.alternate_email_rounded),
+                validator: (value) {
+                  final trimmed = value?.trim() ?? '';
+                  if (trimmed.isEmpty) return null;
+                  if (trimmed.length < 3) {
+                    return 'Username should be at least 3 characters';
+                  }
+                  return null;
+                },
               ),
-              validator: (value) {
-                final trimmed = value?.trim() ?? '';
-                if (trimmed.isEmpty) return null;
-                if (trimmed.length < 3) {
-                  return 'Username should be at least 3 characters';
-                }
-                return null;
-              },
             ),
-            TextFormField(
-              controller: emailCtrl,
-              textInputAction: TextInputAction.next,
-              keyboardType: TextInputType.emailAddress,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 15,
+            FocusAware(
+              focusNode: _emailFocus,
+              child: AppTextField(
+                controller: emailCtrl,
+                focusNode: _emailFocus,
+                nextFocusNode: _phoneFocus,
+                textInputAction: TextInputAction.next,
+                keyboardType: TextInputType.emailAddress,
+                labelText: 'Email Address',
+                validator: (v) {
+                  final s = (v ?? '').trim();
+                  if (s.isEmpty) return 'Email is required';
+                  final ok = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$').hasMatch(s);
+                  return ok ? null : 'Enter a valid email';
+                },
               ),
-              cursorColor: orange,
-              decoration: _dec('Email Address'),
-              validator: (v) {
-                final s = (v ?? '').trim();
-                if (s.isEmpty) return 'Email is required';
-                final ok = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$').hasMatch(s);
-                return ok ? null : 'Enter a valid email';
-              },
             ),
           ],
           footer: [
@@ -643,32 +661,40 @@ class _SignUpScreenState extends State<SignUpScreen> {
         );
       case 1:
         final fields = <Widget>[
-          TextFormField(
-            controller: phoneCtrl,
-            textInputAction: TextInputAction.next,
-            keyboardType: TextInputType.number,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 15,
-            ),
-            cursorColor: orange,
-            decoration: _dec('Contact Number').copyWith(
-              prefixText: '+260 ',
-              prefixStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+          FocusAware(
+            focusNode: _phoneFocus,
+            child: AppTextField(
+              controller: phoneCtrl,
+              focusNode: _phoneFocus,
+              nextFocusNode: _passFocus,
+              textInputAction: TextInputAction.next,
+              keyboardType: TextInputType.number,
+              labelText: 'Contact Number',
+              hintText: '9-digit mobile number',
+              prefixIcon: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                child: Center(
+                  widthFactor: 0,
+                  child: Text(
+                    '+260',
+                    style: GoogleFonts.urbanist(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ),
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(9),
+              ],
+              validator: (v) {
+                final value = (v ?? '').trim();
+                if (value.isEmpty) return 'Contact number is required';
+                if (value.length != 9) return 'Enter a valid 9-digit number';
+                return null;
+              },
             ),
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(9),
-            ],
-            validator: (v) {
-              final value = (v ?? '').trim();
-              if (value.isEmpty) return 'Contact number is required';
-              if (value.length != 9) return 'Enter a valid 9-digit number';
-              return null;
-            },
           ),
           DropdownButtonFormField<String>(
             initialValue: _selectedProvince,
@@ -748,18 +774,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
         return _buildStepSection(
           index: index,
           fields: [
-            TextFormField(
-              controller: passCtrl,
-              obscureText: !_pwVisible,
-              textInputAction: TextInputAction.next,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 15,
-              ),
-              cursorColor: orange,
-              decoration: _dec(
-                'Password',
-                suffix: IconButton(
+            FocusAware(
+              focusNode: _passFocus,
+              child: AppTextField(
+                controller: passCtrl,
+                focusNode: _passFocus,
+                nextFocusNode: _confirmFocus,
+                textInputAction: TextInputAction.next,
+                obscureText: !_pwVisible,
+                labelText: 'Password',
+                suffixIcon: IconButton(
                   icon: Icon(
                     _pwVisible ? Icons.visibility : Icons.visibility_off,
                   ),
@@ -767,26 +791,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ? null
                       : () => setState(() => _pwVisible = !_pwVisible),
                 ),
+                validator: (v) {
+                  final s = v ?? '';
+                  if (s.isEmpty) return 'Password is required';
+                  if (s.length < 8) return 'Minimum 8 characters';
+                  return null;
+                },
               ),
-              validator: (v) {
-                final s = v ?? '';
-                if (s.isEmpty) return 'Password is required';
-                if (s.length < 8) return 'Minimum 8 characters';
-                return null;
-              },
             ),
-            TextFormField(
-              controller: confirmPassCtrl,
-              obscureText: !_cpwVisible,
-              textInputAction: TextInputAction.done,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 15,
-              ),
-              cursorColor: orange,
-              decoration: _dec(
-                'Confirm Password',
-                suffix: IconButton(
+            FocusAware(
+              focusNode: _confirmFocus,
+              child: AppTextField(
+                controller: confirmPassCtrl,
+                focusNode: _confirmFocus,
+                textInputAction: TextInputAction.done,
+                obscureText: !_cpwVisible,
+                labelText: 'Confirm Password',
+                onFieldSubmitted: (_) => handleSignUp(),
+                suffixIcon: IconButton(
                   icon: Icon(
                     _cpwVisible ? Icons.visibility : Icons.visibility_off,
                   ),
@@ -794,9 +816,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ? null
                       : () => setState(() => _cpwVisible = !_cpwVisible),
                 ),
+                validator: (v) =>
+                    v != passCtrl.text ? 'Passwords do not match' : null,
               ),
-              validator: (v) =>
-                  v != passCtrl.text ? 'Passwords do not match' : null,
             ),
           ],
           footer: [
@@ -1030,71 +1052,75 @@ class _SignUpScreenState extends State<SignUpScreen> {
       ),
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: SafeArea(
-          top: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final heroHeight = (constraints.maxHeight * 0.3)
-                  .clamp(220.0, 280.0)
-                  .toDouble();
-              return Column(
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final heroHeight = (constraints.maxHeight * 0.3)
+                .clamp(220.0, 280.0)
+                .toDouble();
+            return KeyboardSafeForm(
+              padding: EdgeInsets.zero,
+              child: Column(
                 children: [
                   _buildHeroSection(heroHeight, brand),
-                  Expanded(
-                    child: Container(
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      child: Transform.translate(
-                        offset: const Offset(0, -32),
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(32),
-                          ),
-                          child: Container(
-                            color: Theme.of(context).canvasColor,
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                20,
-                                36,
-                                20,
-                                10,
-                              ),
-                              child: Column(
-                                children: [
-                                  _buildProgressOverview(brand),
-                                  const SizedBox(height: 10),
-                                  Expanded(
-                                    child: AnimatedSize(
-                                      duration: const Duration(
-                                        milliseconds: 250,
-                                      ),
-                                      curve: Curves.easeOut,
-                                      child: IndexedStack(
-                                        index: _currentStep,
-                                        children: List.generate(
-                                          _stepCount,
-                                          (index) => Form(
+                  Container(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    child: Transform.translate(
+                      offset: const Offset(0, -32),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(32),
+                        ),
+                        child: Container(
+                          color: Theme.of(context).canvasColor,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.lg,
+                              AppSpacing.xxl,
+                              AppSpacing.lg,
+                              AppSpacing.md,
+                            ),
+                            child: Column(
+                              children: [
+                                _buildProgressOverview(brand),
+                                const SizedBox(height: AppSpacing.md),
+                                AnimatedSize(
+                                  duration: const Duration(
+                                    milliseconds: 250,
+                                  ),
+                                  curve: Curves.easeOut,
+                                  child: IndexedStack(
+                                    index: _currentStep,
+                                    children: List.generate(
+                                      _stepCount,
+                                      (index) => LayoutBuilder(
+                                        builder: (context, _) {
+                                          final bottom =
+                                              MediaQuery.viewInsetsOf(context)
+                                                  .bottom;
+                                          return Form(
                                             key: _stepKeys[index],
                                             autovalidateMode: AutovalidateMode
                                                 .onUserInteraction,
                                             child: SingleChildScrollView(
                                               physics:
                                                   const BouncingScrollPhysics(),
-                                              padding: const EdgeInsets.only(
-                                                bottom: 24,
+                                              padding: EdgeInsets.only(
+                                                bottom:
+                                                    bottom + AppSpacing.xl,
                                               ),
                                               child: _buildStepContent(index),
                                             ),
-                                          ),
-                                        ),
+                                          );
+                                        },
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 10),
-                                  _buildNavigationBar(brand),
-                                  const SizedBox(height: 10),
-                                  _buildLoginPrompt(brand),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                _buildNavigationBar(brand),
+                                const SizedBox(height: AppSpacing.md),
+                                _buildLoginPrompt(brand),
+                              ],
                             ),
                           ),
                         ),
@@ -1102,9 +1128,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                   ),
                 ],
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/services/auth_service.dart';
+import 'package:fixitzed_app/core/app_spacing.dart';
+import 'package:fixitzed_app/widgets/app_text_field.dart';
+import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -14,6 +17,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _currentCtrl = TextEditingController();
   final _newCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  final _currentFocus = FocusNode();
+  final _newFocus = FocusNode();
+  final _confirmFocus = FocusNode();
 
   bool _saving = false;
   bool _showCurrent = false;
@@ -25,6 +31,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     _currentCtrl.dispose();
     _newCtrl.dispose();
     _confirmCtrl.dispose();
+    _currentFocus.dispose();
+    _newFocus.dispose();
+    _confirmFocus.dispose();
     super.dispose();
   }
 
@@ -82,42 +91,40 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           ),
         ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextFormField(
+      body: KeyboardSafeForm(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FocusAware(
+                focusNode: _currentFocus,
+                child: AppTextField(
                   controller: _currentCtrl,
+                  focusNode: _currentFocus,
+                  nextFocusNode: _newFocus,
                   obscureText: !_showCurrent,
-                  decoration: _dec(
-                    'Current Password',
-                    suffix: IconButton(
-                      icon: Icon(_showCurrent ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _showCurrent = !_showCurrent),
-                    ),
+                  labelText: 'Current Password',
+                  suffixIcon: IconButton(
+                    icon: Icon(_showCurrent ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () => setState(() => _showCurrent = !_showCurrent),
                   ),
-                  cursorColor: brand,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                   validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
+              ),
+              const SizedBox(height: AppSpacing.md),
+              FocusAware(
+                focusNode: _newFocus,
+                child: AppTextField(
                   controller: _newCtrl,
+                  focusNode: _newFocus,
+                  nextFocusNode: _confirmFocus,
                   obscureText: !_showNew,
-                  decoration: _dec(
-                    'New Password',
-                    suffix: IconButton(
-                      icon: Icon(_showNew ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _showNew = !_showNew),
-                    ),
+                  labelText: 'New Password',
+                  suffixIcon: IconButton(
+                    icon: Icon(_showNew ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () => setState(() => _showNew = !_showNew),
                   ),
-                  cursorColor: brand,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                   validator: (v) {
                     final s = v ?? '';
                     if (s.isEmpty) return 'Required';
@@ -125,49 +132,49 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
+              ),
+              const SizedBox(height: AppSpacing.md),
+              FocusAware(
+                focusNode: _confirmFocus,
+                child: AppTextField(
                   controller: _confirmCtrl,
+                  focusNode: _confirmFocus,
+                  textInputAction: TextInputAction.done,
                   obscureText: !_showConfirm,
-                  decoration: _dec(
-                    'Confirm New Password',
-                    suffix: IconButton(
-                      icon: Icon(_showConfirm ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _showConfirm = !_showConfirm),
-                    ),
+                  labelText: 'Confirm New Password',
+                  onFieldSubmitted: (_) => _save(),
+                  suffixIcon: IconButton(
+                    icon: Icon(_showConfirm ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () => setState(() => _showConfirm = !_showConfirm),
                   ),
-                  cursorColor: brand,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                   validator: (v) {
                     if ((v ?? '').isEmpty) return 'Required';
                     if (v != _newCtrl.text) return 'Passwords do not match';
                     return null;
                   },
                 ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _saving ? null : _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: brand,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  ),
-                  child: _saving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Update Password'),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              ElevatedButton(
+                onPressed: _saving ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: brand,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),
-                SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
-              ],
-            ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Update Password'),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
-

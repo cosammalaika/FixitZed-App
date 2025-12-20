@@ -3,6 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/services/home_service.dart';
+import 'package:fixitzed_app/core/app_spacing.dart';
+import 'package:fixitzed_app/widgets/app_text_field.dart';
+import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -16,6 +19,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _firstCtrl = TextEditingController();
   final _lastCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  final _firstFocus = FocusNode();
+  final _lastFocus = FocusNode();
+  final _emailFocus = FocusNode();
   String _initialEmail = '';
   bool _loading = true;
   bool _saving = false;
@@ -24,6 +30,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _currentCtrl = TextEditingController();
   final _newCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  final _currentFocus = FocusNode();
+  final _newFocus = FocusNode();
+  final _confirmFocus = FocusNode();
   bool _showCurrent = false;
   bool _showNew = false;
   bool _showConfirm = false;
@@ -60,9 +69,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _firstCtrl.dispose();
     _lastCtrl.dispose();
     _emailCtrl.dispose();
+    _firstFocus.dispose();
+    _lastFocus.dispose();
+    _emailFocus.dispose();
     _currentCtrl.dispose();
     _newCtrl.dispose();
     _confirmCtrl.dispose();
+    _currentFocus.dispose();
+    _newFocus.dispose();
+    _confirmFocus.dispose();
     super.dispose();
   }
 
@@ -203,52 +218,48 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _sectionTitle('Name'),
-                      TextFormField(
+          : KeyboardSafeForm(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _sectionTitle('Name'),
+                    FocusAware(
+                      focusNode: _firstFocus,
+                      child: AppTextField(
                         controller: _firstCtrl,
-                        decoration: _dec('First Name'),
+                        focusNode: _firstFocus,
+                        nextFocusNode: _lastFocus,
                         textInputAction: TextInputAction.next,
-                        cursorColor: brand,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 14,
-                        ),
+                        labelText: 'First Name',
                         validator: (v) =>
                             (v ?? '').trim().isEmpty ? 'Required' : null,
                       ),
-                      const SizedBox(height: 12),
-                      TextFormField(
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    FocusAware(
+                      focusNode: _lastFocus,
+                      child: AppTextField(
                         controller: _lastCtrl,
-                        decoration: _dec('Last Name'),
+                        focusNode: _lastFocus,
+                        nextFocusNode: _emailFocus,
                         textInputAction: TextInputAction.next,
-                        cursorColor: brand,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 14,
-                        ),
+                        labelText: 'Last Name',
                         validator: (v) =>
                             (v ?? '').trim().isEmpty ? 'Required' : null,
                       ),
-                      const SizedBox(height: 12),
-                      TextFormField(
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    FocusAware(
+                      focusNode: _emailFocus,
+                      child: AppTextField(
                         controller: _emailCtrl,
-                        decoration: _dec('Email Address'),
+                        focusNode: _emailFocus,
                         keyboardType: TextInputType.emailAddress,
-                        cursorColor: brand,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 14,
-                        ),
+                        textInputAction: TextInputAction.done,
+                        labelText: 'Email Address',
                         validator: (v) {
                           final s = (v ?? '').trim();
                           if (s.isEmpty) return 'Required';
@@ -258,121 +269,116 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           return ok ? null : 'Enter a valid email';
                         },
                       ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: _saving ? null : _save,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: brand,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    ElevatedButton(
+                      onPressed: _saving ? null : _save,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: brand,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
                         ),
-                        child: _saving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Save Changes'),
                       ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text('Save Changes'),
+                    ),
 
-                      // Security section
-                      _sectionTitle('Security'),
-                      TextFormField(
+                    // Security section
+                    _sectionTitle('Security'),
+                    FocusAware(
+                      focusNode: _currentFocus,
+                      child: AppTextField(
                         controller: _currentCtrl,
+                        focusNode: _currentFocus,
+                        nextFocusNode: _newFocus,
                         obscureText: !_showCurrent,
-                        decoration: _dec('Current Password').copyWith(
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _showCurrent
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () =>
-                                setState(() => _showCurrent = !_showCurrent),
+                        labelText: 'Current Password',
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _showCurrent
+                                ? Icons.visibility
+                                : Icons.visibility_off,
                           ),
-                        ),
-                        cursorColor: brand,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 14,
+                          onPressed: () =>
+                              setState(() => _showCurrent = !_showCurrent),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      TextFormField(
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    FocusAware(
+                      focusNode: _newFocus,
+                      child: AppTextField(
                         controller: _newCtrl,
+                        focusNode: _newFocus,
+                        nextFocusNode: _confirmFocus,
                         obscureText: !_showNew,
-                        decoration: _dec('New Password').copyWith(
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _showNew
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () =>
-                                setState(() => _showNew = !_showNew),
+                        labelText: 'New Password',
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _showNew
+                                ? Icons.visibility
+                                : Icons.visibility_off,
                           ),
-                        ),
-                        cursorColor: brand,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 14,
+                          onPressed: () =>
+                              setState(() => _showNew = !_showNew),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      TextFormField(
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    FocusAware(
+                      focusNode: _confirmFocus,
+                      child: AppTextField(
                         controller: _confirmCtrl,
+                        focusNode: _confirmFocus,
+                        textInputAction: TextInputAction.done,
                         obscureText: !_showConfirm,
-                        decoration: _dec('Confirm New Password').copyWith(
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _showConfirm
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () =>
-                                setState(() => _showConfirm = !_showConfirm),
+                        labelText: 'Confirm New Password',
+                        onFieldSubmitted: (_) => _changePassword(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _showConfirm
+                                ? Icons.visibility
+                                : Icons.visibility_off,
                           ),
-                        ),
-                        cursorColor: brand,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 14,
+                          onPressed: () =>
+                              setState(() => _showConfirm = !_showConfirm),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: _savingPassword ? null : _changePassword,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: brand,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    ElevatedButton(
+                      onPressed: _savingPassword ? null : _changePassword,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: brand,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
                         ),
-                        child: _savingPassword
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Update Password'),
                       ),
-                      SizedBox(
-                        height: MediaQuery.of(context).viewInsets.bottom,
-                      ),
+                      child: _savingPassword
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text('Update Password'),
+                    ),
                     ],
                   ),
                 ),
               ),
-            ),
-    );
+            );
   }
 }
