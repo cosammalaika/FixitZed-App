@@ -1,0 +1,5 @@
+# Include Pods configuration for the Profile build.
+# Keep this aligned with Debug/Release includes so CocoaPods settings are applied.
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"
+# Fallback to Generated.xcconfig for Flutter settings.
+#include "Generated.xcconfig"
