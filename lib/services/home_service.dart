@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/services/token_storage.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class HomeService {
@@ -78,7 +80,25 @@ class HomeService {
         if (list.isNotEmpty) return list;
       }
     } catch (_) {}
-    return [];
+    // Fallback: derive categories from services to keep UI alive when endpoint is empty.
+    try {
+      final services = await fetchServices(forceRefresh: false);
+      final distinct =
+          services
+              .whereType<Map>()
+              .map((m) => (m['category'] ?? '').toString().trim())
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
+      return distinct
+          .map(
+            (name) => {'id': name.hashCode, 'name': name, 'description': null},
+          )
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<List<dynamic>> fetchSubcategories({int? categoryId}) async {
@@ -148,10 +168,11 @@ class HomeService {
               map['hasFixers'] ??
               map['has_ready'],
         );
-        final inferredFromFixers =
-            map['fixers'] is List ? (map['fixers'] as List).length : null;
-        final resolvedCount = count ??
-            (hasFlag != null ? (hasFlag ? 1 : 0) : inferredFromFixers);
+        final inferredFromFixers = map['fixers'] is List
+            ? (map['fixers'] as List).length
+            : null;
+        final resolvedCount =
+            count ?? (hasFlag != null ? (hasFlag ? 1 : 0) : inferredFromFixers);
         if (resolvedCount != null) {
           map['opted_in_fixers_count'] = resolvedCount;
           map['ready_fixers_count'] = resolvedCount;
@@ -213,12 +234,14 @@ class HomeService {
     Future<List<dynamic>> load() async {
       try {
         final res = await http.get(
-          _uri('services', {'per_page': 200}),
+          _uri('services', {'per_page': 50}),
           headers: _headers(),
         );
         await SessionGuard.evaluate(res);
-        if (res.statusCode == 200) {
-          final data = jsonDecode(res.body);
+        final status = res.statusCode;
+        final body = res.body;
+        if (status == 200) {
+          final data = jsonDecode(body);
           final list = _extractList(data);
           if (list.isNotEmpty) {
             final normalized = _normalizeServicesAvailability(list);
@@ -226,8 +249,26 @@ class HomeService {
             _servicesCacheFetchedAt = DateTime.now();
             return _cloneServicesCache();
           }
+          if (kDebugMode) {
+            debugPrint(
+              'HomeService.fetchServices: 200 but empty list. Body (trunc): ${body.substring(0, body.length.clamp(0, 500))}',
+            );
+          }
+        } else {
+          if (kDebugMode) {
+            debugPrint(
+              'HomeService.fetchServices: status $status. Body (trunc): ${body.substring(0, body.length.clamp(0, 500))}',
+            );
+          }
+          // surface non-200 so UI can show error instead of empty state
+          throw Exception('services_http_$status');
         }
-      } catch (_) {}
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('HomeService.fetchServices: exception $e');
+        }
+        rethrow;
+      }
       if (_servicesCache != null && _servicesCache!.isNotEmpty) {
         return _cloneServicesCache();
       }

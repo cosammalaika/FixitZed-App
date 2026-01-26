@@ -32,7 +32,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppTheme.load();
   await LocalNotificationService.instance.init();
-   await FcmService.instance.init();
+  await FcmService.instance.init();
   runApp(const ProviderScope(child: MyApp()));
 }
 
