@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:fixitzed_app/services/home_service.dart';
 
 /// Cache for service catalog lists.
@@ -43,6 +45,7 @@ class ServicesRepository {
         _lastFetch = DateTime.now();
         return List<dynamic>.from(_cache!);
       }
+      _logEmpty('refresh');
     } catch (_) {}
     finally {
       _isFetching = false;
@@ -65,10 +68,16 @@ class ServicesRepository {
         _lastFetch = DateTime.now();
         return List<dynamic>.from(_cache!);
       }
+      _logEmpty('getServices');
     } catch (_) {}
     finally {
       _isFetching = false;
     }
     return _cache == null ? <dynamic>[] : List<dynamic>.from(_cache!);
+  }
+
+  void _logEmpty(String phase) {
+    if (!kDebugMode) return;
+    debugPrint('ServicesRepository: $phase returned an empty list from API');
   }
 }

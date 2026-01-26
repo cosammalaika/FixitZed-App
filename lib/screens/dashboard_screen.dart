@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +10,6 @@ import 'package:fixitzed_app/state/dashboard_controller.dart';
 import 'package:fixitzed_app/state/fixers_providers.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
-import 'package:fixitzed_app/state/services_controller.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 import 'package:fixitzed_app/utils/app_snack.dart';
 import 'package:fixitzed_app/screens/dashboard_widgets.dart';
@@ -228,7 +228,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
           const SizedBox(height: 6),
           Text(
-            'Request a trusted fixer in seconds and track every job from this screen.',
+            'Book a trusted fixer in seconds and track every job from this screen.',
             style: GoogleFonts.urbanist(
               color: Colors.white.withValues(alpha: 0.9),
             ),
@@ -281,8 +281,21 @@ class _DashboardScreenState extends State<DashboardScreen>
     await ref.read(dashboardControllerProvider.notifier).refresh();
   }
 
-  Widget _quickCategories(List<dynamic> categories) {
-    if (categories.isEmpty) return const SizedBox.shrink();
+  Widget _quickCategories(
+    List<dynamic> categories, {
+    required Future<void> Function() onRetry,
+  }) {
+    if (categories.isEmpty) {
+      if (kDebugMode) {
+        debugPrint('Dashboard: categories response empty, showing empty state');
+      }
+      return _EmptyState(
+        message: 'No categories available right now',
+        detail: 'We\'ll refresh in a moment.',
+        onRetry: onRetry,
+        compact: true,
+      );
+    }
     final normalizedCategories = categories
         .whereType<Map>()
         .map((cat) => cat.map((key, value) => MapEntry(key.toString(), value)))
@@ -365,10 +378,23 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _serviceSpotlight(List<dynamic> services) {
+  Widget _serviceSpotlight(
+    List<dynamic> services, {
+    required Future<void> Function() onRetry,
+  }) {
     final cached = _servicesRepo?.getCachedServices() ?? const <dynamic>[];
     final source = cached.isNotEmpty ? cached : services;
-    if (source.isEmpty) return const SizedBox.shrink();
+    if (source.isEmpty) {
+      if (kDebugMode) {
+        debugPrint('Dashboard: services response empty, showing empty state');
+      }
+      return _EmptyState(
+        message: 'No services available right now',
+        detail: 'Try again in a bit or refresh now.',
+        onRetry: onRetry,
+        compact: true,
+      );
+    }
     final items = source.take(4).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -658,9 +684,15 @@ class _DashboardScreenState extends State<DashboardScreen>
           const SizedBox(height: 20),
           _searchField(state.categories),
           const SizedBox(height: 20),
-          _quickCategories(state.categories),
+          _quickCategories(
+            state.categories,
+            onRetry: onRetry,
+          ),
           const SizedBox(height: 24),
-          _serviceSpotlight(state.services),
+          _serviceSpotlight(
+            state.services,
+            onRetry: onRetry,
+          ),
           const SizedBox(height: 24),
           TopFixersStrip(fixers: topFixers),
         ],
@@ -673,57 +705,83 @@ class _ErrorState extends StatelessWidget {
   final String message;
   final String? detail;
   final Future<void> Function() onRetry;
+  final bool compact;
 
   const _ErrorState({
     required this.message,
     required this.detail,
     required this.onRetry,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.black38),
+        const SizedBox(height: 16),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.urbanist(
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+          ),
+        ),
+        if (detail != null && detail!.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            detail!,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.urbanist(color: Colors.black54),
+          ),
+        ],
+        const SizedBox(height: 20),
+        ElevatedButton.icon(
+          onPressed: () => onRetry(),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFF1592A),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Try again'),
+        ),
+      ],
+    );
+
+    if (compact) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFDF6F2),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFF1592A).withOpacity(0.12)),
+        ),
+        child: content,
+      );
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.black38),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.urbanist(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
-            ),
-            if (detail != null && detail!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                detail!,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.urbanist(color: Colors.black54),
-              ),
-            ],
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: () => onRetry(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF1592A),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Try again'),
-            ),
-          ],
-        ),
+        child: content,
       ),
     );
   }
+}
+
+class _EmptyState extends _ErrorState {
+  const _EmptyState({
+    required super.message,
+    super.detail,
+    required super.onRetry,
+    super.compact = true,
+  });
 }
 
 class _InactiveAccountView extends StatelessWidget {

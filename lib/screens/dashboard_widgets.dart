@@ -508,41 +508,51 @@ class CategoriesBlock extends StatelessWidget {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            child: Row(
+              child: Row(
               children: () {
-                final items = <Widget>[];
                 if (categories.isEmpty) {
-                  const data = [
-                    {
-                      'icon': Icons.cleaning_services_rounded,
-                      'name': 'Cleaning',
-                    },
-                    {'icon': Icons.build_rounded, 'name': 'Repairing'},
-                    {'icon': Icons.format_paint_rounded, 'name': 'Painting'},
-                    {'icon': Icons.grid_view_rounded, 'name': 'More'},
+                  return [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.category_outlined,
+                            color: Color(0xFFF1592A),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No categories available right now.',
+                            style: GoogleFonts.urbanist(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'Pull to refresh the dashboard once services are added.',
+                            style: GoogleFonts.urbanist(color: Colors.black54),
+                          ),
+                        ],
+                      ),
+                    ),
                   ];
-                  for (final c in data) {
-                    if (items.isNotEmpty) items.add(const SizedBox(width: 16));
-                    items.add(
-                      CategoryIconLabel(
-                        icon: c['icon'] as IconData,
-                        label: c['name'] as String,
-                      ),
-                    );
-                  }
-                } else {
-                  for (var i = 0; i < categories.length; i++) {
-                    final c = categories[i] as Map;
-                    final label = (c['name'] ?? c['title'] ?? 'Category')
-                        .toString();
-                    if (items.isNotEmpty) items.add(const SizedBox(width: 16));
-                    items.add(
-                      CategoryIconLabel(
-                        icon: Icons.handyman_rounded,
-                        label: label,
-                      ),
-                    );
-                  }
+                }
+                final items = <Widget>[];
+                for (var i = 0; i < categories.length; i++) {
+                  final c = categories[i] as Map;
+                  final label =
+                      (c['name'] ?? c['title'] ?? 'Category').toString();
+                  if (items.isNotEmpty) items.add(const SizedBox(width: 16));
+                  items.add(
+                    CategoryIconLabel(
+                      icon: Icons.handyman_rounded,
+                      label: label,
+                    ),
+                  );
                 }
                 return items;
               }(),
@@ -652,22 +662,38 @@ class PopularServicesBlock extends StatelessWidget {
           child: Row(
             children: () {
               if (services.isEmpty) {
-                return const [
+                return [
                   Expanded(
-                    child: PopularCard(
-                      id: 'demo-house',
-                      title: 'House Cleaning',
-                      imageUrl: '',
-                      favoriteButton: SizedBox.shrink(),
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: PopularCard(
-                      id: 'demo-handyman',
-                      title: 'Handyman',
-                      imageUrl: '',
-                      favoriteButton: SizedBox.shrink(),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.miscellaneous_services_rounded,
+                            color: Color(0xFFF1592A),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No services yet',
+                            style: GoogleFonts.urbanist(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'Check back after services are published.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.urbanist(
+                              color: Colors.black54,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ];
@@ -694,12 +720,30 @@ class PopularServicesBlock extends StatelessWidget {
                 items
                   ..add(const SizedBox(width: 12))
                   ..add(
-                    const Expanded(
-                      child: PopularCard(
-                        id: 'demo-more',
-                        title: 'More Services',
-                        imageUrl: '',
-                        favoriteButton: SizedBox.shrink(),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.more_horiz_rounded,
+                              color: Color(0xFFF1592A),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'More services coming soon',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.urbanist(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
