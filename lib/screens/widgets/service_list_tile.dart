@@ -56,9 +56,9 @@ class ServiceListTile extends StatelessWidget {
   String _pillLabel() {
     switch (availability) {
       case ServiceAvailability.available:
-        return 'Available';
+        return 'Fixers available';
       case ServiceAvailability.unavailable:
-        return 'No fixers';
+        return 'No fixers yet';
       case ServiceAvailability.unknown:
       default:
         return 'Availability unknown';

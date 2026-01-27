@@ -92,12 +92,10 @@ class DashboardController extends AsyncNotifier<DashboardState> {
 
   Future<DashboardState> _fetchDashboard() async {
     final profileRepo = ref.read(profileRepositoryProvider);
-    final categoriesRepo = ref.read(categoriesRepositoryProvider);
     final servicesRepo = ref.read(servicesRepositoryProvider);
     final notificationsRepo = ref.read(notificationsRepositoryProvider);
 
     Map<String, dynamic>? me;
-    var categories = <dynamic>[];
     var services = <dynamic>[];
     var notifications = <dynamic>[];
     String? error;
@@ -108,11 +106,9 @@ class DashboardController extends AsyncNotifier<DashboardState> {
       final userMap = _extractUserMap(me);
       inactive = _isInactive(userMap);
       if (!inactive) {
-        final categoriesFuture = categoriesRepo.getSubcategories();
         final servicesFuture = servicesRepo.getServices();
         final notificationsFuture = notificationsRepo.getNotifications();
 
-        categories = await categoriesFuture;
         services = await servicesFuture;
         notifications = await notificationsFuture;
       }
@@ -130,7 +126,7 @@ class DashboardController extends AsyncNotifier<DashboardState> {
       name: name,
       location: location,
       avatarUrl: avatarUrl,
-      categories: List<dynamic>.from(categories),
+      categories: _deriveCategories(services),
       services: List<dynamic>.from(services),
       hasUnread: hasUnread,
       error: error,
@@ -166,6 +162,29 @@ class DashboardController extends AsyncNotifier<DashboardState> {
             .toString()
             .trim();
     return fallback;
+  }
+
+  List<dynamic> _deriveCategories(List<dynamic> services) {
+    if (services.isEmpty) return const <dynamic>[];
+    final set = <String, String>{}; // key -> label
+    for (final raw in services) {
+      if (raw is! Map) continue;
+      final cat = (raw['category'] ?? raw['category_name'] ?? raw['categoryName'] ?? '')
+          .toString()
+          .trim();
+      final normalized = cat.isEmpty ? 'general' : cat.toLowerCase();
+      if (!set.containsKey(normalized)) {
+        final label = cat.isEmpty ? 'General' : cat;
+        set[normalized] = label;
+      }
+    }
+    final list = set.entries
+        .map((e) => {'id': e.key, 'name': e.value})
+        .toList();
+    list.sort((a, b) => (a['name'] ?? '').toString().toLowerCase().compareTo(
+          (b['name'] ?? '').toString().toLowerCase(),
+        ));
+    return list;
   }
 
   String _resolveLocation(Map<String, dynamic> raw) {

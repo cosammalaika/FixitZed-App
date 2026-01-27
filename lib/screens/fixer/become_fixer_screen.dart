@@ -134,14 +134,14 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
     final labels = <String, String>{};
 
     for (final service in services) {
-      final label = serviceCategoryLabel(service) ?? 'Other services';
+      final label = _serviceCategoryFromService(service);
       final key = _categoryKey(service, label);
       labels[key] = label;
       grouped.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(service);
     }
 
     final categories = grouped.entries.map((entry) {
-      final label = labels[entry.key] ?? 'Other services';
+      final label = labels[entry.key] ?? 'General';
       final items = List<Map<String, dynamic>>.from(entry.value);
       items.sort(
         (a, b) => _serviceName(
@@ -160,6 +160,18 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
     );
 
     return categories;
+  }
+
+  String _serviceCategoryFromService(Map<String, dynamic> service) {
+    final raw = (service['category'] ??
+            service['category_name'] ??
+            service['categoryName'] ??
+            service['cat'] ??
+            '')
+        .toString()
+        .trim();
+    if (raw.isNotEmpty) return raw;
+    return 'General';
   }
 
   String _categoryKey(Map<String, dynamic> service, String label) {
