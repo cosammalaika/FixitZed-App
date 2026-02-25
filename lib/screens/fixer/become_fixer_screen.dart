@@ -37,6 +37,8 @@ class BecomeFixerScreen extends StatefulWidget {
 
 class _BecomeFixerScreenState extends State<BecomeFixerScreen>
     with SingleTickerProviderStateMixin {
+  static const int _maxSelectedServices = 10;
+
   final _home = HomeService();
   final _bioCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
@@ -124,6 +126,13 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
       _nrcFront != null &&
       _nrcBack != null &&
       _workPhotos.length >= 3;
+
+  int get _selectedServiceCount => _selectedServices.length;
+
+  bool get _serviceLimitReached => _selectedServiceCount >= _maxSelectedServices;
+
+  bool get _canSubmitServicesStep =>
+      _selectedServiceCount > 0 && _acceptedTerms;
 
   List<_ServiceCategoryGroup> _groupServicesByCategory(
     List<Map<String, dynamic>> services,
@@ -372,22 +381,39 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
     final id = _serviceId(service);
     if (id == null) return null;
     final selected = _selectedServices.contains(id);
+    final limitReached = _serviceLimitReached;
+    final isDisabled = !selected && limitReached;
     final name = _serviceName(service);
-    return FilterChip(
+    final chip = FilterChip(
       selected: selected,
       onSelected: (_) {
-        setState(() {
-          if (selected) {
-            _selectedServices.remove(id);
-          } else {
-            _selectedServices.add(id);
-          }
-        });
+        if (selected) {
+          setState(() => _selectedServices.remove(id));
+          return;
+        }
+        if (limitReached) {
+          _showSnack('Maximum 10 services allowed');
+          return;
+        }
+        setState(() => _selectedServices.add(id));
       },
       label: Text(name),
       selectedColor: brand.withValues(alpha: 0.2),
       checkmarkColor: brand,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: isDisabled ? () => _showSnack('Maximum 10 services allowed') : null,
+      child: IgnorePointer(
+        ignoring: isDisabled,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 150),
+          opacity: isDisabled ? 0.45 : 1,
+          child: chip,
+        ),
+      ),
     );
   }
 
@@ -710,6 +736,11 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
       _showSnack('Select at least one service');
       return;
     }
+    if (_selectedServices.length > _maxSelectedServices) {
+      setState(() => _step = 2);
+      _showSnack('Maximum 10 services allowed');
+      return;
+    }
     if (!_acceptedTerms) {
       setState(() => _step = 2);
       _showSnack('Please accept the Terms & Conditions');
@@ -763,6 +794,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
       case 2:
         if (_selectedServices.isEmpty) {
           _showSnack('Select at least one service');
+          return false;
+        }
+        if (_selectedServices.length > _maxSelectedServices) {
+          _showSnack('Maximum 10 services allowed');
           return false;
         }
         if (!_acceptedTerms) {
@@ -886,7 +921,11 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                           const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: _submitting ? null : _goNext,
+                              onPressed: _submitting
+                                  ? null
+                                  : (_step == 2 && !_canSubmitServicesStep
+                                      ? null
+                                      : _goNext),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: brand,
                                 foregroundColor: Colors.white,
@@ -1091,6 +1130,38 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                 color: Colors.black54,
               ),
             ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _serviceLimitReached
+                    ? const Color(0xFFFFF3E9)
+                    : const Color(0xFFF7F9FC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _serviceLimitReached
+                      ? brand.withValues(alpha: 0.3)
+                      : const Color(0xFFE0E3EB),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.checklist_rounded,
+                    size: 18,
+                    color: _serviceLimitReached ? brand : Colors.black54,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Selected $_selectedServiceCount / $_maxSelectedServices',
+                    style: GoogleFonts.urbanist(
+                      fontWeight: FontWeight.w700,
+                      color: _serviceLimitReached ? brand : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
             if (_serviceCategories.isEmpty)
               Container(
@@ -1120,6 +1191,18 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                   style: GoogleFonts.urbanist(
                     fontSize: 12,
                     color: Colors.black54,
+                  ),
+                ),
+              ),
+            if (_serviceLimitReached)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Maximum 10 services allowed. Deselect one to choose another.',
+                  style: GoogleFonts.urbanist(
+                    fontSize: 12,
+                    color: brand,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
