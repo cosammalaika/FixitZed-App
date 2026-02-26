@@ -427,15 +427,25 @@ class AuthService {
       _logProfilePhotoResponseFields('upload response', responseBody);
 
       final ok = response.statusCode >= 200 && response.statusCode < 300;
-      if (ok && !_responseHasAvatarPayload(responseBody)) {
+      var hasAvatarPayload = _responseHasAvatarPayload(responseBody);
+      if (ok && !hasAvatarPayload) {
         final meRes = await http.get(
           _uri('me'),
           headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
         );
+        final meBody = _tryDecodeJsonMap(meRes.body);
         _logProfilePhoto(
           'fallback GET /me status=${meRes.statusCode} body=${_logSnippet(meRes.body)}',
         );
-        _logProfilePhotoResponseFields('fallback /me', _tryDecodeJsonMap(meRes.body));
+        _logProfilePhotoResponseFields('fallback /me', meBody);
+        final meOk = meRes.statusCode >= 200 && meRes.statusCode < 300;
+        hasAvatarPayload = meOk && _responseHasAvatarPayload(meBody);
+      }
+      if (ok && !hasAvatarPayload) {
+        _logProfilePhoto(
+          'upload succeeded but avatar fields were missing from upload response and fallback /me',
+        );
+        return false;
       }
       if (ok) {
         _announceProfileUpdate();

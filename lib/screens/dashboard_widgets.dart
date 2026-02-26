@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -23,15 +24,16 @@ class DashboardGreeting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final avatar = (avatarUrl ?? '').trim();
+    final hasAvatar = avatar.isNotEmpty && avatar.toLowerCase() != 'null';
     return Row(
       children: [
         CircleAvatar(
           radius: 24,
-          backgroundImage: (avatarUrl != null && avatarUrl!.isNotEmpty)
-              ? (avatarUrl!.startsWith('http')
-                    ? NetworkImage(avatarUrl!) as ImageProvider
-                    : AssetImage(avatarUrl!))
-              : const AssetImage('assets/images/logo-sm.png'),
+          backgroundColor: Colors.white,
+          child: ClipOval(
+            child: _buildAvatarImage(avatar, hasAvatar),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -90,6 +92,49 @@ class DashboardGreeting extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildAvatarImage(String avatar, bool hasAvatar) {
+    const size = 48.0;
+    if (!hasAvatar) {
+      return Image.asset(
+        'assets/images/logo-sm.png',
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+      );
+    }
+
+    if (!avatar.startsWith('http://') && !avatar.startsWith('https://')) {
+      return Image.asset(
+        avatar,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+      );
+    }
+
+    _debugAvatarLog('dashboard header url="$avatar"');
+    return Image.network(
+      avatar,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      errorBuilder: (_, error, __) {
+        _debugAvatarLog('dashboard header load failed url="$avatar" error=$error');
+        return Image.asset(
+          'assets/images/logo-sm.png',
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+        );
+      },
+    );
+  }
+
+  void _debugAvatarLog(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[DashboardGreeting.avatar] $message');
   }
 }
 

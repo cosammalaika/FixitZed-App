@@ -47,11 +47,33 @@ class Api {
       final uri = Uri.parse(url);
       final host = uri.host;
       if ((host == 'localhost' || host == '127.0.0.1') && !kIsWeb) {
+        final apiOrigin = Uri.tryParse(baseUrl);
+        final apiHost = apiOrigin?.host ?? '';
+        final apiHostIsLocal = apiHost == 'localhost' || apiHost == '127.0.0.1';
+        if (apiOrigin != null && apiHost.isNotEmpty && !apiHostIsLocal) {
+          final targetPort = apiOrigin.hasPort ? apiOrigin.port : null;
+          return uri
+              .replace(
+                scheme: apiOrigin.scheme.isEmpty ? uri.scheme : apiOrigin.scheme,
+                host: apiHost,
+                port: targetPort,
+              )
+              .toString();
+        }
         try {
           if (defaultTargetPlatform == TargetPlatform.android) {
             return uri.replace(host: '10.0.2.2').toString();
           }
         } catch (_) {}
+      }
+
+      final apiOrigin = Uri.tryParse(baseUrl);
+      if (apiOrigin != null &&
+          apiOrigin.scheme == 'https' &&
+          uri.scheme == 'http' &&
+          uri.host == apiOrigin.host) {
+        final targetPort = apiOrigin.hasPort ? apiOrigin.port : null;
+        return uri.replace(scheme: 'https', port: targetPort).toString();
       }
       return url;
     } catch (_) {

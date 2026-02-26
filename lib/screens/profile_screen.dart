@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -24,6 +25,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _uploadingPhoto = false;
   int _avatarVersion = 0;
   String? _optimisticAvatarPath;
+  String _lastLoggedAvatarDisplayUrl = '';
 
   Widget _menuItem(
     IconData icon,
@@ -158,6 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _uploadProfilePhoto(String path) async {
     if (_uploadingPhoto) return;
     final previousOptimisticPath = _optimisticAvatarPath;
+    final previousAvatarUrl = _currentPersistedAvatarUrl();
     setState(() {
       _uploadingPhoto = true;
       _optimisticAvatarPath = path;
@@ -175,15 +178,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (success) {
       final ref = _ref;
+      var avatarConfirmed = ref == null;
       if (ref != null) {
-        await ref.read(profileControllerProvider.notifier).refresh();
+        avatarConfirmed = await _refreshAndConfirmAvatar(
+          ref,
+          previousAvatarUrl: previousAvatarUrl,
+        );
         unawaited(ref.read(dashboardControllerProvider.notifier).refresh());
       }
-      if (mounted) {
+      if (mounted && avatarConfirmed) {
         setState(() {
           _avatarVersion++;
           _optimisticAvatarPath = null;
         });
+      }
+      if (!avatarConfirmed) {
+        _logAvatarFlow(
+          'upload reported success but refreshed profile avatar was not confirmed; keeping local preview',
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile photo upload succeeded, but profile sync is still pending.'),
+          ),
+        );
+        return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile photo updated.')),
@@ -199,11 +217,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  String _currentPersistedAvatarUrl() {
+    final ref = _ref;
+    if (ref == null) return '';
+    final current = ref.read(profileControllerProvider).valueOrNull;
+    final avatar = current?.avatarUrl?.trim() ?? '';
+    return avatar.toLowerCase() == 'null' ? '' : avatar;
+  }
+
+  Future<bool> _refreshAndConfirmAvatar(
+    WidgetRef ref, {
+    required String previousAvatarUrl,
+  }) async {
+    const maxAttempts = 2;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (attempt > 1) {
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+
+      await ref.read(profileControllerProvider.notifier).refresh();
+      final current = ref.read(profileControllerProvider).valueOrNull;
+      final avatar = current?.avatarUrl?.trim() ?? '';
+      final normalizedAvatar = avatar.toLowerCase() == 'null' ? '' : avatar;
+      final hasAvatar = normalizedAvatar.isNotEmpty;
+      final changed = previousAvatarUrl.isEmpty || normalizedAvatar != previousAvatarUrl;
+
+      _logAvatarFlow(
+        'confirm attempt=$attempt hasAvatar=$hasAvatar changed=$changed '
+        'previous="$previousAvatarUrl" current="$normalizedAvatar"',
+      );
+
+      if (hasAvatar && changed) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  void _logAvatarFlow(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[ProfileScreen.avatar] $message');
+  }
+
+  void _logAvatarUrlIfChanged(String url) {
+    if (!kDebugMode) return;
+    final trimmed = url.trim();
+    if (trimmed == _lastLoggedAvatarDisplayUrl) return;
+    _lastLoggedAvatarDisplayUrl = trimmed;
+    debugPrint('[ProfileScreen.avatar] render final url="$trimmed"');
+  }
+
   void _showAvatarPreview(String? url) {
     final trimmed = url?.trim();
     if (trimmed == null || trimmed.isEmpty || trimmed.toLowerCase() == 'null') {
       return;
     }
+    _logAvatarFlow('view photo url="$trimmed"');
     showDialog<void>(
       context: context,
       builder: (ctx) => Dialog(
@@ -215,8 +285,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Image.network(
               trimmed,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  Image.asset('assets/images/logo-sm.png', fit: BoxFit.cover),
+              errorBuilder: (_, error, __) {
+                _logAvatarFlow('view photo load failed url="$trimmed" error=$error');
+                return Image.asset('assets/images/logo-sm.png', fit: BoxFit.cover);
+              },
             ),
           ),
         ),
@@ -319,6 +391,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final avatarDisplayUrl = avatarUrl.isNotEmpty && _avatarVersion > 0
         ? '$avatarUrl${avatarUrl.contains('?') ? '&' : '?'}v=$_avatarVersion'
         : avatarUrl;
+    _logAvatarUrlIfChanged(avatarDisplayUrl);
     final location = profile.location;
     final phone = profile.phone;
     final isFixer = profile.isFixer;
@@ -635,6 +708,7 @@ class _ProfileAvatar extends StatefulWidget {
 
 class _ProfileAvatarState extends State<_ProfileAvatar> {
   bool _failed = false;
+  String _lastLoggedNetworkUrl = '';
 
   @override
   void didUpdateWidget(covariant _ProfileAvatar oldWidget) {
@@ -677,13 +751,15 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
         ),
       );
     } else if (!_failed && validUrl) {
+      _logNetworkUrlIfChanged(url);
       child = ClipOval(
         child: Image.network(
           url,
           width: innerRadius * 2,
           height: innerRadius * 2,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) {
+          errorBuilder: (_, error, ___) {
+            _debugAvatarError(url, 'profile avatar network load failed: $error');
             if (!_failed && mounted) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) setState(() => _failed = true);
@@ -790,6 +866,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
 
   void _defaultPreview(BuildContext context) {
     final url = widget.url?.trim() ?? '';
+    _debugAvatarLog('default preview url="$url"');
     showDialog<void>(
       context: context,
       builder: (ctx) => Dialog(
@@ -803,15 +880,35 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
                 : Image.network(
                     url,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Image.asset(
-                      'assets/images/logo-sm.png',
-                      fit: BoxFit.cover,
-                    ),
+                    errorBuilder: (_, error, __) {
+                      _debugAvatarError(url, 'default preview load failed: $error');
+                      return Image.asset(
+                        'assets/images/logo-sm.png',
+                        fit: BoxFit.cover,
+                      );
+                    },
                   ),
           ),
         ),
       ),
     );
+  }
+
+  void _logNetworkUrlIfChanged(String url) {
+    if (!kDebugMode) return;
+    if (url == _lastLoggedNetworkUrl) return;
+    _lastLoggedNetworkUrl = url;
+    debugPrint('[_ProfileAvatar] network url="$url"');
+  }
+
+  void _debugAvatarError(String url, String message) {
+    if (!kDebugMode) return;
+    debugPrint('[_ProfileAvatar] $message url="$url"');
+  }
+
+  void _debugAvatarLog(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[_ProfileAvatar] $message');
   }
 }
 
