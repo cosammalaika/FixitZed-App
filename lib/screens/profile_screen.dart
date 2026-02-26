@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/services/profile_photo_service.dart';
 import 'package:fixitzed_app/services/report_service.dart';
+import 'package:fixitzed_app/state/dashboard_controller.dart';
 import 'package:fixitzed_app/state/profile_controller.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -21,6 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final Color brand = const Color(0xFFF1592A);
   bool _uploadingPhoto = false;
   int _avatarVersion = 0;
+  String? _optimisticAvatarPath;
 
   Widget _menuItem(
     IconData icon,
@@ -154,46 +157,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _uploadProfilePhoto(String path) async {
     if (_uploadingPhoto) return;
-    setState(() => _uploadingPhoto = true);
-    unawaited(
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Center(child: CircularProgressIndicator()),
-      ),
-    );
+    final previousOptimisticPath = _optimisticAvatarPath;
+    setState(() {
+      _uploadingPhoto = true;
+      _optimisticAvatarPath = path;
+    });
+
     var success = false;
     try {
       success = await AuthService().updateProfilePhoto(path);
     } finally {
       if (mounted) {
-        Navigator.of(
-          context,
-          rootNavigator: true,
-        ).pop(); // close progress dialog
         setState(() => _uploadingPhoto = false);
       }
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success
-              ? 'Profile photo updated.'
-              : 'Failed to update profile photo.',
-        ),
-      ),
-    );
+
     if (success) {
       final ref = _ref;
       if (ref != null) {
         await ref.read(profileControllerProvider.notifier).refresh();
+        unawaited(ref.read(dashboardControllerProvider.notifier).refresh());
       }
       if (mounted) {
-        _avatarVersion++;
-        setState(() {});
+        setState(() {
+          _avatarVersion++;
+          _optimisticAvatarPath = null;
+        });
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile photo updated.')),
+      );
+      return;
     }
+
+    if (mounted) {
+      setState(() => _optimisticAvatarPath = previousOptimisticPath);
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Failed to update profile photo.')),
+    );
   }
 
   void _showAvatarPreview(String? url) {
@@ -252,7 +255,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           body: profileAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () {
+              final previous = profileAsync.valueOrNull;
+              if (previous != null) return _buildBody(previous);
+              return const Center(child: CircularProgressIndicator());
+            },
             error: (err, _) => Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -346,7 +353,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     _ProfileAvatar(
                       url: avatarDisplayUrl,
+                      localFilePath: _optimisticAvatarPath,
                       radius: 36,
+                      isUploading: _uploadingPhoto,
                       onChangePhoto: _showChangePhotoSheet,
                       onViewPhoto: () => _showAvatarPreview(avatarDisplayUrl),
                     ),
@@ -606,12 +615,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 class _ProfileAvatar extends StatefulWidget {
   final String? url;
+  final String? localFilePath;
   final double radius;
+  final bool isUploading;
   final VoidCallback? onChangePhoto;
   final VoidCallback? onViewPhoto;
   const _ProfileAvatar({
     required this.url,
+    this.localFilePath,
     this.radius = 32,
+    this.isUploading = false,
     this.onChangePhoto,
     this.onViewPhoto,
   });
@@ -622,6 +635,18 @@ class _ProfileAvatar extends StatefulWidget {
 
 class _ProfileAvatarState extends State<_ProfileAvatar> {
   bool _failed = false;
+
+  @override
+  void didUpdateWidget(covariant _ProfileAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldUrl = oldWidget.url?.trim() ?? '';
+    final newUrl = widget.url?.trim() ?? '';
+    final oldLocal = oldWidget.localFilePath?.trim() ?? '';
+    final newLocal = widget.localFilePath?.trim() ?? '';
+    if (oldUrl != newUrl || oldLocal != newLocal) {
+      _failed = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -637,9 +662,21 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
 
     final url = widget.url?.trim() ?? '';
     final validUrl = url.isNotEmpty && url.toLowerCase() != 'null';
+    final localPath = widget.localFilePath?.trim() ?? '';
+    final hasLocalPreview = localPath.isNotEmpty;
 
     Widget child;
-    if (!_failed && validUrl) {
+    if (hasLocalPreview) {
+      child = ClipOval(
+        child: Image.file(
+          File(localPath),
+          width: innerRadius * 2,
+          height: innerRadius * 2,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder,
+        ),
+      );
+    } else if (!_failed && validUrl) {
       child = ClipOval(
         child: Image.network(
           url,
@@ -665,7 +702,31 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
       child: CircleAvatar(
         radius: widget.radius,
         backgroundColor: Colors.white,
-        child: child,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            child,
+            if (widget.isUploading)
+              Container(
+                width: innerRadius * 2,
+                height: innerRadius * 2,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            if (widget.isUploading)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: Colors.white,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

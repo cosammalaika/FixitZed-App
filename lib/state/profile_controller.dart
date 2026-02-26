@@ -52,12 +52,12 @@ class ProfileController extends AutoDisposeAsyncNotifier<ProfileState> {
 
   Future<void> refresh() async {
     state = const AsyncValue<ProfileState>.loading().copyWithPrevious(state);
-    state = await AsyncValue.guard(_fetch);
+    state = await AsyncValue.guard(() => _fetch(forceRefresh: true));
   }
 
-  Future<ProfileState> _fetch() async {
-    final homeService = ref.read(homeServiceProvider);
-    final me = await homeService.fetchMe();
+  Future<ProfileState> _fetch({bool forceRefresh = false}) async {
+    final profileRepo = ref.read(profileRepositoryProvider);
+    final me = await profileRepo.getProfile(forceRefresh: forceRefresh);
     final raw = _extractUserMap(me);
     return ProfileState(
       name: _resolveName(raw),
@@ -114,7 +114,9 @@ class ProfileController extends AutoDisposeAsyncNotifier<ProfileState> {
 
   String? _resolveAvatar(Map<String, dynamic> raw) {
     final rawAvatar =
-        (raw['profile_photo_path'] ??
+        (raw['avatar_url'] ??
+                raw['avatarUrl'] ??
+                raw['profile_photo_path'] ??
                 raw['avatar'] ??
                 raw['photo'] ??
                 raw['profile_photo_url'] ??
@@ -122,7 +124,34 @@ class ProfileController extends AutoDisposeAsyncNotifier<ProfileState> {
                 raw['image'])
             ?.toString();
     final resolved = Api.resolveImageUrl(rawAvatar);
-    return resolved.isEmpty ? null : resolved;
+    if (resolved.isEmpty) return null;
+
+    final versionToken = _resolveAvatarVersionToken(raw);
+    if (versionToken.isEmpty) return resolved;
+
+    final separator = resolved.contains('?') ? '&' : '?';
+    return '$resolved${separator}v=${Uri.encodeQueryComponent(versionToken)}';
+  }
+
+  String _resolveAvatarVersionToken(Map<String, dynamic> raw) {
+    const keys = [
+      'avatar_updated_at',
+      'avatarUpdatedAt',
+      'profile_photo_updated_at',
+      'profilePhotoUpdatedAt',
+      'updated_at',
+      'updatedAt',
+    ];
+
+    for (final key in keys) {
+      final value = raw[key];
+      if (value == null) continue;
+      final token = value.toString().trim();
+      if (token.isEmpty || token.toLowerCase() == 'null') continue;
+      return token;
+    }
+
+    return '';
   }
 
   bool _resolveIsFixer(Map<String, dynamic> raw) {

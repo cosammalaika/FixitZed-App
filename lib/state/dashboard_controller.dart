@@ -52,6 +52,7 @@ class DashboardState {
 
 class DashboardController extends AsyncNotifier<DashboardState> {
   bool _syncRegistered = false;
+  bool _forceProfileRefreshNext = false;
 
   @override
   FutureOr<DashboardState> build() {
@@ -74,6 +75,9 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     void handleEvent(AppSyncEvent _) => unawaited(refresh());
 
     ref.onAppSync(AppSyncTopic.dashboard, (event) {
+      if (_isProfileMutationEvent(event)) {
+        _forceProfileRefreshNext = true;
+      }
       handleEvent(event);
     });
     ref.onAppSync(AppSyncTopic.notifications, (event) {
@@ -102,7 +106,9 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     bool inactive = false;
 
     try {
-      me = await profileRepo.getProfile();
+      final forceProfileRefresh = _forceProfileRefreshNext;
+      _forceProfileRefreshNext = false;
+      me = await profileRepo.getProfile(forceRefresh: forceProfileRefresh);
       final userMap = _extractUserMap(me);
       inactive = _isInactive(userMap);
       if (!inactive) {
@@ -132,6 +138,14 @@ class DashboardController extends AsyncNotifier<DashboardState> {
       error: error,
       isInactive: inactive,
     );
+  }
+
+  bool _isProfileMutationEvent(AppSyncEvent event) {
+    final payload = event.payload;
+    if (payload is! Map) return false;
+    final source = payload['source']?.toString().trim().toLowerCase();
+    final action = payload['action']?.toString().trim().toLowerCase();
+    return source == 'profile' || action == 'profileupdated';
   }
 
   Map<String, dynamic> _extractUserMap(Map<String, dynamic>? me) {
@@ -207,7 +221,9 @@ class DashboardController extends AsyncNotifier<DashboardState> {
 
   String? _resolveAvatar(Map<String, dynamic> raw) {
     final avatarRaw =
-        (raw['profile_photo_path'] ??
+        (raw['avatar_url'] ??
+                raw['avatarUrl'] ??
+                raw['profile_photo_path'] ??
                 raw['avatar'] ??
                 raw['photo'] ??
                 raw['profile_photo_url'] ??
@@ -215,7 +231,34 @@ class DashboardController extends AsyncNotifier<DashboardState> {
                 raw['image'])
             ?.toString();
     final resolved = Api.resolveImageUrl(avatarRaw);
-    return resolved.isEmpty ? null : resolved;
+    if (resolved.isEmpty) return null;
+
+    final versionToken = _resolveAvatarVersionToken(raw);
+    if (versionToken.isEmpty) return resolved;
+
+    final separator = resolved.contains('?') ? '&' : '?';
+    return '$resolved${separator}v=${Uri.encodeQueryComponent(versionToken)}';
+  }
+
+  String _resolveAvatarVersionToken(Map<String, dynamic> raw) {
+    const keys = [
+      'avatar_updated_at',
+      'avatarUpdatedAt',
+      'profile_photo_updated_at',
+      'profilePhotoUpdatedAt',
+      'updated_at',
+      'updatedAt',
+    ];
+
+    for (final key in keys) {
+      final value = raw[key];
+      if (value == null) continue;
+      final token = value.toString().trim();
+      if (token.isEmpty || token.toLowerCase() == 'null') continue;
+      return token;
+    }
+
+    return '';
   }
 
   bool _detectUnread(List<dynamic> notifications) {

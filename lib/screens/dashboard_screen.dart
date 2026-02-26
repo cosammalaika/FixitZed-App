@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/state/dashboard_controller.dart';
 import 'package:fixitzed_app/state/fixers_providers.dart';
+import 'package:fixitzed_app/state/profile_controller.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
@@ -139,10 +140,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  Widget _greeting(DashboardState state) => DashboardGreeting(
-    name: state.name,
-    location: state.location,
-    avatarUrl: state.avatarUrl,
+  Widget _greeting(DashboardState state, {ProfileState? profile}) =>
+      DashboardGreeting(
+    name: (profile?.name ?? '').trim().isNotEmpty ? profile!.name : state.name,
+    location: (profile?.location ?? '').trim().isNotEmpty
+        ? profile!.location
+        : state.location,
+    avatarUrl: (profile?.avatarUrl ?? '').trim().isNotEmpty
+        ? profile!.avatarUrl
+        : state.avatarUrl,
     hasUnread: state.hasUnread,
     onNotificationsTap: () async {
       await Navigator.of(context).pushNamed('/notifications');
@@ -612,6 +618,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             state.error ??
             dashboardAsync.whenOrNull(error: (err, _) => err.toString());
         final topFixers = ref.watch(topFixersProvider);
+        final profileState = ref.watch(profileControllerProvider).valueOrNull;
 
         if (state.isInactive) {
           return _InactiveAccountView(
@@ -639,6 +646,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 children: [
                   _buildHomeTab(
                     state: state,
+                    profile: profileState,
                     isInitialLoading: isInitialLoading,
                     errorText: errorText,
                     topFixers: topFixers,
@@ -658,6 +666,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildHomeTab({
     required DashboardState state,
+    required ProfileState? profile,
     required bool isInitialLoading,
     required String? errorText,
     required AsyncValue<List<dynamic>> topFixers,
@@ -678,7 +687,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _greeting(state),
+          _greeting(state, profile: profile),
           const SizedBox(height: 16),
           _bookingHero(),
           const SizedBox(height: 20),

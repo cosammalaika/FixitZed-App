@@ -1,6 +1,7 @@
 // lib/services/auth_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/services/api_client.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
@@ -404,23 +405,47 @@ class AuthService {
       final token = await _getToken();
       if (token == null || token.isEmpty) return false;
 
+      final endpoint = _uri('me');
       final request = http.MultipartRequest('POST', _uri('me'))
         ..headers['Accept'] = 'application/json'
         ..headers['Authorization'] = 'Bearer $token'
         ..fields['_method'] = 'PATCH';
 
-      request.files.add(
-        await http.MultipartFile.fromPath('profile_photo', trimmed),
+      final filePart = await http.MultipartFile.fromPath('profile_photo', trimmed);
+      _logProfilePhoto(
+        'before upload path="$trimmed" bytes=${filePart.length} url=$endpoint',
       );
+      request.files.add(filePart);
 
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
+      _logProfilePhoto(
+        'upload response status=${response.statusCode} body=${_logSnippet(response.body)}',
+      );
+
+      final responseBody = _tryDecodeJsonMap(response.body);
+      _logProfilePhotoResponseFields('upload response', responseBody);
+
       final ok = response.statusCode >= 200 && response.statusCode < 300;
+      if (ok && !_responseHasAvatarPayload(responseBody)) {
+        final meRes = await http.get(
+          _uri('me'),
+          headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+        );
+        _logProfilePhoto(
+          'fallback GET /me status=${meRes.statusCode} body=${_logSnippet(meRes.body)}',
+        );
+        _logProfilePhotoResponseFields('fallback /me', _tryDecodeJsonMap(meRes.body));
+      }
       if (ok) {
         _announceProfileUpdate();
       }
       return ok;
-    } catch (_) {
+    } catch (e, st) {
+      _logProfilePhoto('upload error: $e');
+      if (kDebugMode) {
+        debugPrint(st.toString());
+      }
       return false;
     }
   }
@@ -499,6 +524,85 @@ class AuthService {
       if (msg is String && msg.trim().isNotEmpty) return msg.trim();
     }
     return null;
+  }
+
+  void _logProfilePhoto(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[AuthService.updateProfilePhoto] $message');
+  }
+
+  String _logSnippet(String raw, {int max = 500}) {
+    final compact = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (compact.length <= max) return compact;
+    return '${compact.substring(0, max)}...';
+  }
+
+  Map<String, dynamic>? _tryDecodeJsonMap(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) {
+        return decoded.map((k, v) => MapEntry(k.toString(), v));
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  bool _responseHasAvatarPayload(Map<String, dynamic>? body) {
+    if (body == null) return false;
+    final user = _extractUserFromPayload(body);
+    if (user == null) return false;
+
+    const keys = [
+      'avatar_url',
+      'avatarUrl',
+      'profile_photo_url',
+      'profile_photo_path',
+      'profilePhotoUrl',
+      'profilePhotoPath',
+    ];
+    for (final key in keys) {
+      final value = user[key];
+      if (value == null) continue;
+      final s = value.toString().trim();
+      if (s.isNotEmpty && s.toLowerCase() != 'null') return true;
+    }
+    return false;
+  }
+
+  Map<String, dynamic>? _extractUserFromPayload(Map<String, dynamic> body) {
+    final user = body['user'];
+    if (user is Map<String, dynamic>) return user;
+    if (user is Map) {
+      return user.map((k, v) => MapEntry(k.toString(), v));
+    }
+    return body;
+  }
+
+  void _logProfilePhotoResponseFields(String label, Map<String, dynamic>? body) {
+    if (!kDebugMode) return;
+    if (body == null) {
+      debugPrint('[AuthService.updateProfilePhoto] $label fields: <non-json>');
+      return;
+    }
+    final user = _extractUserFromPayload(body) ?? <String, dynamic>{};
+    final avatarUrl = user['avatar_url'] ?? user['avatarUrl'];
+    final profilePhotoUrl =
+        user['profile_photo_url'] ?? user['profilePhotoUrl'];
+    final profilePhotoPath =
+        user['profile_photo_path'] ?? user['profilePhotoPath'];
+    final avatarUpdatedAt =
+        body['avatar_updated_at'] ??
+        user['avatar_updated_at'] ??
+        user['avatarUpdatedAt'] ??
+        user['updated_at'] ??
+        user['updatedAt'];
+
+    debugPrint(
+      '[AuthService.updateProfilePhoto] $label fields: '
+      'avatar_url=$avatarUrl, profile_photo_url=$profilePhotoUrl, '
+      'profile_photo_path=$profilePhotoPath, avatar_updated_at=$avatarUpdatedAt',
+    );
   }
 
   AuthResult _mapError(http.Response res) {
