@@ -161,6 +161,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _loading = false;
   bool _pwVisible = false;
   bool _cpwVisible = false;
+  Map<String, String> _backendFieldErrors = {};
 
   @override
   void dispose() {
@@ -202,7 +203,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _backendFieldErrors = {};
+    });
     try {
       final result = await AuthService().register(
         firstName: firstName,
@@ -224,12 +228,29 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
         unawaited(Navigator.pushReplacementNamed(context, '/home'));
       } else {
+        if (result.fieldErrors.isNotEmpty) {
+          setState(() {
+            _backendFieldErrors = Map<String, String>.from(result.fieldErrors);
+            final step = _stepIndexForFieldErrors(_backendFieldErrors.keys);
+            if (step != null) {
+              _currentStep = step;
+            }
+          });
+          for (final key in _stepKeys) {
+            key.currentState?.validate();
+          }
+        }
         final detailLines = result.errors;
         var message = result.displayMessage ?? '';
         if (message.isEmpty && detailLines.isNotEmpty) {
           message = 'Please review the issues below.';
         } else if (message.isEmpty) {
           message = 'We couldn\'t create your account. Please try again.';
+        }
+        if (result.fieldErrors.isNotEmpty &&
+            (message == 'The given data was invalid.' ||
+                message == 'Please double-check your details and try again.')) {
+          return;
         }
         await _showErrorDialog(
           title: 'Sign up failed',
@@ -247,6 +268,82 @@ class _SignUpScreenState extends State<SignUpScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  int? _stepIndexForFieldErrors(Iterable<String> keys) {
+    for (final raw in keys) {
+      final key = raw.trim();
+      if (key.isEmpty) continue;
+      if (const {
+        'first_name',
+        'last_name',
+        'name',
+        'username',
+        'email',
+      }.contains(key)) {
+        return 0;
+      }
+      if (const {
+        'contact_number',
+        'province',
+        'province_id',
+        'province_slug',
+        'district',
+        'district_id',
+        'district_slug',
+      }.contains(key)) {
+        return 1;
+      }
+      if (const {'password', 'password_confirmation'}.contains(key)) {
+        return 2;
+      }
+    }
+    return null;
+  }
+
+  void _clearBackendFieldErrors(Iterable<String> keys) {
+    if (_backendFieldErrors.isEmpty) return;
+    var changed = false;
+    final next = Map<String, String>.from(_backendFieldErrors);
+    for (final key in keys) {
+      if (next.remove(key) != null) changed = true;
+    }
+    if (changed && mounted) {
+      setState(() => _backendFieldErrors = next);
+    }
+  }
+
+  String? _backendFieldError(Iterable<String> keys) {
+    for (final key in keys) {
+      final msg = _backendFieldErrors[key];
+      if (msg != null && msg.trim().isNotEmpty) return msg;
+    }
+    return null;
+  }
+
+  bool _hasDigits(String value) => RegExp(r'\d').hasMatch(value);
+
+  String? _validateNameField(
+    String? value, {
+    required String requiredMessage,
+    required Iterable<String> backendKeys,
+  }) {
+    final s = (value ?? '').trim();
+    if (s.isEmpty) return requiredMessage;
+    if (_hasDigits(s)) return 'Name cannot contain numbers';
+    return _backendFieldError(backendKeys);
+  }
+
+  String? _validateEmailField(String? value) {
+    final s = (value ?? '').trim();
+    if (s.isEmpty) return 'Email is required';
+    final ok = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$').hasMatch(s);
+    if (!ok) return 'Enter a valid email';
+    final parts = s.split('@');
+    if (parts.length == 2 && parts[1].toLowerCase() == 'example.com') {
+      return 'Please use a real email address';
+    }
+    return _backendFieldError(const ['email']);
   }
 
   Future<void> _showErrorDialog({
@@ -505,9 +602,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   nextFocusNode: _lastFocus,
                   textInputAction: TextInputAction.next,
                   labelText: 'First Name',
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? 'First name is required'
-                      : null,
+                  onChanged: (_) =>
+                      _clearBackendFieldErrors(const ['first_name', 'name']),
+                  validator: (v) => _validateNameField(
+                    v,
+                    requiredMessage: 'First name is required',
+                    backendKeys: const ['first_name', 'name'],
+                  ),
                 ),
               ),
               FocusAware(
@@ -518,9 +619,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   nextFocusNode: _usernameFocus,
                   textInputAction: TextInputAction.next,
                   labelText: 'Last Name',
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? 'Last Name is required'
-                      : null,
+                  onChanged: (_) =>
+                      _clearBackendFieldErrors(const ['last_name', 'name']),
+                  validator: (v) => _validateNameField(
+                    v,
+                    requiredMessage: 'Last Name is required',
+                    backendKeys: const ['last_name', 'name'],
+                  ),
                 ),
               ),
             ),
@@ -558,14 +663,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 textInputAction: TextInputAction.next,
                 keyboardType: TextInputType.emailAddress,
                 labelText: 'Email Address',
-                validator: (v) {
-                  final s = (v ?? '').trim();
-                  if (s.isEmpty) return 'Email is required';
-                  final ok = RegExp(
-                    r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$',
-                  ).hasMatch(s);
-                  return ok ? null : 'Enter a valid email';
-                },
+                onChanged: (_) => _clearBackendFieldErrors(const ['email']),
+                validator: _validateEmailField,
               ),
             ),
           ],

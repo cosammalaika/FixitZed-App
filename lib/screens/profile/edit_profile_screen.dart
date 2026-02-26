@@ -25,6 +25,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String _initialEmail = '';
   bool _loading = true;
   bool _saving = false;
+  Map<String, String> _backendFieldErrors = {};
 
   // Security (password change)
   final _currentCtrl = TextEditingController();
@@ -82,28 +83,96 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _save() async {
+    FocusScope.of(context).unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _backendFieldErrors = {};
+    });
     final first = _firstCtrl.text.trim();
     final last = _lastCtrl.text.trim();
-    final email = _emailCtrl.text.trim();
-    final includeEmail = email != _initialEmail;
+    final email = _emailCtrl.text.trim().toLowerCase();
+    final includeEmail = email != _initialEmail.trim().toLowerCase();
 
-    final ok = await AuthService().updateProfile(
+    final result = await AuthService().updateProfile(
       firstName: first,
       lastName: last,
       email: includeEmail ? email : null,
     );
     if (!mounted) return;
     setState(() => _saving = false);
+    if (result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully.')),
+      );
+      Navigator.of(context).pop(true);
+      return;
+    }
+
+    if (result.fieldErrors.isNotEmpty) {
+      setState(() {
+        _backendFieldErrors = Map<String, String>.from(result.fieldErrors);
+      });
+      _formKey.currentState?.validate();
+    }
+
+    final message = result.displayMessage?.trim();
+    if (result.fieldErrors.isNotEmpty &&
+        (message == null ||
+            message.isEmpty ||
+            message == 'The given data was invalid.' ||
+            message == 'Please double-check your details and try again.')) {
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok ? 'Profile updated successfully.' : 'Failed to update profile.',
-        ),
-      ),
+      SnackBar(content: Text(message?.isNotEmpty == true ? message! : 'Failed to update profile.')),
     );
-    if (ok) Navigator.of(context).pop(true);
+  }
+
+  void _clearBackendFieldErrors(Iterable<String> keys) {
+    if (_backendFieldErrors.isEmpty) return;
+    var changed = false;
+    final next = Map<String, String>.from(_backendFieldErrors);
+    for (final key in keys) {
+      if (next.remove(key) != null) changed = true;
+    }
+    if (changed && mounted) {
+      setState(() => _backendFieldErrors = next);
+    }
+  }
+
+  String? _backendFieldError(Iterable<String> keys) {
+    for (final key in keys) {
+      final msg = _backendFieldErrors[key];
+      if (msg != null && msg.trim().isNotEmpty) return msg.trim();
+    }
+    return null;
+  }
+
+  bool _hasDigits(String value) => RegExp(r'\d').hasMatch(value);
+
+  String? _validateNameField(
+    String? value, {
+    required String requiredMessage,
+    required Iterable<String> backendKeys,
+  }) {
+    final s = (value ?? '').trim();
+    if (s.isEmpty) return requiredMessage;
+    if (_hasDigits(s)) return 'Name cannot contain numbers';
+    return _backendFieldError(backendKeys);
+  }
+
+  String? _validateEmailField(String? value) {
+    final s = (value ?? '').trim();
+    if (s.isEmpty) return 'Required';
+    final ok = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$').hasMatch(s);
+    if (!ok) return 'Enter a valid email';
+    final parts = s.split('@');
+    if (parts.length == 2 && parts[1].toLowerCase() == 'example.com') {
+      return 'Please use a real email address';
+    }
+    return _backendFieldError(const ['email']);
   }
 
   InputDecoration _dec(String label) => InputDecoration(
@@ -234,8 +303,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         nextFocusNode: _lastFocus,
                         textInputAction: TextInputAction.next,
                         labelText: 'First Name',
-                        validator: (v) =>
-                            (v ?? '').trim().isEmpty ? 'Required' : null,
+                        onChanged: (_) => _clearBackendFieldErrors(
+                          const ['first_name', 'firstName', 'name', 'full_name'],
+                        ),
+                        validator: (v) => _validateNameField(
+                          v,
+                          requiredMessage: 'Required',
+                          backendKeys: const [
+                            'first_name',
+                            'firstName',
+                            'name',
+                            'full_name',
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -247,8 +327,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         nextFocusNode: _emailFocus,
                         textInputAction: TextInputAction.next,
                         labelText: 'Last Name',
-                        validator: (v) =>
-                            (v ?? '').trim().isEmpty ? 'Required' : null,
+                        onChanged: (_) => _clearBackendFieldErrors(
+                          const ['last_name', 'lastName', 'name', 'full_name'],
+                        ),
+                        validator: (v) => _validateNameField(
+                          v,
+                          requiredMessage: 'Required',
+                          backendKeys: const [
+                            'last_name',
+                            'lastName',
+                            'name',
+                            'full_name',
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -260,14 +351,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.done,
                         labelText: 'Email Address',
-                        validator: (v) {
-                          final s = (v ?? '').trim();
-                          if (s.isEmpty) return 'Required';
-                          final ok = RegExp(
-                            r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}',
-                          ).hasMatch(s);
-                          return ok ? null : 'Enter a valid email';
-                        },
+                        onChanged: (_) =>
+                            _clearBackendFieldErrors(const ['email']),
+                        validator: _validateEmailField,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xl),

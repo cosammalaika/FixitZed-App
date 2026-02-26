@@ -11,11 +11,13 @@ class AuthResult {
   final bool success;
   final String? message;
   final List<String> errors;
+  final Map<String, String> fieldErrors;
 
   const AuthResult({
     required this.success,
     this.message,
     this.errors = const [],
+    this.fieldErrors = const {},
   });
 
   String? get displayMessage {
@@ -24,6 +26,14 @@ class AuthResult {
     }
     if (errors.isNotEmpty) {
       return errors.join('\n');
+    }
+    return null;
+  }
+
+  String? fieldErrorFor(Iterable<String> keys) {
+    for (final key in keys) {
+      final value = fieldErrors[key];
+      if (value != null && value.trim().isNotEmpty) return value.trim();
     }
     return null;
   }
@@ -175,7 +185,7 @@ class AuthService {
         if (trimmedLast != null && trimmedLast.isNotEmpty)
           'last_name': trimmedLast,
         if (displayName.isNotEmpty) 'name': displayName,
-        'email': email,
+        'email': email.trim().toLowerCase(),
         'contact_number': phone,
         'password': password,
         'province': province,
@@ -292,18 +302,20 @@ class AuthService {
 
   /// Updates the authenticated user's profile.
   /// Be tolerant of different API shapes (endpoints, methods, field names).
-  Future<bool> updateProfile({
+  Future<AuthResult> updateProfile({
     String? firstName,
     String? lastName,
     String? email,
   }) async {
     try {
       final token = await _getToken();
-      if (token == null || token.isEmpty) return false;
+      if (token == null || token.isEmpty) {
+        return const AuthResult(success: false, message: 'Not signed in.');
+      }
 
       final trimmedFirst = firstName?.trim();
       final trimmedLast = lastName?.trim();
-      final trimmedEmail = email?.trim();
+      final trimmedEmail = email?.trim().toLowerCase();
 
       // Build a body that covers common naming conventions.
       final body = <String, dynamic>{};
@@ -326,7 +338,9 @@ class AuthService {
         body['name'] = fullName; // Laravel Jetstream style
         body['full_name'] = fullName;
       }
-      if (body.isEmpty) return false;
+      if (body.isEmpty) {
+        return const AuthResult(success: false, message: 'Nothing to update.');
+      }
 
       // Try a series of common endpoints/methods used by Laravel/Node backends.
       final endpoints = <String>[
@@ -344,27 +358,42 @@ class AuthService {
           final resPatch = await _patchJson(path, body, token: token);
           if (resPatch.statusCode >= 200 && resPatch.statusCode < 300) {
             _announceProfileUpdate();
-            return true;
+            return const AuthResult(success: true);
+          }
+          if (resPatch.statusCode != 404 && resPatch.statusCode != 405) {
+            return _mapError(resPatch);
           }
         } catch (_) {}
         try {
           final resPut = await _putJson(path, body, token: token);
           if (resPut.statusCode >= 200 && resPut.statusCode < 300) {
             _announceProfileUpdate();
-            return true;
+            return const AuthResult(success: true);
+          }
+          if (resPut.statusCode != 404 && resPut.statusCode != 405) {
+            return _mapError(resPut);
           }
         } catch (_) {}
         try {
           final resPost = await _postJson(path, body, token: token);
           if (resPost.statusCode >= 200 && resPost.statusCode < 300) {
             _announceProfileUpdate();
-            return true;
+            return const AuthResult(success: true);
+          }
+          if (resPost.statusCode != 404 && resPost.statusCode != 405) {
+            return _mapError(resPost);
           }
         } catch (_) {}
       }
-      return false;
+      return const AuthResult(
+        success: false,
+        message: 'Failed to update profile.',
+      );
     } catch (_) {
-      return false;
+      return const AuthResult(
+        success: false,
+        message: 'Unable to reach the server. Please try again.',
+      );
     }
   }
 
@@ -475,6 +504,7 @@ class AuthService {
   AuthResult _mapError(http.Response res) {
     String? message;
     final errors = <String>[];
+    final fieldErrors = <String, String>{};
     try {
       final body = jsonDecode(res.body);
       if (body is Map) {
@@ -484,16 +514,27 @@ class AuthService {
         }
         final err = body['errors'];
         if (err is Map) {
-          err.forEach((_, value) {
+          err.forEach((key, value) {
+            String? firstFieldError;
             if (value is List) {
-              errors.addAll(
-                value
-                    .map((e) => e.toString())
-                    .where((e) => e.trim().isNotEmpty),
-              );
+              final values = value
+                  .map((e) => e.toString())
+                  .where((e) => e.trim().isNotEmpty)
+                  .toList();
+              if (values.isNotEmpty) {
+                errors.addAll(values);
+                firstFieldError = values.first;
+              }
             } else if (value != null) {
               final text = value.toString();
-              if (text.trim().isNotEmpty) errors.add(text);
+              if (text.trim().isNotEmpty) {
+                errors.add(text);
+                firstFieldError = text;
+              }
+            }
+            final keyText = key.toString().trim();
+            if (keyText.isNotEmpty && firstFieldError != null) {
+              fieldErrors[keyText] = firstFieldError;
             }
           });
         }
@@ -506,6 +547,11 @@ class AuthService {
         ? 'Our servers are busy right now. Please try again shortly.'
         : 'Please double-check your details and try again.';
 
-    return AuthResult(success: false, message: message, errors: errors);
+    return AuthResult(
+      success: false,
+      message: message,
+      errors: errors,
+      fieldErrors: fieldErrors,
+    );
   }
 }
