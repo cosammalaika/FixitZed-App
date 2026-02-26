@@ -40,10 +40,88 @@ class AuthResult {
   }
 }
 
+class AvatarUploadDebugSnapshot {
+  final String? filePath;
+  final int? fileSizeBytes;
+  final String? requestUrl;
+  final int? uploadStatusCode;
+  final String uploadResponseSnippet;
+  final String uploadResponseHeadersSnippet;
+  final int? meStatusCode;
+  final String meResponseSnippet;
+  final String? meProfilePhotoPath;
+  final String? meProfilePhotoUrl;
+  final String? meAvatarUrl;
+  final String? meResolvedAvatarUrl;
+  final String? meAvatarVersionToken;
+  final String? error;
+  final DateTime? updatedAt;
+
+  const AvatarUploadDebugSnapshot({
+    this.filePath,
+    this.fileSizeBytes,
+    this.requestUrl,
+    this.uploadStatusCode,
+    this.uploadResponseSnippet = '',
+    this.uploadResponseHeadersSnippet = '',
+    this.meStatusCode,
+    this.meResponseSnippet = '',
+    this.meProfilePhotoPath,
+    this.meProfilePhotoUrl,
+    this.meAvatarUrl,
+    this.meResolvedAvatarUrl,
+    this.meAvatarVersionToken,
+    this.error,
+    this.updatedAt,
+  });
+
+  AvatarUploadDebugSnapshot copyWith({
+    String? filePath,
+    int? fileSizeBytes,
+    String? requestUrl,
+    int? uploadStatusCode,
+    String? uploadResponseSnippet,
+    String? uploadResponseHeadersSnippet,
+    int? meStatusCode,
+    String? meResponseSnippet,
+    String? meProfilePhotoPath,
+    String? meProfilePhotoUrl,
+    String? meAvatarUrl,
+    String? meResolvedAvatarUrl,
+    String? meAvatarVersionToken,
+    String? error,
+    DateTime? updatedAt,
+    bool clearError = false,
+  }) {
+    return AvatarUploadDebugSnapshot(
+      filePath: filePath ?? this.filePath,
+      fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
+      requestUrl: requestUrl ?? this.requestUrl,
+      uploadStatusCode: uploadStatusCode ?? this.uploadStatusCode,
+      uploadResponseSnippet: uploadResponseSnippet ?? this.uploadResponseSnippet,
+      uploadResponseHeadersSnippet:
+          uploadResponseHeadersSnippet ?? this.uploadResponseHeadersSnippet,
+      meStatusCode: meStatusCode ?? this.meStatusCode,
+      meResponseSnippet: meResponseSnippet ?? this.meResponseSnippet,
+      meProfilePhotoPath: meProfilePhotoPath ?? this.meProfilePhotoPath,
+      meProfilePhotoUrl: meProfilePhotoUrl ?? this.meProfilePhotoUrl,
+      meAvatarUrl: meAvatarUrl ?? this.meAvatarUrl,
+      meResolvedAvatarUrl: meResolvedAvatarUrl ?? this.meResolvedAvatarUrl,
+      meAvatarVersionToken: meAvatarVersionToken ?? this.meAvatarVersionToken,
+      error: clearError ? null : (error ?? this.error),
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
 class AuthService {
   AuthService({AppSync? sync}) : _sync = sync ?? AppSync.instance;
 
   final AppSync _sync;
+  static final ValueNotifier<AvatarUploadDebugSnapshot> avatarUploadDebug =
+      ValueNotifier<AvatarUploadDebugSnapshot>(
+        const AvatarUploadDebugSnapshot(),
+      );
 
   Uri _uri(String path) => Uri.parse('${Api.baseUrl}/$path');
 
@@ -406,12 +484,26 @@ class AuthService {
       if (token == null || token.isEmpty) return false;
 
       final endpoint = _uri('me');
+      if (kDebugMode) {
+        avatarUploadDebug.value = AvatarUploadDebugSnapshot(
+          filePath: trimmed,
+          requestUrl: endpoint.toString(),
+          updatedAt: DateTime.now(),
+        );
+      }
       final request = http.MultipartRequest('POST', _uri('me'))
         ..headers['Accept'] = 'application/json'
         ..headers['Authorization'] = 'Bearer $token'
         ..fields['_method'] = 'PATCH';
 
       final filePart = await http.MultipartFile.fromPath('profile_photo', trimmed);
+      _setAvatarUploadDebug(
+        (current) => current.copyWith(
+          fileSizeBytes: filePart.length,
+          updatedAt: DateTime.now(),
+          clearError: true,
+        ),
+      );
       _logProfilePhoto(
         'before upload path="$trimmed" bytes=${filePart.length} url=$endpoint',
       );
@@ -419,8 +511,18 @@ class AuthService {
 
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
+      _logProfilePhoto('upload response headers=${response.headers}');
       _logProfilePhoto(
-        'upload response status=${response.statusCode} body=${_logSnippet(response.body)}',
+        'upload response status=${response.statusCode} body=${_logSnippet(response.body, max: 300)}',
+      );
+      _setAvatarUploadDebug(
+        (current) => current.copyWith(
+          uploadStatusCode: response.statusCode,
+          uploadResponseHeadersSnippet: _headersSnippet(response.headers, max: 300),
+          uploadResponseSnippet: _logSnippet(response.body, max: 200),
+          updatedAt: DateTime.now(),
+          clearError: true,
+        ),
       );
 
       final responseBody = _tryDecodeJsonMap(response.body);
@@ -428,22 +530,44 @@ class AuthService {
 
       final ok = response.statusCode >= 200 && response.statusCode < 300;
       var hasAvatarPayload = _responseHasAvatarPayload(responseBody);
-      if (ok && !hasAvatarPayload) {
+      Map<String, dynamic>? meBody;
+      if (ok) {
         final meRes = await http.get(
           _uri('me'),
           headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
         );
-        final meBody = _tryDecodeJsonMap(meRes.body);
+        meBody = _tryDecodeJsonMap(meRes.body);
+        _logProfilePhoto('GET /me after upload headers=${meRes.headers}');
         _logProfilePhoto(
-          'fallback GET /me status=${meRes.statusCode} body=${_logSnippet(meRes.body)}',
+          'GET /me after upload status=${meRes.statusCode} body=${_logSnippet(meRes.body, max: 300)}',
         );
-        _logProfilePhotoResponseFields('fallback /me', meBody);
+        _logProfilePhotoResponseFields('GET /me after upload', meBody);
+        _logProfilePhotoResolvedAvatar('GET /me after upload', meBody);
         final meOk = meRes.statusCode >= 200 && meRes.statusCode < 300;
-        hasAvatarPayload = meOk && _responseHasAvatarPayload(meBody);
+        hasAvatarPayload = hasAvatarPayload || (meOk && _responseHasAvatarPayload(meBody));
+        _setAvatarUploadDebug(
+          (current) => current.copyWith(
+            meStatusCode: meRes.statusCode,
+            meResponseSnippet: _logSnippet(meRes.body, max: 200),
+            meProfilePhotoPath: _payloadField(meBody, ['profile_photo_path', 'profilePhotoPath']),
+            meProfilePhotoUrl: _payloadField(meBody, ['profile_photo_url', 'profilePhotoUrl']),
+            meAvatarUrl: _payloadField(meBody, ['avatar_url', 'avatarUrl']),
+            meResolvedAvatarUrl: _resolvedAvatarFromPayload(meBody),
+            meAvatarVersionToken: _avatarVersionTokenFromPayload(meBody),
+            updatedAt: DateTime.now(),
+            clearError: true,
+          ),
+        );
       }
       if (ok && !hasAvatarPayload) {
         _logProfilePhoto(
           'upload succeeded but avatar fields were missing from upload response and fallback /me',
+        );
+        _setAvatarUploadDebug(
+          (current) => current.copyWith(
+            error: 'Missing avatar fields in upload response and GET /me',
+            updatedAt: DateTime.now(),
+          ),
         );
         return false;
       }
@@ -453,11 +577,24 @@ class AuthService {
       return ok;
     } catch (e, st) {
       _logProfilePhoto('upload error: $e');
+      _setAvatarUploadDebug(
+        (current) => current.copyWith(
+          error: e.toString(),
+          updatedAt: DateTime.now(),
+        ),
+      );
       if (kDebugMode) {
         debugPrint(st.toString());
       }
       return false;
     }
+  }
+
+  void _setAvatarUploadDebug(
+    AvatarUploadDebugSnapshot Function(AvatarUploadDebugSnapshot current) updater,
+  ) {
+    if (!kDebugMode) return;
+    avatarUploadDebug.value = updater(avatarUploadDebug.value);
   }
 
   void _announceProfileUpdate() {
@@ -547,6 +684,13 @@ class AuthService {
     return '${compact.substring(0, max)}...';
   }
 
+  String _headersSnippet(Map<String, String> headers, {int max = 500}) {
+    final text = headers.entries
+        .map((e) => '${e.key}: ${e.value}')
+        .join(', ');
+    return _logSnippet(text, max: max);
+  }
+
   Map<String, dynamic>? _tryDecodeJsonMap(String raw) {
     try {
       final decoded = jsonDecode(raw);
@@ -613,6 +757,68 @@ class AuthService {
       'avatar_url=$avatarUrl, profile_photo_url=$profilePhotoUrl, '
       'profile_photo_path=$profilePhotoPath, avatar_updated_at=$avatarUpdatedAt',
     );
+  }
+
+  void _logProfilePhotoResolvedAvatar(String label, Map<String, dynamic>? body) {
+    if (!kDebugMode) return;
+    final resolved = _resolvedAvatarFromPayload(body);
+    final version = _avatarVersionTokenFromPayload(body);
+    debugPrint(
+      '[AuthService.updateProfilePhoto] $label resolved_avatar=$resolved version=$version',
+    );
+  }
+
+  String? _payloadField(Map<String, dynamic>? body, List<String> keys) {
+    if (body == null) return null;
+    final user = _extractUserFromPayload(body) ?? const <String, dynamic>{};
+    for (final key in keys) {
+      final value = user[key];
+      if (value == null) continue;
+      final text = value.toString().trim();
+      if (text.isEmpty || text.toLowerCase() == 'null') continue;
+      return text;
+    }
+    return null;
+  }
+
+  String? _avatarVersionTokenFromPayload(Map<String, dynamic>? body) {
+    if (body == null) return null;
+    final user = _extractUserFromPayload(body) ?? const <String, dynamic>{};
+    const keys = [
+      'avatar_updated_at',
+      'avatarUpdatedAt',
+      'profile_photo_updated_at',
+      'profilePhotoUpdatedAt',
+      'updated_at',
+      'updatedAt',
+    ];
+    for (final key in keys) {
+      final value = body[key] ?? user[key];
+      if (value == null) continue;
+      final text = value.toString().trim();
+      if (text.isEmpty || text.toLowerCase() == 'null') continue;
+      return text;
+    }
+    return null;
+  }
+
+  String? _resolvedAvatarFromPayload(Map<String, dynamic>? body) {
+    if (body == null) return null;
+    final rawAvatar = _payloadField(body, const [
+      'avatar_url',
+      'avatarUrl',
+      'profile_photo_url',
+      'profilePhotoUrl',
+      'profile_photo_path',
+      'profilePhotoPath',
+    ]);
+    if (rawAvatar == null) return null;
+    final resolved = Api.resolveImageUrl(rawAvatar);
+    if (resolved.isEmpty) return null;
+    final version = _avatarVersionTokenFromPayload(body);
+    if (version == null || version.isEmpty) return resolved;
+    final sep = resolved.contains('?') ? '&' : '?';
+    return '$resolved${sep}v=${Uri.encodeQueryComponent(version)}';
   }
 
   AuthResult _mapError(http.Response res) {

@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/services/profile_photo_service.dart';
@@ -240,14 +242,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final avatar = current?.avatarUrl?.trim() ?? '';
       final normalizedAvatar = avatar.toLowerCase() == 'null' ? '' : avatar;
       final hasAvatar = normalizedAvatar.isNotEmpty;
+      final isAbsolute = _isAbsoluteHttpUrl(normalizedAvatar);
       final changed = previousAvatarUrl.isEmpty || normalizedAvatar != previousAvatarUrl;
 
       _logAvatarFlow(
-        'confirm attempt=$attempt hasAvatar=$hasAvatar changed=$changed '
+        'confirm attempt=$attempt hasAvatar=$hasAvatar isAbsolute=$isAbsolute changed=$changed '
         'previous="$previousAvatarUrl" current="$normalizedAvatar"',
       );
 
-      if (hasAvatar && changed) {
+      if (hasAvatar && isAbsolute && changed) {
         return true;
       }
     }
@@ -258,6 +261,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _logAvatarFlow(String message) {
     if (!kDebugMode) return;
     debugPrint('[ProfileScreen.avatar] $message');
+  }
+
+  bool _isAbsoluteHttpUrl(String url) {
+    if (url.isEmpty) return false;
+    final parsed = Uri.tryParse(url);
+    if (parsed == null) return false;
+    if (!parsed.hasScheme || parsed.host.isEmpty) return false;
+    return parsed.scheme == 'http' || parsed.scheme == 'https';
   }
 
   void _logAvatarUrlIfChanged(String url) {
@@ -293,6 +304,144 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _avatarDebugCard({
+    required ProfileState profile,
+    required String finalResolvedAvatarUrl,
+  }) {
+    return ValueListenableBuilder<AvatarUploadDebugSnapshot>(
+      valueListenable: AuthService.avatarUploadDebug,
+      builder: (context, debug, _) {
+        final canOpen = finalResolvedAvatarUrl.trim().isNotEmpty;
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              iconColor: Colors.white,
+              collapsedIconColor: Colors.white70,
+              title: Text(
+                'Avatar Debug (temporary)',
+                style: GoogleFonts.urbanist(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              subtitle: Text(
+                'Upload: ${debug.uploadStatusCode ?? '-'} | /me: ${debug.meStatusCode ?? '-'}',
+                style: GoogleFonts.urbanist(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 11,
+                ),
+              ),
+              children: [
+                _debugLine('optimisticFilePath', _optimisticAvatarPath),
+                _debugLine('currentUser.profile_photo_path', profile.rawProfilePhotoPath),
+                _debugLine('currentUser.profile_photo_url', profile.rawProfilePhotoUrl),
+                _debugLine('currentUser.avatar_url', profile.rawAvatarUrl),
+                _debugLine('finalResolvedAvatarUrl', finalResolvedAvatarUrl),
+                _debugLine('lastUploadHttpStatus', debug.uploadStatusCode?.toString()),
+                _debugLine('lastUploadResponseSnippet', debug.uploadResponseSnippet),
+                _debugLine('lastGetMeHttpStatus', debug.meStatusCode?.toString()),
+                _debugLine('lastGetMeResolvedAvatarUrl', debug.meResolvedAvatarUrl),
+                _debugLine('lastGetMeResponseSnippet', debug.meResponseSnippet),
+                if ((debug.error ?? '').trim().isNotEmpty)
+                  _debugLine('lastError', debug.error),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: canOpen ? () => _copyDebugUrl(finalResolvedAvatarUrl) : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+                      ),
+                      icon: const Icon(Icons.copy_rounded, size: 16),
+                      label: const Text('Copy URL'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: canOpen ? () => _openDebugUrl(finalResolvedAvatarUrl) : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+                      ),
+                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                      label: const Text('Open URL'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _debugLine(String label, String? value) {
+    final shown = (value == null || value.trim().isEmpty) ? '<empty>' : value.trim();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.urbanist(
+              color: Colors.white.withValues(alpha: 0.75),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          SelectableText(
+            shown,
+            style: GoogleFonts.urbanist(
+              color: Colors.white,
+              fontSize: 11,
+              height: 1.25,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _copyDebugUrl(String url) async {
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Avatar URL copied')),
+    );
+  }
+
+  Future<void> _openDebugUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid avatar URL')),
+      );
+      return;
+    }
+    _logAvatarFlow('open url="$url"');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (opened) return;
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open avatar URL')),
     );
   }
 
@@ -502,6 +651,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
+                if (kDebugMode) ...[
+                  const SizedBox(height: 12),
+                  _avatarDebugCard(
+                    profile: profile,
+                    finalResolvedAvatarUrl: avatarDisplayUrl,
+                  ),
+                ],
                 const SizedBox(height: 18),
                 Container(
                   width: double.infinity,
