@@ -42,6 +42,23 @@ class Api {
     return '$origin/storage/$normalized';
   }
 
+  /// Adds or replaces a single cache-busting `v` query param.
+  /// This avoids duplicate `?v=...&v=...` URLs when multiple layers rebuild.
+  static String withCacheBust(String url, String token) {
+    final trimmedUrl = url.trim();
+    final trimmedToken = token.trim();
+    if (trimmedUrl.isEmpty || trimmedToken.isEmpty) return trimmedUrl;
+
+    try {
+      final uri = Uri.parse(trimmedUrl);
+      final qp = Map<String, String>.from(uri.queryParameters);
+      qp['v'] = trimmedToken;
+      return uri.replace(queryParameters: qp).toString();
+    } catch (_) {
+      return trimmedUrl;
+    }
+  }
+
   static String _normalizeHost(String url) {
     try {
       final uri = Uri.parse(url);

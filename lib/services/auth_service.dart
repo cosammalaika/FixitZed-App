@@ -817,8 +817,7 @@ class AuthService {
     if (resolved.isEmpty) return null;
     final version = _avatarVersionTokenFromPayload(body);
     if (version == null || version.isEmpty) return resolved;
-    final sep = resolved.contains('?') ? '&' : '?';
-    return '$resolved${sep}v=${Uri.encodeQueryComponent(version)}';
+    return Api.withCacheBust(resolved, version);
   }
 
   AuthResult _mapError(http.Response res) {

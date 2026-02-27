@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart' show NetworkImageLoadException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -114,14 +115,27 @@ class DashboardGreeting extends StatelessWidget {
       );
     }
 
-    _debugAvatarLog('dashboard header url="$avatar"');
+    _debugAvatarLog('[Avatar] LOAD ATTEMPT url=$avatar');
     return Image.network(
       avatar,
       width: size,
       height: size,
       fit: BoxFit.cover,
+      loadingBuilder: (_, child, progress) {
+        if (progress == null) {
+          _debugAvatarLog('[Avatar] LOADED SUCCESS url=$avatar');
+          return child;
+        }
+        return const SizedBox(
+          width: size,
+          height: size,
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        );
+      },
       errorBuilder: (_, error, __) {
-        _debugAvatarLog('dashboard header load failed url="$avatar" error=$error');
+        _debugAvatarLog(
+          '[Avatar] LOAD FAILED url=$avatar error=${_describeImageError(error)}',
+        );
         return Image.asset(
           'assets/images/logo-sm.png',
           width: size,
@@ -135,6 +149,13 @@ class DashboardGreeting extends StatelessWidget {
   void _debugAvatarLog(String message) {
     if (!kDebugMode) return;
     debugPrint('[DashboardGreeting.avatar] $message');
+  }
+
+  String _describeImageError(Object error) {
+    if (error is NetworkImageLoadException) {
+      return 'NetworkImageLoadException(statusCode=${error.statusCode}, uri=${error.uri})';
+    }
+    return error.toString();
   }
 }
 

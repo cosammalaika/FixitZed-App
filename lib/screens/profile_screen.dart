@@ -2,11 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart' show NetworkImageLoadException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/services/profile_photo_service.dart';
@@ -25,8 +24,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   WidgetRef? _ref;
   final Color brand = const Color(0xFFF1592A);
   bool _uploadingPhoto = false;
-  int _avatarVersion = 0;
   String? _optimisticAvatarPath;
+  String? _pendingNetworkAvatarUrl;
   String _lastLoggedAvatarDisplayUrl = '';
 
   Widget _menuItem(
@@ -166,6 +165,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _uploadingPhoto = true;
       _optimisticAvatarPath = path;
+      _pendingNetworkAvatarUrl = null;
     });
 
     var success = false;
@@ -189,10 +189,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         unawaited(ref.read(dashboardControllerProvider.notifier).refresh());
       }
       if (mounted && avatarConfirmed) {
+        final refreshedAvatarUrl = _currentPersistedAvatarUrl();
         setState(() {
-          _avatarVersion++;
-          _optimisticAvatarPath = null;
+          _pendingNetworkAvatarUrl =
+              refreshedAvatarUrl.isEmpty ? null : refreshedAvatarUrl;
         });
+        _logAvatarFlow(
+          'waiting for network avatar load before clearing preview '
+          'pending="$_pendingNetworkAvatarUrl"',
+        );
       }
       if (!avatarConfirmed) {
         _logAvatarFlow(
@@ -212,7 +217,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     if (mounted) {
-      setState(() => _optimisticAvatarPath = previousOptimisticPath);
+      setState(() {
+        _optimisticAvatarPath = previousOptimisticPath;
+        _pendingNetworkAvatarUrl = null;
+      });
     }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Failed to update profile photo.')),
@@ -250,7 +258,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'previous="$previousAvatarUrl" current="$normalizedAvatar"',
       );
 
-      if (hasAvatar && isAbsolute && changed) {
+      if (hasAvatar && isAbsolute) {
         return true;
       }
     }
@@ -279,6 +287,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
     debugPrint('[ProfileScreen.avatar] render final url="$trimmed"');
   }
 
+  void _onProfileAvatarNetworkLoaded(String url) {
+    final normalized = url.trim();
+    if (normalized.isEmpty || !mounted) return;
+    final pending = _pendingNetworkAvatarUrl?.trim() ?? '';
+    _logAvatarFlow(
+      'network avatar loaded url="$normalized" pending="$pending" '
+      'localPreview="${_optimisticAvatarPath ?? ''}"',
+    );
+
+    if (_optimisticAvatarPath == null) return;
+    if (pending.isEmpty) {
+      _logAvatarFlow('ignoring network load because no pending avatar url is set yet');
+      return;
+    }
+    if (pending.isNotEmpty && pending != normalized) {
+      _logAvatarFlow(
+        'ignoring stale network load because pending url differs '
+        'loaded="$normalized"',
+      );
+      return;
+    }
+
+    setState(() {
+      _optimisticAvatarPath = null;
+      _pendingNetworkAvatarUrl = null;
+    });
+  }
+
   void _showAvatarPreview(String? url) {
     final trimmed = url?.trim();
     if (trimmed == null || trimmed.isEmpty || trimmed.toLowerCase() == 'null') {
@@ -296,6 +332,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Image.network(
               trimmed,
               fit: BoxFit.cover,
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) {
+                  _logAvatarFlow('[Avatar] LOADED SUCCESS url=$trimmed');
+                  return child;
+                }
+                return const Center(child: CircularProgressIndicator());
+              },
               errorBuilder: (_, error, __) {
                 _logAvatarFlow('view photo load failed url="$trimmed" error=$error');
                 return Image.asset('assets/images/logo-sm.png', fit: BoxFit.cover);
@@ -304,144 +347,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _avatarDebugCard({
-    required ProfileState profile,
-    required String finalResolvedAvatarUrl,
-  }) {
-    return ValueListenableBuilder<AvatarUploadDebugSnapshot>(
-      valueListenable: AuthService.avatarUploadDebug,
-      builder: (context, debug, _) {
-        final canOpen = finalResolvedAvatarUrl.trim().isNotEmpty;
-        return Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-          ),
-          child: Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-              childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              iconColor: Colors.white,
-              collapsedIconColor: Colors.white70,
-              title: Text(
-                'Avatar Debug (temporary)',
-                style: GoogleFonts.urbanist(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-              subtitle: Text(
-                'Upload: ${debug.uploadStatusCode ?? '-'} | /me: ${debug.meStatusCode ?? '-'}',
-                style: GoogleFonts.urbanist(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 11,
-                ),
-              ),
-              children: [
-                _debugLine('optimisticFilePath', _optimisticAvatarPath),
-                _debugLine('currentUser.profile_photo_path', profile.rawProfilePhotoPath),
-                _debugLine('currentUser.profile_photo_url', profile.rawProfilePhotoUrl),
-                _debugLine('currentUser.avatar_url', profile.rawAvatarUrl),
-                _debugLine('finalResolvedAvatarUrl', finalResolvedAvatarUrl),
-                _debugLine('lastUploadHttpStatus', debug.uploadStatusCode?.toString()),
-                _debugLine('lastUploadResponseSnippet', debug.uploadResponseSnippet),
-                _debugLine('lastGetMeHttpStatus', debug.meStatusCode?.toString()),
-                _debugLine('lastGetMeResolvedAvatarUrl', debug.meResolvedAvatarUrl),
-                _debugLine('lastGetMeResponseSnippet', debug.meResponseSnippet),
-                if ((debug.error ?? '').trim().isNotEmpty)
-                  _debugLine('lastError', debug.error),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: canOpen ? () => _copyDebugUrl(finalResolvedAvatarUrl) : null,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
-                      ),
-                      icon: const Icon(Icons.copy_rounded, size: 16),
-                      label: const Text('Copy URL'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: canOpen ? () => _openDebugUrl(finalResolvedAvatarUrl) : null,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
-                      ),
-                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                      label: const Text('Open URL'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _debugLine(String label, String? value) {
-    final shown = (value == null || value.trim().isEmpty) ? '<empty>' : value.trim();
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.urbanist(
-              color: Colors.white.withValues(alpha: 0.75),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          SelectableText(
-            shown,
-            style: GoogleFonts.urbanist(
-              color: Colors.white,
-              fontSize: 11,
-              height: 1.25,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _copyDebugUrl(String url) async {
-    await Clipboard.setData(ClipboardData(text: url));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Avatar URL copied')),
-    );
-  }
-
-  Future<void> _openDebugUrl(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid avatar URL')),
-      );
-      return;
-    }
-    _logAvatarFlow('open url="$url"');
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (opened) return;
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Could not open avatar URL')),
     );
   }
 
@@ -537,9 +442,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final name = profile.name;
     final email = profile.email;
     final avatarUrl = profile.avatarUrl ?? '';
-    final avatarDisplayUrl = avatarUrl.isNotEmpty && _avatarVersion > 0
-        ? '$avatarUrl${avatarUrl.contains('?') ? '&' : '?'}v=$_avatarVersion'
-        : avatarUrl;
+    final avatarDisplayUrl = avatarUrl;
     _logAvatarUrlIfChanged(avatarDisplayUrl);
     final location = profile.location;
     final phone = profile.phone;
@@ -580,6 +483,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       isUploading: _uploadingPhoto,
                       onChangePhoto: _showChangePhotoSheet,
                       onViewPhoto: () => _showAvatarPreview(avatarDisplayUrl),
+                      onNetworkImageLoaded: _onProfileAvatarNetworkLoaded,
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -651,13 +555,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
-                if (kDebugMode) ...[
-                  const SizedBox(height: 12),
-                  _avatarDebugCard(
-                    profile: profile,
-                    finalResolvedAvatarUrl: avatarDisplayUrl,
-                  ),
-                ],
                 const SizedBox(height: 18),
                 Container(
                   width: double.infinity,
@@ -849,6 +746,7 @@ class _ProfileAvatar extends StatefulWidget {
   final bool isUploading;
   final VoidCallback? onChangePhoto;
   final VoidCallback? onViewPhoto;
+  final ValueChanged<String>? onNetworkImageLoaded;
   const _ProfileAvatar({
     required this.url,
     this.localFilePath,
@@ -856,6 +754,7 @@ class _ProfileAvatar extends StatefulWidget {
     this.isUploading = false,
     this.onChangePhoto,
     this.onViewPhoto,
+    this.onNetworkImageLoaded,
   });
 
   @override
@@ -863,18 +762,16 @@ class _ProfileAvatar extends StatefulWidget {
 }
 
 class _ProfileAvatarState extends State<_ProfileAvatar> {
-  bool _failed = false;
   String _lastLoggedNetworkUrl = '';
+  String _lastLoadedNetworkUrl = '';
 
   @override
   void didUpdateWidget(covariant _ProfileAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldUrl = oldWidget.url?.trim() ?? '';
     final newUrl = widget.url?.trim() ?? '';
-    final oldLocal = oldWidget.localFilePath?.trim() ?? '';
-    final newLocal = widget.localFilePath?.trim() ?? '';
-    if (oldUrl != newUrl || oldLocal != newLocal) {
-      _failed = false;
+    final oldUrl = oldWidget.url?.trim() ?? '';
+    if (oldUrl != newUrl) {
+      _lastLoadedNetworkUrl = '';
     }
   }
 
@@ -894,39 +791,60 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
     final validUrl = url.isNotEmpty && url.toLowerCase() != 'null';
     final localPath = widget.localFilePath?.trim() ?? '';
     final hasLocalPreview = localPath.isNotEmpty;
+    final networkLoadedForCurrentUrl = _lastLoadedNetworkUrl == url;
+    final shouldKeepPreview = hasLocalPreview && (!validUrl || !networkLoadedForCurrentUrl);
 
-    Widget child;
-    if (hasLocalPreview) {
-      child = ClipOval(
-        child: Image.file(
-          File(localPath),
-          width: innerRadius * 2,
-          height: innerRadius * 2,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => placeholder,
-        ),
-      );
-    } else if (!_failed && validUrl) {
+    final localPreview = ClipOval(
+      child: Image.file(
+        File(localPath),
+        width: innerRadius * 2,
+        height: innerRadius * 2,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => placeholder,
+      ),
+    );
+
+    Widget child = placeholder;
+    if (validUrl) {
       _logNetworkUrlIfChanged(url);
-      child = ClipOval(
+      final networkImage = ClipOval(
         child: Image.network(
           url,
           width: innerRadius * 2,
           height: innerRadius * 2,
           fit: BoxFit.cover,
-          errorBuilder: (_, error, ___) {
-            _debugAvatarError(url, 'profile avatar network load failed: $error');
-            if (!_failed && mounted) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() => _failed = true);
-              });
+          loadingBuilder: (_, networkChild, progress) {
+            if (progress == null) {
+              _logNetworkLoadSuccess(url);
+              _notifyLoaded(url);
+              return networkChild;
             }
+            return SizedBox(
+              width: innerRadius * 2,
+              height: innerRadius * 2,
+              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            );
+          },
+          errorBuilder: (_, error, __) {
+            _debugAvatarError('LOAD FAILED url=$url error=${_describeImageError(error)}');
             return placeholder;
           },
         ),
       );
-    } else {
-      child = placeholder;
+
+      if (shouldKeepPreview) {
+        child = Stack(
+          alignment: Alignment.center,
+          children: [
+            networkImage,
+            localPreview,
+          ],
+        );
+      } else {
+        child = networkImage;
+      }
+    } else if (hasLocalPreview) {
+      child = localPreview;
     }
 
     return GestureDetector(
@@ -1036,8 +954,15 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
                 : Image.network(
                     url,
                     fit: BoxFit.cover,
+                    loadingBuilder: (_, child, progress) {
+                      if (progress == null) {
+                        _debugAvatarLog('[Avatar] LOADED SUCCESS url=$url');
+                        return child;
+                      }
+                      return const Center(child: CircularProgressIndicator());
+                    },
                     errorBuilder: (_, error, __) {
-                      _debugAvatarError(url, 'default preview load failed: $error');
+                      _debugAvatarError('default preview load failed: $error');
                       return Image.asset(
                         'assets/images/logo-sm.png',
                         fit: BoxFit.cover,
@@ -1054,17 +979,39 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
     if (!kDebugMode) return;
     if (url == _lastLoggedNetworkUrl) return;
     _lastLoggedNetworkUrl = url;
-    debugPrint('[_ProfileAvatar] network url="$url"');
+    debugPrint('[Avatar] LOAD ATTEMPT url=$url');
   }
 
-  void _debugAvatarError(String url, String message) {
+  void _logNetworkLoadSuccess(String url) {
     if (!kDebugMode) return;
-    debugPrint('[_ProfileAvatar] $message url="$url"');
+    if (_lastLoadedNetworkUrl == url) return;
+    _lastLoadedNetworkUrl = url;
+    debugPrint('[Avatar] LOADED SUCCESS url=$url');
+  }
+
+  void _notifyLoaded(String url) {
+    if (widget.onNetworkImageLoaded == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onNetworkImageLoaded?.call(url);
+    });
+  }
+
+  void _debugAvatarError(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[Avatar] $message');
   }
 
   void _debugAvatarLog(String message) {
     if (!kDebugMode) return;
-    debugPrint('[_ProfileAvatar] $message');
+    debugPrint('[Avatar] $message');
+  }
+
+  String _describeImageError(Object error) {
+    if (error is NetworkImageLoadException) {
+      return 'NetworkImageLoadException(statusCode=${error.statusCode}, uri=${error.uri})';
+    }
+    return error.toString();
   }
 }
 

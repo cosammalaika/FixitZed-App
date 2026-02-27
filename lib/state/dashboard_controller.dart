@@ -235,9 +235,7 @@ class DashboardController extends AsyncNotifier<DashboardState> {
 
     final versionToken = _resolveAvatarVersionToken(raw);
     if (versionToken.isEmpty) return resolved;
-
-    final separator = resolved.contains('?') ? '&' : '?';
-    return '$resolved${separator}v=${Uri.encodeQueryComponent(versionToken)}';
+    return Api.withCacheBust(resolved, versionToken);
   }
 
   String _resolveAvatarVersionToken(Map<String, dynamic> raw) {
