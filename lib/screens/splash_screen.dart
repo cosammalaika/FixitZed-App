@@ -89,12 +89,17 @@ class _SplashScreenState extends State<SplashScreen>
         body: Stack(
           fit: StackFit.expand,
           children: [
-            // Background faded pattern
-            Opacity(
-              opacity: 0.08, // make it subtle
-              child: Image.asset(
-                'assets/images/pattern.png',
-                fit: BoxFit.cover,
+            // Subtle background texture without relying on an extra asset file.
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.06),
+                    Colors.black.withOpacity(0.02),
+                  ],
+                ),
               ),
             ),
 

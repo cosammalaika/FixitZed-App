@@ -42,6 +42,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   Map<String, FixerAvailability> _quickPickAvailability =
       const <String, FixerAvailability>{};
   String _quickPickAvailabilityKey = '';
+  bool _resolvingQuickPickAvailability = false;
+  bool _quickPickAvailabilityFrameScheduled = false;
+  List<dynamic>? _pendingQuickPickServices;
+  bool _pendingQuickPickForceRefresh = false;
 
   int? _parseId(dynamic value) {
     if (value is int) return value;
@@ -119,7 +123,21 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   String _serviceId(Map<dynamic, dynamic> service) {
     final id = service['id'] ?? service['uuid'] ?? service['service_id'];
-    return id?.toString() ?? '';
+    if (id != null) {
+      final normalized = id is num ? id.toInt().toString() : id.toString().trim();
+      if (normalized.isNotEmpty) return normalized;
+    }
+    final slug = (service['slug'] ?? service['service_slug'] ?? service['serviceCode'])
+        ?.toString()
+        .trim()
+        .toLowerCase();
+    if (slug != null && slug.isNotEmpty) return 'slug:$slug';
+    final name = (service['name'] ?? service['title'] ?? service['service_name'])
+        ?.toString()
+        .trim()
+        .toLowerCase();
+    if (name != null && name.isNotEmpty) return 'name:$name';
+    return '';
   }
 
   String _availabilityKey(List<Map<String, dynamic>> services) {
@@ -143,7 +161,18 @@ class _DashboardScreenState extends State<DashboardScreen>
         .toList();
     if (normalized.isEmpty) return;
     final key = _availabilityKey(normalized);
-    if (!forceRefresh && key == _quickPickAvailabilityKey) return;
+    final hasUnresolved = normalized.any((service) {
+      final id = _serviceId(service);
+      if (id.isEmpty) return false;
+      final state = _quickPickAvailability[id] ?? FixerAvailability.unknown;
+      return state == FixerAvailability.unknown ||
+          state == FixerAvailability.checking;
+    });
+    if (!forceRefresh &&
+        key == _quickPickAvailabilityKey &&
+        (_resolvingQuickPickAvailability || !hasUnresolved)) {
+      return;
+    }
     _quickPickAvailabilityKey = key;
     final snapshot = _availabilityResolver.stateForServices(normalized);
     if (mounted) {
@@ -163,36 +192,94 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  void _scheduleQuickPickAvailability(
+    List<dynamic> services, {
+    bool forceRefresh = false,
+  }) {
+    _pendingQuickPickServices = services;
+    _pendingQuickPickForceRefresh =
+        _pendingQuickPickForceRefresh || forceRefresh;
+    if (_quickPickAvailabilityFrameScheduled) return;
+    _quickPickAvailabilityFrameScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _quickPickAvailabilityFrameScheduled = false;
+      if (!mounted) return;
+      final pending = _pendingQuickPickServices;
+      final pendingForceRefresh = _pendingQuickPickForceRefresh;
+      _pendingQuickPickServices = null;
+      _pendingQuickPickForceRefresh = false;
+      if (pending == null || pending.isEmpty) return;
+      _ensureQuickPickAvailability(
+        pending,
+        forceRefresh: pendingForceRefresh,
+      );
+    });
+  }
+
   Future<void> _resolveQuickPickAvailability(
     List<Map<String, dynamic>> services, {
     required String key,
     bool forceRefresh = false,
   }) async {
-    final availability = await _availabilityResolver.verifyServices(
-      services,
-      forceRefresh: forceRefresh,
-      maxConcurrent: 4,
-      source: 'dashboard_quick_picks',
-    );
-    if (!mounted || key != _quickPickAvailabilityKey) return;
-    setState(() {
-      _quickPickAvailability = availability;
-    });
+    _resolvingQuickPickAvailability = true;
+    try {
+      final availability = await _availabilityResolver.verifyServices(
+        services,
+        forceRefresh: forceRefresh,
+        maxConcurrent: 4,
+        source: 'dashboard_quick_picks',
+      );
+      if (!mounted || key != _quickPickAvailabilityKey) return;
+      setState(() {
+        final merged = <String, FixerAvailability>{..._quickPickAvailability};
+        availability.forEach((id, state) {
+          final current = merged[id];
+          if (!forceRefresh &&
+              current == FixerAvailability.none &&
+              state == FixerAvailability.available) {
+            return;
+          }
+          merged[id] = state;
+        });
+        _quickPickAvailability = merged;
+      });
 
-    assert(() {
-      for (final service in services) {
-        final id = _serviceId(service);
-        final name =
-            (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
-        if (id == '87' || name.contains('ac installation')) {
-          final result = availability[id] ?? FixerAvailability.unknown;
-          debugPrint(
-            'Dashboard quick-picks availability service_id=$id result=$result raw=${_safeJson(service)}',
-          );
+      assert(() {
+        for (final service in services) {
+          final id = _serviceId(service);
+          final name = (service['name'] ?? service['title'] ?? '')
+              .toString()
+              .toLowerCase();
+          if (id == '87' || name.contains('ac installation')) {
+            final result = availability[id] ?? FixerAvailability.unknown;
+            debugPrint(
+              'Dashboard quick-picks availability service_id=$id result=$result raw=${_safeJson(service)}',
+            );
+          }
         }
-      }
-      return true;
-    }());
+        return true;
+      }());
+    } catch (error, stackTrace) {
+      if (!mounted || key != _quickPickAvailabilityKey) return;
+      setState(() {
+        final merged = <String, FixerAvailability>{..._quickPickAvailability};
+        for (final service in services) {
+          final id = _serviceId(service);
+          if (id.isEmpty) continue;
+          merged[id] = FixerAvailability.none;
+        }
+        _quickPickAvailability = merged;
+        _quickPickAvailabilityKey = '';
+      });
+      assert(() {
+        debugPrint(
+          'Dashboard quick-picks availability failed key=$key error=$error stack=$stackTrace',
+        );
+        return true;
+      }());
+    } finally {
+      _resolvingQuickPickAvailability = false;
+    }
   }
 
   Future<void> _openServiceWithAvailabilityGuard(
@@ -500,7 +587,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }) {
     final cached = _servicesRepo?.getCachedServices() ?? const <dynamic>[];
     final source = cached.isNotEmpty ? cached : services;
-    _ensureQuickPickAvailability(source);
+    _scheduleQuickPickAvailability(source);
     if (source.isEmpty) {
       if (kDebugMode) {
         debugPrint('Dashboard: services response empty, showing empty state');

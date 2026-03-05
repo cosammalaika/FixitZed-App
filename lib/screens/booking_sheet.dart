@@ -531,7 +531,7 @@ class _BookingSheetState extends State<BookingSheet> {
   ) {
     if (services.isEmpty) return services;
     final active = _collectActiveFixerServices(fixersRaw);
-    if (active.isEmpty) return services;
+    if (active.isEmpty) return const <Map<String, dynamic>>[];
 
     bool matches(Map<String, dynamic> service) {
       final id = _extractServiceId(service);
@@ -564,7 +564,7 @@ class _BookingSheetState extends State<BookingSheet> {
         filtered.add(service);
       }
     }
-    return filtered.isEmpty ? services : filtered;
+    return filtered;
   }
 
   _ActiveFixerServiceSet _collectActiveFixerServices(List<dynamic> fixersRaw) {
@@ -635,8 +635,7 @@ class _BookingSheetState extends State<BookingSheet> {
           final key = entry.key.toString().toLowerCase();
           if (key.contains('service') ||
               key.contains('skill') ||
-              key.contains('tag') ||
-              key.contains('category')) {
+              key.contains('tag')) {
             collectService(entry.value);
           }
         }
@@ -665,7 +664,6 @@ class _BookingSheetState extends State<BookingSheet> {
       collectService(fixer['skills']);
       collectService(fixer['skill_names']);
       collectService(fixer['tags']);
-      collectService(fixer['categories']);
       collectService(fixer['specialities']);
 
       for (final key in const [
@@ -767,28 +765,9 @@ class _BookingSheetState extends State<BookingSheet> {
       service['label'],
       service['service_name'],
       service['display_name'],
-      service['short_name'],
     ]) {
       if (value is String && value.trim().isNotEmpty) {
         yield value;
-      }
-    }
-    final subcategory = service['subcategory'];
-    if (subcategory is Map) {
-      final subName = subcategory['name'] ?? subcategory['title'];
-      if (subName is String && subName.trim().isNotEmpty) {
-        yield subName;
-      }
-    }
-    final subName2 = service['subcategory_name'] ?? service['subcategoryName'];
-    if (subName2 is String && subName2.trim().isNotEmpty) {
-      yield subName2;
-    }
-    final category = service['category'];
-    if (category is Map) {
-      final categoryName = category['name'] ?? category['title'];
-      if (categoryName is String && categoryName.trim().isNotEmpty) {
-        yield categoryName;
       }
     }
   }
@@ -1393,6 +1372,18 @@ class _BookingSheetState extends State<BookingSheet> {
                                                         final hasFixer =
                                                             _activeServiceIds
                                                                 .contains(id);
+                                                        assert(() {
+                                                          final lowered =
+                                                              name.toLowerCase();
+                                                          if (lowered.contains(
+                                                            'general pest control',
+                                                          )) {
+                                                            debugPrint(
+                                                              'Chooser service status service_id=$id has_fixer=$hasFixer active_ids_count=${_activeServiceIds.length}',
+                                                            );
+                                                          }
+                                                          return true;
+                                                        }());
                                                         return ListTile(
                                                           leading: const Icon(
                                                             Icons

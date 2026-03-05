@@ -37,6 +37,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
   Map<String, FixerAvailability> _availabilityByServiceId =
       const <String, FixerAvailability>{};
   String _availabilityCacheKey = '';
+  bool _resolvingAvailability = false;
   Map<String, dynamic>? _category;
   String? _categoryName;
   bool _initialized = false;
@@ -579,7 +580,21 @@ class _ServicesListScreenState extends State<ServicesListScreen>
 
   String _serviceIdFromMap(Map<dynamic, dynamic> service) {
     final id = service['id'] ?? service['uuid'] ?? service['service_id'];
-    return id?.toString() ?? '';
+    if (id != null) {
+      final normalized = id is num ? id.toInt().toString() : id.toString().trim();
+      if (normalized.isNotEmpty) return normalized;
+    }
+    final slug = (service['slug'] ?? service['service_slug'] ?? service['serviceCode'])
+        ?.toString()
+        .trim()
+        .toLowerCase();
+    if (slug != null && slug.isNotEmpty) return 'slug:$slug';
+    final name = (service['name'] ?? service['title'] ?? service['service_name'])
+        ?.toString()
+        .trim()
+        .toLowerCase();
+    if (name != null && name.isNotEmpty) return 'name:$name';
+    return '';
   }
 
   String _availabilityKey(List<Map<String, dynamic>> services) {
@@ -598,7 +613,18 @@ class _ServicesListScreenState extends State<ServicesListScreen>
   }) {
     if (services.isEmpty) return;
     final key = _availabilityKey(services);
-    if (!forceRefresh && key == _availabilityCacheKey) return;
+    final hasUnresolved = services.any((service) {
+      final id = _serviceIdFromMap(service);
+      if (id.isEmpty) return false;
+      final state = _availabilityByServiceId[id] ?? FixerAvailability.unknown;
+      return state == FixerAvailability.unknown ||
+          state == FixerAvailability.checking;
+    });
+    if (!forceRefresh &&
+        key == _availabilityCacheKey &&
+        (_resolvingAvailability || !hasUnresolved)) {
+      return;
+    }
     _availabilityCacheKey = key;
     final snapshot = _availabilityResolver.stateForServices(services);
     if (mounted) {
@@ -623,31 +649,65 @@ class _ServicesListScreenState extends State<ServicesListScreen>
     required String key,
     bool forceRefresh = false,
   }) async {
-    final availability = await _availabilityResolver.verifyServices(
-      services,
-      forceRefresh: forceRefresh,
-      maxConcurrent: 4,
-      source: 'services_list',
-    );
-    if (!mounted || key != _availabilityCacheKey) return;
-    setState(() {
-      _availabilityByServiceId = availability;
-    });
+    _resolvingAvailability = true;
+    try {
+      final availability = await _availabilityResolver.verifyServices(
+        services,
+        forceRefresh: forceRefresh,
+        maxConcurrent: 4,
+        source: 'services_list',
+      );
+      if (!mounted || key != _availabilityCacheKey) return;
+      setState(() {
+        final merged = <String, FixerAvailability>{..._availabilityByServiceId};
+        availability.forEach((id, state) {
+          final current = merged[id];
+          if (!forceRefresh &&
+              current == FixerAvailability.none &&
+              state == FixerAvailability.available) {
+            return;
+          }
+          merged[id] = state;
+        });
+        _availabilityByServiceId = merged;
+      });
 
-    assert(() {
-      for (final service in services) {
-        final id = _serviceIdFromMap(service);
-        final name =
-            (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
-        if (id == '87' || name.contains('ac installation')) {
-          final result = availability[id] ?? FixerAvailability.unknown;
-          debugPrint(
-            'Services list availability service_id=$id result=$result raw=${_safeJson(service)}',
-          );
+      assert(() {
+        for (final service in services) {
+          final id = _serviceIdFromMap(service);
+          final name = (service['name'] ?? service['title'] ?? '')
+              .toString()
+              .toLowerCase();
+          if (id == '87' || name.contains('ac installation')) {
+            final result = availability[id] ?? FixerAvailability.unknown;
+            debugPrint(
+              'Services list availability service_id=$id result=$result raw=${_safeJson(service)}',
+            );
+          }
         }
-      }
-      return true;
-    }());
+        return true;
+      }());
+    } catch (error, stackTrace) {
+      if (!mounted || key != _availabilityCacheKey) return;
+      setState(() {
+        final merged = <String, FixerAvailability>{..._availabilityByServiceId};
+        for (final service in services) {
+          final id = _serviceIdFromMap(service);
+          if (id.isEmpty) continue;
+          merged[id] = FixerAvailability.none;
+        }
+        _availabilityByServiceId = merged;
+        _availabilityCacheKey = '';
+      });
+      assert(() {
+        debugPrint(
+          'Services list availability failed key=$key error=$error stack=$stackTrace',
+        );
+        return true;
+      }());
+    } finally {
+      _resolvingAvailability = false;
+    }
   }
 
   ServiceAvailability _availabilityForService(

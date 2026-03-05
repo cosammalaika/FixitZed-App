@@ -17,12 +17,6 @@ class QuickPicksSection extends StatelessWidget {
   final VoidCallback onViewAll;
   final int limit;
 
-  String _serviceId(Map<dynamic, dynamic> service) {
-    final dynamic id =
-        service['id'] ?? service['uuid'] ?? service['service_id'];
-    return id?.toString() ?? '';
-  }
-
   int? _readyCount(Map<dynamic, dynamic> service) {
     final val = service['opted_in_fixers_count'] ??
         service['ready_fixers_count'] ??
@@ -66,12 +60,9 @@ class QuickPicksSection extends StatelessWidget {
     final filtered = services
         .whereType<Map>()
         .where((map) {
-          final id = _serviceId(map);
           final count = _readyCount(map);
-          final hasFixers = count != null
-              ? count > 0
-              : (_hasReadyFlag(map) ?? false) ||
-                  availableServiceIds.contains(id);
+          final hasFixers =
+              count != null ? count > 0 : (_hasReadyFlag(map) ?? false);
           return hasFixers || services.length <= limit;
         })
         .take(limit)
@@ -111,8 +102,9 @@ class QuickPicksSection extends StatelessWidget {
         const SizedBox(height: 12),
         ...filtered.map(
           (svc) {
-            final hasFixers = (_readyCount(svc) ?? 0) > 0 ||
-                (_hasReadyFlag(svc) ?? availableServiceIds.contains(_serviceId(svc)));
+            final count = _readyCount(svc);
+            final hasFixers =
+                count != null ? count > 0 : (_hasReadyFlag(svc) ?? false);
             return QuickPickTile(
               title: (svc['name'] ?? svc['title'] ?? 'Service').toString(),
               subtitle: (svc['category_name'] ??

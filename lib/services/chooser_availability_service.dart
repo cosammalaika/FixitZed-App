@@ -70,6 +70,7 @@ class FixerAvailabilityResolver {
 
   static const Duration _availabilityTtl = Duration(minutes: 5);
   static const Duration _fixersListTtl = Duration(minutes: 2);
+  static const Duration _verifyTimeout = Duration(seconds: 12);
 
   final HomeService _homeService;
   final Map<String, _AvailabilityCacheEntry> _cache =
@@ -82,9 +83,19 @@ class FixerAvailabilityResolver {
 
   String? _extractServiceId(Map<dynamic, dynamic> service) {
     final id = service['id'] ?? service['uuid'] ?? service['service_id'];
-    if (id == null) return null;
-    if (id is num) return id.toInt().toString();
-    return id.toString();
+    if (id != null) {
+      final normalized = id is num ? id.toInt().toString() : id.toString().trim();
+      if (normalized.isNotEmpty) return normalized;
+    }
+    final slugToken = _normalizeSlugToken(
+      service['slug'] ?? service['service_slug'] ?? service['serviceCode'],
+    );
+    if (slugToken.isNotEmpty) return 'slug:$slugToken';
+    final nameToken = _normalizeServiceNameToken(
+      service['name'] ?? service['title'] ?? service['service_name'],
+    );
+    if (nameToken.isNotEmpty) return 'name:$nameToken';
+    return null;
   }
 
   bool _hasFreshFixerList() {
@@ -109,7 +120,9 @@ class FixerAvailabilityResolver {
   bool _isEvidenceTarget(Map<String, dynamic> service, String id) {
     final name =
         (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
-    return id == '87' || name.contains('ac installation');
+    return id == '87' ||
+        name.contains('ac installation') ||
+        name.contains('general pest control');
   }
 
   int? _parseCount(dynamic value) {
@@ -244,13 +257,31 @@ class FixerAvailabilityResolver {
         chunk.add(queue.removeFirst());
       }
       final states = await Future.wait(
-        chunk.map(
-          (service) => verifyService(
-            service,
-            forceRefresh: forceRefresh,
-            source: source,
-          ),
-        ),
+        chunk.map((service) async {
+          final id = _extractServiceId(service) ?? '';
+          try {
+            return await verifyService(
+              service,
+              forceRefresh: forceRefresh,
+              source: source,
+            ).timeout(_verifyTimeout);
+          } catch (error, stackTrace) {
+            if (id.isNotEmpty) {
+              _cache[id] = _AvailabilityCacheEntry(
+                state: FixerAvailability.none,
+                eligibleFixerCount: 0,
+                verifiedAt: DateTime.now(),
+              );
+            }
+            assert(() {
+              debugPrint(
+                'FixerAvailabilityResolver[$source] verify failed service_id=$id error=$error stack=$stackTrace',
+              );
+              return true;
+            }());
+            return FixerAvailability.none;
+          }
+        }),
       );
       for (var i = 0; i < chunk.length; i++) {
         final id = _extractServiceId(chunk[i]);
@@ -303,17 +334,34 @@ class FixerAvailabilityResolver {
   }) async {
     final id = _extractServiceId(service);
     if (id == null || id.isEmpty) return 0;
-    final fixers = await _loadFixers(forceRefresh: forceRefresh);
+    final startedAt = DateTime.now();
+    List<dynamic> fixers;
+    try {
+      fixers = await _loadFixers(
+        forceRefresh: forceRefresh,
+      ).timeout(_verifyTimeout);
+    } catch (error, stackTrace) {
+      fixers = const <dynamic>[];
+      assert(() {
+        debugPrint(
+          'FixerAvailabilityResolver[$source] load fixers failed service_id=$id error=$error stack=$stackTrace',
+        );
+        return true;
+      }());
+    }
     final pickerListLength = fixers.whereType<Map>().length;
     final eligibleCount = _eligibleFixerCount(service, fixers);
     final state = eligibleCount > 0
         ? FixerAvailability.available
         : FixerAvailability.none;
-    _cache[id] = _AvailabilityCacheEntry(
-      state: state,
-      eligibleFixerCount: eligibleCount,
-      verifiedAt: DateTime.now(),
-    );
+    final existing = _cache[id];
+    if (existing == null || !existing.verifiedAt.isAfter(startedAt)) {
+      _cache[id] = _AvailabilityCacheEntry(
+        state: state,
+        eligibleFixerCount: eligibleCount,
+        verifiedAt: DateTime.now(),
+      );
+    }
 
     assert(() {
       if (_isEvidenceTarget(service, id)) {
@@ -438,8 +486,7 @@ class FixerAvailabilityResolver {
           final key = entry.key.toString().toLowerCase();
           if (key.contains('service') ||
               key.contains('skill') ||
-              key.contains('tag') ||
-              key.contains('category')) {
+              key.contains('tag')) {
             collectService(entry.value);
           }
         }
@@ -468,7 +515,6 @@ class FixerAvailabilityResolver {
       collectService(fixer['skills']);
       collectService(fixer['skill_names']);
       collectService(fixer['tags']);
-      collectService(fixer['categories']);
       collectService(fixer['specialities']);
 
       for (final key in const [
@@ -570,8 +616,6 @@ class FixerAvailabilityResolver {
       'label',
       'service_name',
       'display_name',
-      'subcategory_name',
-      'subcategory',
     ]) {
       final value = service[key];
       if (value is String && value.trim().isNotEmpty) {
@@ -581,24 +625,6 @@ class FixerAvailabilityResolver {
         if (nestedName is String && nestedName.trim().isNotEmpty) {
           yield nestedName;
         }
-      }
-    }
-    final sub = service['subcategory'];
-    if (sub is Map) {
-      final subName = sub['name'] ?? sub['title'];
-      if (subName is String && subName.trim().isNotEmpty) {
-        yield subName;
-      }
-    }
-    final subName2 = service['subcategory_name'] ?? service['subcategoryName'];
-    if (subName2 is String && subName2.trim().isNotEmpty) {
-      yield subName2;
-    }
-    final category = service['category'];
-    if (category is Map) {
-      final categoryName = category['name'] ?? category['title'];
-      if (categoryName is String && categoryName.trim().isNotEmpty) {
-        yield categoryName;
       }
     }
   }
