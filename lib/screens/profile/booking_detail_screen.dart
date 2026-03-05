@@ -5,6 +5,7 @@ import 'package:fixitzed_app/services/service_request_service.dart';
 import 'package:fixitzed_app/screens/payment_sheet.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/screens/profile/e_receipt_screen.dart';
+import 'package:fixitzed_app/utils/phone_formatter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class BookingDetailScreen extends StatelessWidget {
@@ -302,6 +303,9 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     final fixerContact = hasFixer
         ? _resolveFixerContact(request: r, fixer: fixer)
         : null;
+    final fixerContactDisplay = fixerContact == null
+        ? null
+        : formatZambianNumberForDisplay(fixerContact);
     final price = _toDouble(r['price'] ?? r['amount'] ?? r['total']);
     final discount = _toDouble(r['discount'] ?? r['discount_amount']);
     final total = _toDouble(r['total'] ?? ((price ?? 0) - (discount ?? 0)));
@@ -337,7 +341,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
                 _infoTile(
                   Icons.phone_rounded,
                   'Fixer contact',
-                  fixerContact,
+                  fixerContactDisplay ?? fixerContact,
                   trailing: TextButton.icon(
                     onPressed: () => _callNumber(fixerContact),
                     icon: const Icon(Icons.call_rounded),
@@ -705,13 +709,18 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
   }
 
   Future<void> _callNumber(String number) async {
-    final uri = Uri(scheme: 'tel', path: number);
-    if (!await launchUrl(uri)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Unable to start call')));
+    final normalized = normalizeZambianNumber(number);
+    final uri = Uri.parse('tel:$normalized');
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+      return;
     }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Unable to start call')));
   }
 
   String _normalizeStatusKey(String value) {
