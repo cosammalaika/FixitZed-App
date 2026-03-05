@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:fixitzed_app/repositories/categories_repository.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/repositories/favorites_repository.dart';
+import 'package:fixitzed_app/services/chooser_availability_service.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
 import 'package:fixitzed_app/screens/widgets/service_list_tile.dart';
@@ -29,7 +31,11 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
   List<Map<String, dynamic>> _allServices = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _services = const <Map<String, dynamic>>[];
   Set<String> _fav = {};
-  final Set<String> _availabilityLog = <String>{};
+  final ChooserAvailabilityService _chooserAvailabilityService =
+      ChooserAvailabilityService();
+  Map<String, FixerAvailability> _availabilityByServiceId =
+      const <String, FixerAvailability>{};
+  String _availabilityCacheKey = '';
   Map<String, dynamic>? _category;
   String? _categoryName;
   bool _initialized = false;
@@ -113,13 +119,13 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool forceRefresh = false}) async {
     if (mounted && _services.isEmpty) {
       setState(() {
         _loading = true;
       });
     }
-    final data = await _servicesRepository.getServices();
+    final data = await _servicesRepository.getServices(forceRefresh: forceRefresh);
     final fav = await _favoritesRepository.getFavoriteIds();
     if (!mounted) return;
     final services = data
@@ -146,6 +152,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
         _categoryOptions = _deriveCategoryOptions(services);
       }
     });
+    _ensureChooserAvailability(services, forceRefresh: forceRefresh);
     _applyFilters();
   }
 
@@ -161,6 +168,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
       if (_categoryOptions.isEmpty) {
         _categoryOptions = _deriveCategoryOptions(services);
       }
+      _ensureChooserAvailability(services);
       _loading = false;
     }
     if (_categoryOptions.isEmpty) {
@@ -273,7 +281,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: RefreshIndicator(
-        onRefresh: _load,
+        onRefresh: () => _load(forceRefresh: true),
         child: _loading
             ? const ServicesListSkeleton()
             : _services.isEmpty
@@ -534,63 +542,99 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
     return options;
   }
 
-  int? _readyCount(Map<dynamic, dynamic> service) {
-    final val = service['opted_in_fixers_count'] ??
-        service['ready_fixers_count'] ??
-        service['readyFixersCount'] ??
-        service['fixers_count'] ??
-        service['fixersCount'];
-    if (val is num) return val.toInt();
-    if (val is String) return int.tryParse(val);
-    final hasFlag = _hasReadyFlag(service);
-    if (hasFlag != null) return hasFlag ? 1 : 0;
-    final fixers = service['fixers'];
-    if (fixers is List) return fixers.length;
-    return null;
+  String _safeJson(dynamic value) {
+    try {
+      return jsonEncode(value);
+    } catch (_) {
+      return value.toString();
+    }
   }
 
-  bool? _hasReadyFlag(Map<dynamic, dynamic> service) {
-    final raw = service['has_ready_fixers'] ??
-        service['hasReadyFixers'] ??
-        service['has_fixers'] ??
-        service['hasFixers'] ??
-        service['has_opted_in_fixers'] ??
-        service['hasOptedInFixers'];
-    if (raw is bool) return raw;
-    if (raw is num) return raw > 0;
-    if (raw is String) {
-      final normalized = raw.trim().toLowerCase();
-      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
-        return true;
+  String _serviceIdFromMap(Map<dynamic, dynamic> service) {
+    final id = service['id'] ?? service['uuid'] ?? service['service_id'];
+    return id?.toString() ?? '';
+  }
+
+  String _availabilityKey(List<Map<String, dynamic>> services) {
+    final ids = services
+        .map(_serviceIdFromMap)
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return ids.join(',');
+  }
+
+  void _ensureChooserAvailability(
+    List<Map<String, dynamic>> services, {
+    bool forceRefresh = false,
+  }) {
+    if (services.isEmpty) return;
+    final key = _availabilityKey(services);
+    if (!forceRefresh && key == _availabilityCacheKey) return;
+    _availabilityCacheKey = key;
+    unawaited(
+      _resolveChooserAvailability(
+        services,
+        key: key,
+        forceRefresh: forceRefresh,
+      ),
+    );
+  }
+
+  Future<void> _resolveChooserAvailability(
+    List<Map<String, dynamic>> services, {
+    required String key,
+    bool forceRefresh = false,
+  }) async {
+    final availability = await _chooserAvailabilityService.resolveForServices(
+      services,
+      forceRefresh: forceRefresh,
+      source: 'services_list',
+    );
+    if (!mounted || key != _availabilityCacheKey) return;
+    setState(() {
+      _availabilityByServiceId = availability;
+    });
+
+    assert(() {
+      for (final service in services) {
+        final id = _serviceIdFromMap(service);
+        final name =
+            (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
+        if (id == '87' || name.contains('ac installation')) {
+          final result = availability[id] ?? FixerAvailability.unknown;
+          debugPrint(
+            'Services list availability service_id=$id result=$result raw=${_safeJson(service)}',
+          );
+        }
       }
-      if (normalized == 'false' ||
-          normalized == '0' ||
-          normalized == 'no') {
-        return false;
-      }
-    }
-    return null;
+      return true;
+    }());
   }
 
   ServiceAvailability _availabilityForService(
     Map<dynamic, dynamic> service,
     String id,
   ) {
-    final readyCount = _readyCount(service);
-    final hasFixers = readyCount != null
-        ? readyCount > 0
-        : (_hasReadyFlag(service) ?? false);
+    final chooserAvailability = _availabilityByServiceId[id];
+    ServiceAvailability resolved = ServiceAvailability.unknown;
+    if (chooserAvailability == FixerAvailability.available) {
+      resolved = ServiceAvailability.available;
+    } else if (chooserAvailability == FixerAvailability.none) {
+      resolved = ServiceAvailability.unavailable;
+    }
     assert(() {
-      if (_availabilityLog.add(id)) {
+      final name =
+          (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
+      if (id == '87' || name.contains('ac installation')) {
         debugPrint(
-          'Service availability: ${service['name'] ?? service['title'] ?? 'service'} -> opted_in_fixers_count=${readyCount ?? 'n/a'}; hasFixers=$hasFixers',
+          'Services list rendered availability service_id=$id status=$resolved chooser_status=${chooserAvailability ?? FixerAvailability.unknown} raw=${_safeJson(service)}',
         );
       }
       return true;
     }());
-    return hasFixers
-        ? ServiceAvailability.available
-        : ServiceAvailability.unavailable;
+    return resolved;
   }
 
   Future<void> _openFilterSheet() async {
@@ -739,7 +783,7 @@ class _AvailabilityPill extends StatelessWidget {
       default:
         bg = Colors.black.withOpacity(0.06);
         text = Colors.black54;
-        label = 'Availability unknown';
+        label = 'Checking...';
     }
 
     return Container(

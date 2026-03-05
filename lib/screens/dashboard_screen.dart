@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ import 'package:fixitzed_app/screens/favorites_screen.dart';
 import 'package:fixitzed_app/screens/payment_sheet.dart';
 import 'package:fixitzed_app/screens/profile/my_booking_screen.dart';
 import 'package:fixitzed_app/screens/profile_screen.dart';
+import 'package:fixitzed_app/services/chooser_availability_service.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -35,6 +37,11 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _tabIndex = 0;
   bool _dashboardListenerAttached = false;
   ServicesRepository? _servicesRepo;
+  final ChooserAvailabilityService _chooserAvailabilityService =
+      ChooserAvailabilityService();
+  Map<String, FixerAvailability> _quickPickAvailability =
+      const <String, FixerAvailability>{};
+  String _quickPickAvailabilityKey = '';
 
   int? _parseId(dynamic value) {
     if (value is int) return value;
@@ -70,51 +77,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  int? _readyCount(Map<dynamic, dynamic> service) {
-    final val =
-        service['opted_in_fixers_count'] ??
-        service['ready_fixers_count'] ??
-        service['readyFixersCount'] ??
-        service['fixers_count'] ??
-        service['fixersCount'];
-    if (val is num) return val.toInt();
-    if (val is String) return int.tryParse(val);
-    final hasFlag = _hasReadyFlag(service);
-    if (hasFlag != null) return hasFlag ? 1 : 0;
-    final fixers = service['fixers'];
-    if (fixers is List) return fixers.length;
-    return null;
-  }
-
-  bool? _hasReadyFlag(Map<dynamic, dynamic> service) {
-    final raw =
-        service['has_fixers'] ??
-        service['hasFixers'] ??
-        service['has_ready_fixers'] ??
-        service['hasReadyFixers'] ??
-        service['has_opted_in_fixers'] ??
-        service['hasOptedInFixers'];
-    if (raw is bool) return raw;
-    if (raw is num) return raw > 0;
-    if (raw is String) {
-      final normalized = raw.trim().toLowerCase();
-      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
-        return true;
-      }
-      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
-        return false;
-      }
-    }
-    return null;
-  }
-
-  bool _hasFixers(Map<dynamic, dynamic> service) {
-    final readyCount = _readyCount(service);
-    return readyCount != null
-        ? readyCount > 0
-        : (_hasReadyFlag(service) ?? false);
-  }
-
   void _showUnavailableSnackBar() {
     AppSnack.show(
       'No fixer opted in yet',
@@ -138,6 +100,82 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (r != null) {
       r.read(servicesControllerProvider).stopSync();
     }
+  }
+
+  String _safeJson(dynamic value) {
+    try {
+      return jsonEncode(value);
+    } catch (_) {
+      return value.toString();
+    }
+  }
+
+  String _serviceId(Map<dynamic, dynamic> service) {
+    final id = service['id'] ?? service['uuid'] ?? service['service_id'];
+    return id?.toString() ?? '';
+  }
+
+  String _availabilityKey(List<Map<String, dynamic>> services) {
+    final ids = services
+        .map(_serviceId)
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return ids.join(',');
+  }
+
+  void _ensureQuickPickAvailability(
+    List<dynamic> services, {
+    bool forceRefresh = false,
+  }) {
+    final normalized = services
+        .whereType<Map>()
+        .map(_normalizeMap)
+        .where((service) => service.isNotEmpty)
+        .toList();
+    if (normalized.isEmpty) return;
+    final key = _availabilityKey(normalized);
+    if (!forceRefresh && key == _quickPickAvailabilityKey) return;
+    _quickPickAvailabilityKey = key;
+    unawaited(
+      _resolveQuickPickAvailability(
+        normalized,
+        key: key,
+        forceRefresh: forceRefresh,
+      ),
+    );
+  }
+
+  Future<void> _resolveQuickPickAvailability(
+    List<Map<String, dynamic>> services, {
+    required String key,
+    bool forceRefresh = false,
+  }) async {
+    final availability = await _chooserAvailabilityService.resolveForServices(
+      services,
+      forceRefresh: forceRefresh,
+      source: 'dashboard_quick_picks',
+    );
+    if (!mounted || key != _quickPickAvailabilityKey) return;
+    setState(() {
+      _quickPickAvailability = availability;
+    });
+
+    assert(() {
+      for (final service in services) {
+        final id = _serviceId(service);
+        final name =
+            (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
+        if (id == '87' || name.contains('ac installation')) {
+          final result = availability[id] ?? FixerAvailability.unknown;
+          debugPrint(
+            'Dashboard quick-picks availability service_id=$id result=$result raw=${_safeJson(service)}',
+          );
+        }
+      }
+      return true;
+    }());
   }
 
   Widget _greeting(DashboardState state, {ProfileState? profile}) =>
@@ -282,6 +320,13 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _refreshDashboard() async {
+    _chooserAvailabilityService.invalidateCache();
+    if (mounted) {
+      setState(() {
+        _quickPickAvailability = const <String, FixerAvailability>{};
+        _quickPickAvailabilityKey = '';
+      });
+    }
     final ref = _ref;
     if (ref == null) return;
     await ref.read(dashboardControllerProvider.notifier).refresh();
@@ -390,6 +435,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }) {
     final cached = _servicesRepo?.getCachedServices() ?? const <dynamic>[];
     final source = cached.isNotEmpty ? cached : services;
+    _ensureQuickPickAvailability(source);
     if (source.isEmpty) {
       if (kDebugMode) {
         debugPrint('Dashboard: services response empty, showing empty state');
@@ -439,10 +485,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           final subtitle =
               category ?? (desc.isEmpty ? 'Tap to book quickly' : desc);
           final image = Api.resolveImageUrl(map['image'] ?? map['icon']);
-          final hasFixers = _hasFixers(map);
+          final id = _serviceId(map);
+          final availability =
+              _quickPickAvailability[id] ?? FixerAvailability.unknown;
           return GestureDetector(
             onTap: () {
-              if (!hasFixers) {
+              if (availability == FixerAvailability.none) {
                 _showUnavailableSnackBar();
                 return;
               }
@@ -507,7 +555,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _AvailabilityPill(available: hasFixers),
+                  _AvailabilityPill(availability: availability),
                   const SizedBox(width: 8),
                   const Icon(
                     Icons.chevron_right_rounded,
@@ -886,16 +934,35 @@ class _InactiveAccountView extends StatelessWidget {
 }
 
 class _AvailabilityPill extends StatelessWidget {
-  final bool available;
-  const _AvailabilityPill({required this.available});
+  final FixerAvailability availability;
+  const _AvailabilityPill({required this.availability});
 
   @override
   Widget build(BuildContext context) {
-    final bg = available
-        ? Colors.green.withOpacity(0.12)
-        : Colors.black.withOpacity(0.06);
-    final text = available ? Colors.green.shade800 : Colors.black54;
-    final label = available ? 'Available' : 'No fixers';
+    late final Color bg;
+    late final Color text;
+    late final String label;
+    late final IconData icon;
+    switch (availability) {
+      case FixerAvailability.available:
+        bg = Colors.green.withOpacity(0.12);
+        text = Colors.green.shade800;
+        label = 'Available';
+        icon = Icons.check_circle_rounded;
+        break;
+      case FixerAvailability.none:
+        bg = Colors.black.withOpacity(0.06);
+        text = Colors.black54;
+        label = 'No fixers';
+        icon = Icons.warning_amber_rounded;
+        break;
+      case FixerAvailability.unknown:
+        bg = Colors.black.withOpacity(0.05);
+        text = Colors.black45;
+        label = 'Checking...';
+        icon = Icons.more_horiz_rounded;
+        break;
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
@@ -906,9 +973,7 @@ class _AvailabilityPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            available
-                ? Icons.check_circle_rounded
-                : Icons.warning_amber_rounded,
+            icon,
             size: 14,
             color: text,
           ),
