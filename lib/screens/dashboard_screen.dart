@@ -37,8 +37,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _tabIndex = 0;
   bool _dashboardListenerAttached = false;
   ServicesRepository? _servicesRepo;
-  final ChooserAvailabilityService _chooserAvailabilityService =
-      ChooserAvailabilityService();
+  final FixerAvailabilityResolver _availabilityResolver =
+      FixerAvailabilityResolver();
   Map<String, FixerAvailability> _quickPickAvailability =
       const <String, FixerAvailability>{};
   String _quickPickAvailabilityKey = '';
@@ -66,6 +66,13 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _availabilityResolver.invalidateCache();
+      _quickPickAvailabilityKey = '';
+      if (mounted) {
+        setState(() {
+          _quickPickAvailability = const <String, FixerAvailability>{};
+        });
+      }
       final r = _ref;
       if (r != null) {
         r.read(servicesControllerProvider).startForegroundSync();
@@ -79,7 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _showUnavailableSnackBar() {
     AppSnack.show(
-      'No fixer opted in yet',
+      'No fixers available for this service right now.',
       actionLabel: 'Browse',
       onAction: () =>
           AppSnack.scaffoldMessengerKey.currentState?.hideCurrentSnackBar(),
@@ -138,6 +145,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     final key = _availabilityKey(normalized);
     if (!forceRefresh && key == _quickPickAvailabilityKey) return;
     _quickPickAvailabilityKey = key;
+    final snapshot = _availabilityResolver.stateForServices(normalized);
+    if (mounted) {
+      setState(() {
+        _quickPickAvailability = <String, FixerAvailability>{
+          ..._quickPickAvailability,
+          ...snapshot,
+        };
+      });
+    }
     unawaited(
       _resolveQuickPickAvailability(
         normalized,
@@ -152,9 +168,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     required String key,
     bool forceRefresh = false,
   }) async {
-    final availability = await _chooserAvailabilityService.resolveForServices(
+    final availability = await _availabilityResolver.verifyServices(
       services,
       forceRefresh: forceRefresh,
+      maxConcurrent: 4,
       source: 'dashboard_quick_picks',
     );
     if (!mounted || key != _quickPickAvailabilityKey) return;
@@ -176,6 +193,54 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
       return true;
     }());
+  }
+
+  Future<void> _openServiceWithAvailabilityGuard(
+    Map<String, dynamic> service,
+  ) async {
+    final id = _serviceId(service);
+    if (id.isEmpty) {
+      await _openBookingSheet(service: service);
+      return;
+    }
+    final before = _quickPickAvailability[id] ?? FixerAvailability.unknown;
+    if (before == FixerAvailability.none) {
+      _showUnavailableSnackBar();
+      return;
+    }
+
+    final verifiedCount = await _availabilityResolver.fetchEligibleFixerCount(
+      service,
+      forceRefresh: true,
+      source: 'dashboard_tap_guard',
+    );
+    if (!mounted) return;
+    final after = verifiedCount > 0
+        ? FixerAvailability.available
+        : FixerAvailability.none;
+    setState(() {
+      _quickPickAvailability = <String, FixerAvailability>{
+        ..._quickPickAvailability,
+        id: after,
+      };
+    });
+
+    assert(() {
+      final name =
+          (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
+      if (id == '87' || name.contains('ac installation')) {
+        debugPrint(
+          'Dashboard tap guard service_id=$id before=$before after=$after eligible_fixers=$verifiedCount raw=${_safeJson(service)}',
+        );
+      }
+      return true;
+    }());
+
+    if (verifiedCount <= 0) {
+      _showUnavailableSnackBar();
+      return;
+    }
+    await _openBookingSheet(service: service);
   }
 
   Widget _greeting(DashboardState state, {ProfileState? profile}) =>
@@ -320,7 +385,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _refreshDashboard() async {
-    _chooserAvailabilityService.invalidateCache();
+    _availabilityResolver.invalidateCache();
     if (mounted) {
       setState(() {
         _quickPickAvailability = const <String, FixerAvailability>{};
@@ -489,12 +554,15 @@ class _DashboardScreenState extends State<DashboardScreen>
           final availability =
               _quickPickAvailability[id] ?? FixerAvailability.unknown;
           return GestureDetector(
-            onTap: () {
-              if (availability == FixerAvailability.none) {
-                _showUnavailableSnackBar();
+            onTap: () async {
+              if (map.isEmpty) {
+                await _openBookingSheet();
                 return;
               }
-              _openBookingSheet(service: map.isEmpty ? null : map);
+              if (availability == FixerAvailability.checking) {
+                AppSnack.show('Checking fixer availability...');
+              }
+              await _openServiceWithAvailabilityGuard(map);
             },
             child: Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -955,6 +1023,12 @@ class _AvailabilityPill extends StatelessWidget {
         text = Colors.black54;
         label = 'No fixers';
         icon = Icons.warning_amber_rounded;
+        break;
+      case FixerAvailability.checking:
+        bg = Colors.black.withOpacity(0.05);
+        text = Colors.black45;
+        label = 'Checking...';
+        icon = Icons.more_horiz_rounded;
         break;
       case FixerAvailability.unknown:
         bg = Colors.black.withOpacity(0.05);

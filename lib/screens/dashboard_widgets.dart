@@ -230,66 +230,75 @@ class _DashboardSearchFieldState extends State<DashboardSearchField> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
+        final maxSheetHeight = MediaQuery.of(ctx).size.height * 0.75;
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.black12,
-                      borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: maxSheetHeight,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Filter by category',
-                  style: GoogleFonts.urbanist(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.grid_view_rounded),
-                  title: const Text('All services'),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    FocusScope.of(context).unfocus();
-                    widget.onFilterSelected?.call(null);
-                  },
-                ),
-                if (options.isNotEmpty)
-                  ...options.map((cat) {
-                    final label = (cat['name'] ?? cat['title'] ?? 'Category')
-                        .toString();
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.label_rounded),
-                      title: Text(label),
-                      onTap: () {
-                        Navigator.of(ctx).pop();
-                        FocusScope.of(context).unfocus();
-                        widget.onFilterSelected?.call(cat);
-                      },
-                    );
-                  }),
-                if (options.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'No categories available yet. Try refreshing the dashboard.',
-                      style: GoogleFonts.urbanist(color: Colors.black54),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Filter by category',
+                    style: GoogleFonts.urbanist(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
                     ),
                   ),
-              ],
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.grid_view_rounded),
+                          title: const Text('All services'),
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            FocusScope.of(context).unfocus();
+                            widget.onFilterSelected?.call(null);
+                          },
+                        ),
+                        if (options.isNotEmpty)
+                          ...options.map((cat) {
+                            final label = (cat['name'] ?? cat['title'] ?? 'Category')
+                                .toString();
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.label_rounded),
+                              title: Text(label),
+                              onTap: () {
+                                Navigator.of(ctx).pop();
+                                FocusScope.of(context).unfocus();
+                                widget.onFilterSelected?.call(cat);
+                              },
+                            );
+                          }),
+                        if (options.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'No categories available yet. Try refreshing the dashboard.',
+                              style: GoogleFonts.urbanist(color: Colors.black54),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

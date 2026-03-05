@@ -21,7 +21,8 @@ class ServicesListScreen extends StatefulWidget {
   State<ServicesListScreen> createState() => _ServicesListScreenState();
 }
 
-class _ServicesListScreenState extends State<ServicesListScreen> {
+class _ServicesListScreenState extends State<ServicesListScreen>
+    with WidgetsBindingObserver {
   late final ServicesRepository _servicesRepository;
   late final CategoriesRepository _categoriesRepository;
   late final FavoritesRepository _favoritesRepository;
@@ -31,8 +32,8 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
   List<Map<String, dynamic>> _allServices = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _services = const <Map<String, dynamic>>[];
   Set<String> _fav = {};
-  final ChooserAvailabilityService _chooserAvailabilityService =
-      ChooserAvailabilityService();
+  final FixerAvailabilityResolver _availabilityResolver =
+      FixerAvailabilityResolver();
   Map<String, FixerAvailability> _availabilityByServiceId =
       const <String, FixerAvailability>{};
   String _availabilityCacheKey = '';
@@ -46,6 +47,7 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _container = ProviderScope.containerOf(context, listen: false);
     _servicesRepository = _container.read(servicesRepositoryProvider);
     _categoriesRepository = _container.read(categoriesRepositoryProvider);
@@ -114,12 +116,28 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchCtrl.dispose();
     _favoritesRepository.removeListener(_favListener);
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _availabilityResolver.invalidateCache();
+      _availabilityCacheKey = '';
+      if (_allServices.isNotEmpty) {
+        _ensureChooserAvailability(_allServices, forceRefresh: true);
+      }
+    }
+  }
+
   Future<void> _load({bool forceRefresh = false}) async {
+    if (forceRefresh) {
+      _availabilityResolver.invalidateCache();
+      _availabilityCacheKey = '';
+    }
     if (mounted && _services.isEmpty) {
       setState(() {
         _loading = true;
@@ -294,7 +312,10 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
                 itemCount: _services.length,
                 itemBuilder: (ctx, i) {
                   final s = _services[i];
-                  final id = serviceId(s, fallbackIndex: i);
+                  final canonicalId = _serviceIdFromMap(s);
+                  final id = canonicalId.isNotEmpty
+                      ? canonicalId
+                      : serviceId(s, fallbackIndex: i);
                   final title = (s['name'] ?? s['title'] ?? 'Service')
                       .toString();
                   final description =
@@ -310,16 +331,22 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
                   final liked = _fav.contains(id);
                   final availability = _availabilityForService(s, id);
                   return GestureDetector(
-                    onTap: () {
+                    onTap: () async {
+                      if (availability == ServiceAvailability.unknown) {
+                        AppSnack.show('Checking fixer availability...');
+                      }
                       if (availability == ServiceAvailability.unavailable) {
                         AppSnack.show(
-                          'No fixer opted in yet',
+                          'No fixers available for this service right now.',
                           actionLabel: 'Browse',
                           onAction: () => AppSnack.scaffoldMessengerKey.currentState?.hideCurrentSnackBar(),
                         );
                         return;
                       }
-                      showBookingSheet(context, service: s);
+                      await _openServiceWithAvailabilityGuard(
+                        s,
+                        id: id,
+                      );
                     },
                     child: Container(
                       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -573,6 +600,15 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
     final key = _availabilityKey(services);
     if (!forceRefresh && key == _availabilityCacheKey) return;
     _availabilityCacheKey = key;
+    final snapshot = _availabilityResolver.stateForServices(services);
+    if (mounted) {
+      setState(() {
+        _availabilityByServiceId = <String, FixerAvailability>{
+          ..._availabilityByServiceId,
+          ...snapshot,
+        };
+      });
+    }
     unawaited(
       _resolveChooserAvailability(
         services,
@@ -587,9 +623,10 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
     required String key,
     bool forceRefresh = false,
   }) async {
-    final availability = await _chooserAvailabilityService.resolveForServices(
+    final availability = await _availabilityResolver.verifyServices(
       services,
       forceRefresh: forceRefresh,
+      maxConcurrent: 4,
       source: 'services_list',
     );
     if (!mounted || key != _availabilityCacheKey) return;
@@ -635,6 +672,54 @@ class _ServicesListScreenState extends State<ServicesListScreen> {
       return true;
     }());
     return resolved;
+  }
+
+  Future<void> _openServiceWithAvailabilityGuard(
+    Map<String, dynamic> service, {
+    required String id,
+  }) async {
+    if (_serviceIdFromMap(service).isEmpty) {
+      await showBookingSheet(context, service: service);
+      return;
+    }
+    final before = _availabilityByServiceId[id] ?? FixerAvailability.unknown;
+    if (before == FixerAvailability.none) {
+      AppSnack.show('No fixers available for this service right now.');
+      return;
+    }
+
+    final eligibleCount = await _availabilityResolver.fetchEligibleFixerCount(
+      service,
+      forceRefresh: true,
+      source: 'services_list_tap_guard',
+    );
+    if (!mounted) return;
+    final after = eligibleCount > 0
+        ? FixerAvailability.available
+        : FixerAvailability.none;
+    setState(() {
+      _availabilityByServiceId = <String, FixerAvailability>{
+        ..._availabilityByServiceId,
+        id: after,
+      };
+    });
+
+    assert(() {
+      final name =
+          (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
+      if (id == '87' || name.contains('ac installation')) {
+        debugPrint(
+          'Services list tap guard service_id=$id before=$before after=$after eligible_fixers=$eligibleCount raw=${_safeJson(service)}',
+        );
+      }
+      return true;
+    }());
+
+    if (eligibleCount <= 0) {
+      AppSnack.show('No fixers available for this service right now.');
+      return;
+    }
+    await showBookingSheet(context, service: service);
   }
 
   Future<void> _openFilterSheet() async {
