@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fixitzed_app/screens/widgets/notification_details_sheet.dart';
 import 'package:fixitzed_app/services/notification_service.dart';
-import 'package:fixitzed_app/screens/payment_sheet.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
 
@@ -253,72 +253,60 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
+  bool _isRead(Map<String, dynamic> notification) {
+    final readVal =
+        notification['read'] ?? notification['read_at'] ?? notification['is_read'];
+    return readVal == true || (readVal is String && readVal.isNotEmpty);
+  }
+
+  void _markReadLocal(Map<String, dynamic> notification) {
+    final id = _notificationId(notification);
+    final now = DateTime.now().toIso8601String();
+    if (!mounted) return;
+    setState(() {
+      _items = _items.map((item) {
+        final same = id != null
+            ? _notificationId(item) == id
+            : identical(item, notification);
+        if (!same) return item;
+        final updated = Map<String, dynamic>.from(item);
+        updated['read'] = true;
+        updated['is_read'] = true;
+        updated['read_at'] = updated['read_at'] ?? now;
+        return updated;
+      }).toList();
+    });
+  }
+
+  Future<void> _syncRead(Map<String, dynamic> notification) async {
+    final id = _notificationId(notification);
+    if (id == null) return;
+    await _svc.markRead(id);
+  }
+
   Future<void> _handleTap(Map<String, dynamic> notification) async {
-    final id = (notification['id'] as num?)?.toInt();
-    if (id != null) {
-      final ok = await _svc.markRead(id);
-      if (ok && mounted) {
-        setState(() {
-          final idx = _items.indexWhere(
-            (e) => (e['id'] as num?)?.toInt() == id,
-          );
-          if (idx != -1) {
-            final updated = Map<String, dynamic>.from(_items[idx]);
-            updated['read'] = true;
-            updated['read_at'] = DateTime.now().toIso8601String();
-            _items[idx] = updated;
-          }
-        });
-      }
-    }
+    final wasRead = _isRead(notification);
+    AppNotification details = AppNotification.fromMap(notification);
 
-    final requestId = _parseRequestId(notification);
-    final isPayment = _isPaymentNotification(notification);
-
-    if (requestId != null && isPayment) {
-      final paid = await Navigator.of(context, rootNavigator: true).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => PaymentScreen(requestId: requestId),
-          fullscreenDialog: true,
-        ),
+    // Auto-mark on open for immediate UX feedback in the list.
+    if (!wasRead) {
+      _markReadLocal(notification);
+      unawaited(_syncRead(notification));
+      details = details.copyWith(
+        isRead: true,
+        readAt: details.readAt ?? DateTime.now(),
       );
-      if (paid == true && mounted) {
-        await _load();
-      }
-      return;
     }
 
-    await Navigator.pushNamed(context, '/profile/bookings');
-    if (mounted) await _load();
-  }
-
-  int? _parseRequestId(Map<String, dynamic> notification) {
-    for (final key in const [
-      'request_id',
-      'service_request_id',
-      'request',
-      'requestId',
-    ]) {
-      final value = notification[key];
-      if (value is num) return value.toInt();
-      if (value is String) {
-        final parsed = int.tryParse(value);
-        if (parsed != null) return parsed;
-      }
-    }
-    return null;
-  }
-
-  bool _isPaymentNotification(Map<String, dynamic> notification) {
-    final combined = [
-      notification['title'],
-      notification['subject'],
-      notification['message'],
-      notification['body'],
-    ].whereType<String>().join(' ').toLowerCase();
-    return combined.contains('payment') ||
-        combined.contains('bill') ||
-        combined.contains('invoice');
+    await showNotificationDetailsSheet(
+      context,
+      details,
+      onMarkRead: (updated) async {
+        if (_isRead(notification)) return;
+        _markReadLocal(notification);
+        await _syncRead(notification);
+      },
+    );
   }
 
   @override
