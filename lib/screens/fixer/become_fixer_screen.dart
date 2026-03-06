@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:fixitzed_app/services/token_storage.dart';
 
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/screens/camera/take_photo_screen.dart';
 import 'package:fixitzed_app/services/home_service.dart';
 import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
@@ -517,12 +518,14 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
       late final PlatformFile file;
       switch (action) {
         case _AttachmentAction.camera:
-          final xFile = await _imagePicker.pickImage(
-            source: ImageSource.camera,
-            imageQuality: 85,
+          final path = await TakePhotoScreen.open(
+            context,
+            galleryMaxWidth: 1600,
+            galleryMaxHeight: 1600,
+            galleryImageQuality: 85,
           );
-          if (xFile == null) return;
-          file = await _toPlatformFile(xFile);
+          if (path == null || path.isEmpty) return;
+          file = await _toPlatformFile(XFile(path));
           break;
         case _AttachmentAction.gallery:
           final xFile = await _imagePicker.pickImage(

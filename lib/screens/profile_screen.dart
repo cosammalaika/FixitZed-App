@@ -7,6 +7,7 @@ import 'package:flutter/painting.dart' show NetworkImageLoadException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/screens/camera/take_photo_screen.dart';
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/services/profile_photo_service.dart';
 import 'package:fixitzed_app/services/report_service.dart';
@@ -298,7 +299,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final picker = ProfilePhotoService.instance;
     String? path;
     if (selection == 'camera') {
-      path = await picker.pickFromCamera();
+      path = await TakePhotoScreen.open(
+        context,
+        galleryMaxWidth: 1600,
+        galleryMaxHeight: 1600,
+        galleryImageQuality: 92,
+      );
     } else if (selection == 'gallery') {
       path = await picker.pickFromGallery();
     }
