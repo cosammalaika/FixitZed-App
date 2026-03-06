@@ -104,6 +104,155 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _confirmAndLogout() async {
+    final shouldLogout = await _showLogoutConfirmationSheet();
+    if (shouldLogout != true) return;
+
+    await AuthService().logout();
+    if (!mounted) return;
+    unawaited(
+      Navigator.of(context).pushNamedAndRemoveUntil('/auth', (r) => false),
+    );
+  }
+
+  Future<bool?> _showLogoutConfirmationSheet() {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    const destructiveColor = Color(0xFFD64545);
+
+    return showModalBottomSheet<bool>(
+      context: context,
+      useSafeArea: true,
+      isDismissible: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final bottomInset = MediaQuery.of(ctx).padding.bottom;
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              boxShadow: isDark
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 28,
+                        offset: const Offset(0, -8),
+                      ),
+                    ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 16 + bottomInset),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: scheme.outline.withValues(alpha: isDark ? 0.35 : 0.2),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: brand.withValues(alpha: isDark ? 0.22 : 0.14),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: brand.withValues(alpha: isDark ? 0.2 : 0.24),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.logout_rounded,
+                      color: brand,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Are you sure you want to log out?',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.urbanist(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "You'll need to sign in again to access your account.",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.urbanist(
+                      fontSize: 14,
+                      color: scheme.onSurfaceVariant,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: scheme.onSurface.withValues(alpha: 0.78),
+                            side: BorderSide(
+                              color: scheme.outline.withValues(alpha: isDark ? 0.3 : 0.2),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            textStyle: GoogleFonts.urbanist(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: destructiveColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            textStyle: GoogleFonts.urbanist(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
+                          ),
+                          child: const Text('Log out'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _showChangePhotoSheet() async {
     if (_uploadingPhoto) return;
     final selection = await showModalBottomSheet<String>(
@@ -649,15 +798,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   'Logout',
                   iconColor: Colors.red,
                   showDivider: false,
-                  onTap: () async {
-                    await AuthService().logout();
-                    if (!mounted) return;
-                    unawaited(
-                      Navigator.of(
-                        context,
-                      ).pushNamedAndRemoveUntil('/auth', (r) => false),
-                    );
-                  },
+                  onTap: _confirmAndLogout,
                 ),
               ],
             ),
