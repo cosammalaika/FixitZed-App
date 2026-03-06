@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/core/booking_status.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/state/my_bookings_controller.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
@@ -113,7 +114,7 @@ class MyBookingScreen extends ConsumerWidget {
                             ? (service['name'] ?? service['title'])
                             : r['service_name'] ?? 'Service')
                         .toString();
-                final status = (r['status'] ?? 'pending').toString();
+                final rawStatus = r['status'];
                 final scheduledRaw =
                     r['scheduled_at'] ?? r['scheduledAt'] ?? r['schedule'];
                 final scheduledDt = parseAppDate(scheduledRaw);
@@ -126,12 +127,13 @@ class MyBookingScreen extends ConsumerWidget {
                     .toString()
                     .toLowerCase();
                 final payAmount = pay?['amount'];
-                final statusKey = _effectiveStatusKey(r, status);
+                final parsedStatus = parseBookingStatus(rawStatus);
+                final label = bookingStatusLabel(parsedStatus);
                 final hasDue =
                     rid != null &&
                     payAmount != null &&
                     payStatus != 'paid' &&
-                    status != 'completed';
+                    parsedStatus != BookingStatus.completed;
                 return InkWell(
                   onTap: () async {
                     var requestData = Map<String, dynamic>.from(r);
@@ -235,15 +237,15 @@ class MyBookingScreen extends ConsumerWidget {
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: _statusBg(statusKey),
+                                  color: _statusBg(parsedStatus),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
-                                  _statusText(statusKey),
+                                  label,
                                   style: GoogleFonts.urbanist(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: _statusFg(statusKey),
+                                    color: _statusFg(parsedStatus),
                                   ),
                                 ),
                               ),
@@ -265,99 +267,31 @@ class MyBookingScreen extends ConsumerWidget {
     );
   }
 
-  bool _hasFixerAssigned(Map request) {
-    bool hasValue(dynamic value) {
-      if (value == null) return false;
-      final text = value.toString().trim();
-      if (text.isEmpty) return false;
-      return text != '0' && text.toLowerCase() != 'null';
-    }
-
-    for (final key in [
-      'fixer_id',
-      'assigned_fixer_id',
-      'fixerId',
-      'assignedFixerId',
-      'fixer_user_id',
-    ]) {
-      if (hasValue(request[key])) return true;
-    }
-
-    for (final key in ['fixer', 'assigned_fixer', 'fixer_user']) {
-      final value = request[key];
-      if (value is Map && value.isNotEmpty) return true;
-    }
-
-    for (final key in ['fixers', 'assignments', 'accepted_fixers']) {
-      final list = request[key];
-      if (list is List && list.isNotEmpty) return true;
-    }
-    return false;
-  }
-
-  String _normalizeStatusKey(String status) {
-    final normalized = status.trim().toLowerCase();
-    if (normalized.isEmpty) return 'pending';
-    return normalized
-        .replaceAll(RegExp(r'[^a-z]'), '_')
-        .replaceAll(RegExp('_+'), '_');
-  }
-
-  String _effectiveStatusKey(Map request, String status) {
-    final normalized = _normalizeStatusKey(status);
-    if (!_hasFixerAssigned(request)) return 'pending';
-    if (normalized == 'pending') return 'accepted';
-    return normalized;
-  }
-
-  Color _statusBg(String s) {
-    switch (s.toLowerCase()) {
-      case 'approved':
-      case 'accepted':
+  Color _statusBg(BookingStatus status) {
+    switch (status) {
+      case BookingStatus.accepted:
         return const Color(0x1A2E7D32);
-      case 'cancelled':
-      case 'canceled':
+      case BookingStatus.cancelled:
         return const Color(0x1AD32F2F);
-      case 'completed':
+      case BookingStatus.completed:
         return const Color(0x1A1976D2);
-      case 'awaiting_payment':
-        return const Color(0x1AF1592A);
-      default:
+      case BookingStatus.pending:
+      case BookingStatus.unknown:
         return const Color(0x1AF1592A);
     }
   }
 
-  Color _statusFg(String s) {
-    switch (s.toLowerCase()) {
-      case 'approved':
-      case 'accepted':
+  Color _statusFg(BookingStatus status) {
+    switch (status) {
+      case BookingStatus.accepted:
         return const Color(0xFF2E7D32);
-      case 'awaiting_payment':
-        return const Color(0xFFF1592A);
-      case 'cancelled':
-      case 'canceled':
+      case BookingStatus.cancelled:
         return const Color(0xFFD32F2F);
-      case 'completed':
+      case BookingStatus.completed:
         return const Color(0xFF1976D2);
-      default:
+      case BookingStatus.pending:
+      case BookingStatus.unknown:
         return const Color(0xFFF1592A);
-    }
-  }
-
-  String _statusText(String s) {
-    switch (s.toLowerCase()) {
-      case 'approved':
-      case 'accepted':
-        return 'Accepted';
-      case 'cancelled':
-      case 'canceled':
-        return 'Cancelled';
-      case 'completed':
-        return 'Completed';
-      case 'awaiting_payment':
-        return 'Awaiting Payment';
-      default:
-        return 'Pending';
     }
   }
 
