@@ -52,7 +52,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   int? _notificationId(Map<String, dynamic> notification) {
-    final raw = notification['id'] ??
+    final raw =
+        notification['id'] ??
         notification['uuid'] ??
         notification['notification_id'];
     if (raw is num) return raw.toInt();
@@ -60,10 +61,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return null;
   }
 
-  bool _sameNotification(
-    Map<String, dynamic> a,
-    Map<String, dynamic> b,
-  ) {
+  bool _sameNotification(Map<String, dynamic> a, Map<String, dynamic> b) {
     final idA = _notificationId(a);
     final idB = _notificationId(b);
     if (idA != null && idB != null) return idA == idB;
@@ -138,12 +136,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           synced
               ? 'Notification removed'
               : 'Notification hidden locally. Could not sync with server.',
-          style: GoogleFonts.urbanist(
-            color: Colors.white,
-          ),
+          style: GoogleFonts.urbanist(color: Colors.white),
         ),
-        backgroundColor:
-            synced ? const Color(0xFF2E7D32) : const Color(0xFFE67E22),
+        backgroundColor: synced
+            ? const Color(0xFF2E7D32)
+            : const Color(0xFFE67E22),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -167,87 +164,114 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _tile(Map<String, dynamic> n) {
-    final created =
-        parseAppDate(n['created_at'] ?? n['updated_at']) ?? DateTime.now();
-    final timeStr = formatAppTime(created);
-    final title = (n['title'] ?? n['subject'] ?? 'Notification').toString();
-    final body = (n['message'] ?? n['body'] ?? '').toString();
-    final readVal = n['read'] ?? n['read_at'] ?? n['is_read'];
-    final read = readVal == true || (readVal is String && readVal.isNotEmpty);
+    final details = AppNotification.fromMap(n);
+    final timeStr = formatAppTime(details.createdAt);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final visual = NotificationVisualStyle.resolve(theme, details);
+    final title = details.title.trim().isEmpty
+        ? 'Notification'
+        : details.title.trim();
+    final preview = details.message.trim().isEmpty
+        ? 'No additional details available.'
+        : details.message.trim();
+    final cardColor = details.isRead
+        ? theme.brightness == Brightness.dark
+              ? Color.alphaBlend(
+                  Colors.white.withValues(alpha: 0.04),
+                  scheme.surface,
+                )
+              : const Color(0xFFF3F5F7)
+        : Color.alphaBlend(
+            const Color(0xFFF1592A).withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.12 : 0.05,
+            ),
+            scheme.surface,
+          );
 
-    return InkWell(
-      onTap: () => _handleTap(n),
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 10),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF3F5F7),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF6EEEA),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.event_available_rounded,
-                color: Color(0xFFF1592A),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _handleTap(n),
+        borderRadius: BorderRadius.circular(20),
+        splashColor: const Color(0xFFF1592A).withValues(alpha: 0.1),
+        highlightColor: const Color(0xFFF1592A).withValues(alpha: 0.04),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Ink(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: details.isRead
+                    ? Colors.transparent
+                    : const Color(0xFFF1592A).withValues(alpha: 0.12),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: visual.backgroundColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(visual.icon, color: visual.accentColor),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: GoogleFonts.urbanist(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: GoogleFonts.urbanist(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                                color: scheme.onSurface,
+                              ),
+                            ),
                           ),
-                        ),
+                          Text(
+                            timeStr,
+                            style: GoogleFonts.urbanist(
+                              color: scheme.onSurface.withValues(alpha: 0.45),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 6),
                       Text(
-                        timeStr,
+                        preview,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.urbanist(
-                          color: Colors.black45,
-                          fontSize: 12,
+                          color: scheme.onSurface.withValues(alpha: 0.62),
+                          height: 1.25,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    body,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.urbanist(
-                      color: Colors.black54,
-                      height: 1.25,
+                ),
+                if (!details.isRead)
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(left: 8, top: 6),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF1592A),
+                      shape: BoxShape.circle,
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
-            if (!read)
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(left: 8, top: 6),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF1592A),
-                  shape: BoxShape.circle,
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );
@@ -255,7 +279,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   bool _isRead(Map<String, dynamic> notification) {
     final readVal =
-        notification['read'] ?? notification['read_at'] ?? notification['is_read'];
+        notification['read'] ??
+        notification['read_at'] ??
+        notification['is_read'];
     return readVal == true || (readVal is String && readVal.isNotEmpty);
   }
 
@@ -286,7 +312,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _handleTap(Map<String, dynamic> notification) async {
     final wasRead = _isRead(notification);
-    AppNotification details = AppNotification.fromMap(notification);
+    var details = AppNotification.fromMap(notification);
 
     // Auto-mark on open for immediate UX feedback in the list.
     if (!wasRead) {
@@ -422,7 +448,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           const SizedBox(height: 12),
                           Text(
                             'No notifications',
-                            style: GoogleFonts.urbanist(color: Colors.black54),
+                            style: GoogleFonts.urbanist(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.62),
+                            ),
                           ),
                         ],
                       ),
