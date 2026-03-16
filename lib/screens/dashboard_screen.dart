@@ -124,29 +124,30 @@ class _DashboardScreenState extends State<DashboardScreen>
   String _serviceId(Map<dynamic, dynamic> service) {
     final id = service['id'] ?? service['uuid'] ?? service['service_id'];
     if (id != null) {
-      final normalized = id is num ? id.toInt().toString() : id.toString().trim();
+      final normalized = id is num
+          ? id.toInt().toString()
+          : id.toString().trim();
       if (normalized.isNotEmpty) return normalized;
     }
-    final slug = (service['slug'] ?? service['service_slug'] ?? service['serviceCode'])
-        ?.toString()
-        .trim()
-        .toLowerCase();
+    final slug =
+        (service['slug'] ?? service['service_slug'] ?? service['serviceCode'])
+            ?.toString()
+            .trim()
+            .toLowerCase();
     if (slug != null && slug.isNotEmpty) return 'slug:$slug';
-    final name = (service['name'] ?? service['title'] ?? service['service_name'])
-        ?.toString()
-        .trim()
-        .toLowerCase();
+    final name =
+        (service['name'] ?? service['title'] ?? service['service_name'])
+            ?.toString()
+            .trim()
+            .toLowerCase();
     if (name != null && name.isNotEmpty) return 'name:$name';
     return '';
   }
 
   String _availabilityKey(List<Map<String, dynamic>> services) {
-    final ids = services
-        .map(_serviceId)
-        .where((id) => id.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final ids =
+        services.map(_serviceId).where((id) => id.isNotEmpty).toSet().toList()
+          ..sort();
     return ids.join(',');
   }
 
@@ -209,10 +210,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       _pendingQuickPickServices = null;
       _pendingQuickPickForceRefresh = false;
       if (pending == null || pending.isEmpty) return;
-      _ensureQuickPickAvailability(
-        pending,
-        forceRefresh: pendingForceRefresh,
-      );
+      _ensureQuickPickAvailability(pending, forceRefresh: pendingForceRefresh);
     });
   }
 
@@ -313,8 +311,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
 
     assert(() {
-      final name =
-          (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
+      final name = (service['name'] ?? service['title'] ?? '')
+          .toString()
+          .toLowerCase();
       if (id == '87' || name.contains('ac installation')) {
         debugPrint(
           'Dashboard tap guard service_id=$id before=$before after=$after eligible_fixers=$verifiedCount raw=${_safeJson(service)}',
@@ -332,22 +331,24 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _greeting(DashboardState state, {ProfileState? profile}) =>
       DashboardGreeting(
-    name: (profile?.name ?? '').trim().isNotEmpty ? profile!.name : state.name,
-    location: (profile?.location ?? '').trim().isNotEmpty
-        ? profile!.location
-        : state.location,
-    avatarUrl: (profile?.avatarUrl ?? '').trim().isNotEmpty
-        ? profile!.avatarUrl
-        : state.avatarUrl,
-    hasUnread: state.hasUnread,
-    onNotificationsTap: () async {
-      await Navigator.of(context).pushNamed('/notifications');
-      if (!mounted) return;
-      final ref = _ref;
-      if (ref == null) return;
-      await ref.read(dashboardControllerProvider.notifier).refresh();
-    },
-  );
+        name: (profile?.name ?? '').trim().isNotEmpty
+            ? profile!.name
+            : state.name,
+        location: (profile?.location ?? '').trim().isNotEmpty
+            ? profile!.location
+            : state.location,
+        avatarUrl: (profile?.avatarUrl ?? '').trim().isNotEmpty
+            ? profile!.avatarUrl
+            : state.avatarUrl,
+        hasUnread: state.hasUnread,
+        onNotificationsTap: () async {
+          await Navigator.of(context).pushNamed('/notifications');
+          if (!mounted) return;
+          final ref = _ref;
+          if (ref == null) return;
+          await ref.read(dashboardControllerProvider.notifier).refresh();
+        },
+      );
 
   Widget _searchField(List<dynamic> categories) {
     final normalizedCategories = categories
@@ -487,7 +488,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _quickCategories(
     List<dynamic> categories, {
     required Future<void> Function() onRetry,
+    required bool isLoading,
+    required bool hasResolved,
   }) {
+    if (isLoading || (!hasResolved && categories.isEmpty)) {
+      return const PopularSubcategoriesSkeleton();
+    }
     if (categories.isEmpty) {
       if (kDebugMode) {
         debugPrint('Dashboard: categories response empty, showing empty state');
@@ -899,12 +905,11 @@ class _DashboardScreenState extends State<DashboardScreen>
           _quickCategories(
             state.categories,
             onRetry: onRetry,
+            isLoading: state.areCategoriesLoading,
+            hasResolved: state.hasResolvedCategories,
           ),
           const SizedBox(height: 24),
-          _serviceSpotlight(
-            state.services,
-            onRetry: onRetry,
-          ),
+          _serviceSpotlight(state.services, onRetry: onRetry),
           const SizedBox(height: 24),
           TopFixersStrip(fixers: topFixers),
         ],
@@ -972,7 +977,9 @@ class _ErrorState extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFFFDF6F2),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFF1592A).withOpacity(0.12)),
+          border: Border.all(
+            color: const Color(0xFFF1592A).withValues(alpha: 0.12),
+          ),
         ),
         child: content,
       );
@@ -1019,7 +1026,7 @@ class _InactiveAccountView extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: accent.withOpacity(0.12),
+                    color: accent.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -1100,25 +1107,25 @@ class _AvailabilityPill extends StatelessWidget {
     late final IconData icon;
     switch (availability) {
       case FixerAvailability.available:
-        bg = Colors.green.withOpacity(0.12);
+        bg = Colors.green.withValues(alpha: 0.12);
         text = Colors.green.shade800;
         label = 'Available';
         icon = Icons.check_circle_rounded;
         break;
       case FixerAvailability.none:
-        bg = Colors.black.withOpacity(0.06);
+        bg = Colors.black.withValues(alpha: 0.06);
         text = Colors.black54;
         label = 'No fixers';
         icon = Icons.warning_amber_rounded;
         break;
       case FixerAvailability.checking:
-        bg = Colors.black.withOpacity(0.05);
+        bg = Colors.black.withValues(alpha: 0.05);
         text = Colors.black45;
         label = 'Checking...';
         icon = Icons.more_horiz_rounded;
         break;
       case FixerAvailability.unknown:
-        bg = Colors.black.withOpacity(0.05);
+        bg = Colors.black.withValues(alpha: 0.05);
         text = Colors.black45;
         label = 'Checking...';
         icon = Icons.more_horiz_rounded;
@@ -1133,11 +1140,7 @@ class _AvailabilityPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: text,
-          ),
+          Icon(icon, size: 14, color: text),
           const SizedBox(width: 4),
           Text(
             label,

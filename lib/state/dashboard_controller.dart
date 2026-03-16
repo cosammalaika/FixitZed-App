@@ -16,6 +16,8 @@ class DashboardState {
     this.hasUnread = false,
     this.error,
     this.isInactive = false,
+    this.areCategoriesLoading = false,
+    this.hasResolvedCategories = false,
   });
 
   final String name;
@@ -26,6 +28,8 @@ class DashboardState {
   final bool hasUnread;
   final String? error;
   final bool isInactive;
+  final bool areCategoriesLoading;
+  final bool hasResolvedCategories;
 
   DashboardState copyWith({
     String? name,
@@ -36,6 +40,8 @@ class DashboardState {
     bool? hasUnread,
     String? error,
     bool? isInactive,
+    bool? areCategoriesLoading,
+    bool? hasResolvedCategories,
   }) {
     return DashboardState(
       name: name ?? this.name,
@@ -46,11 +52,15 @@ class DashboardState {
       hasUnread: hasUnread ?? this.hasUnread,
       error: error ?? this.error,
       isInactive: isInactive ?? this.isInactive,
+      areCategoriesLoading: areCategoriesLoading ?? this.areCategoriesLoading,
+      hasResolvedCategories:
+          hasResolvedCategories ?? this.hasResolvedCategories,
     );
   }
 }
 
 class DashboardController extends AsyncNotifier<DashboardState> {
+  static const _minCategoriesLoaderDuration = Duration(milliseconds: 500);
   bool _syncRegistered = false;
   bool _forceProfileRefreshNext = false;
 
@@ -58,14 +68,22 @@ class DashboardController extends AsyncNotifier<DashboardState> {
   FutureOr<DashboardState> build() {
     _registerSync();
     final initial = _initialFromCache();
-    unawaited(
-      _refreshFromNetwork(showLoading: initial.categories.isEmpty),
+    final shouldShowCategoriesLoader = initial.categories.isEmpty;
+    final seeded = initial.copyWith(
+      areCategoriesLoading: shouldShowCategoriesLoader,
+      hasResolvedCategories: !shouldShowCategoriesLoader,
     );
-    return initial;
+    unawaited(_refreshFromNetwork(showLoading: shouldShowCategoriesLoader));
+    return seeded;
   }
 
   Future<void> refresh() async {
-    await _refreshFromNetwork(showLoading: true);
+    final current = state.valueOrNull;
+    final shouldShowLoader =
+        current == null ||
+        current.categories.isEmpty ||
+        !current.hasResolvedCategories;
+    await _refreshFromNetwork(showLoading: shouldShowLoader);
   }
 
   void _registerSync() {
@@ -86,12 +104,30 @@ class DashboardController extends AsyncNotifier<DashboardState> {
   }
 
   Future<void> _refreshFromNetwork({bool showLoading = false}) async {
+    final startedAt = DateTime.now();
     if (showLoading) {
-      state =
-          const AsyncValue<DashboardState>.loading().copyWithPrevious(state);
+      final current = state.valueOrNull ?? const DashboardState();
+      final loadingState = current.copyWith(
+        areCategoriesLoading: true,
+        hasResolvedCategories: false,
+      );
+      state = const AsyncValue<DashboardState>.loading().copyWithPrevious(
+        AsyncValue<DashboardState>.data(loadingState),
+      );
     }
     final result = await AsyncValue.guard(_fetchDashboard);
-    state = result;
+    final elapsed = DateTime.now().difference(startedAt);
+    final remaining = _minCategoriesLoaderDuration - elapsed;
+    if (showLoading && remaining > Duration.zero) {
+      await Future<void>.delayed(remaining);
+    }
+
+    state = result.whenData(
+      (data) => data.copyWith(
+        areCategoriesLoading: false,
+        hasResolvedCategories: true,
+      ),
+    );
   }
 
   Future<DashboardState> _fetchDashboard() async {
@@ -103,7 +139,7 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     var services = <dynamic>[];
     var notifications = <dynamic>[];
     String? error;
-    bool inactive = false;
+    var inactive = false;
 
     try {
       final forceProfileRefresh = _forceProfileRefreshNext;
@@ -137,6 +173,8 @@ class DashboardController extends AsyncNotifier<DashboardState> {
       hasUnread: hasUnread,
       error: error,
       isInactive: inactive,
+      areCategoriesLoading: false,
+      hasResolvedCategories: true,
     );
   }
 
@@ -183,9 +221,10 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     final set = <String, String>{}; // key -> label
     for (final raw in services) {
       if (raw is! Map) continue;
-      final cat = (raw['category'] ?? raw['category_name'] ?? raw['categoryName'] ?? '')
-          .toString()
-          .trim();
+      final cat =
+          (raw['category'] ?? raw['category_name'] ?? raw['categoryName'] ?? '')
+              .toString()
+              .trim();
       final normalized = cat.isEmpty ? 'general' : cat.toLowerCase();
       if (!set.containsKey(normalized)) {
         final label = cat.isEmpty ? 'General' : cat;
@@ -195,9 +234,11 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     final list = set.entries
         .map((e) => {'id': e.key, 'name': e.value})
         .toList();
-    list.sort((a, b) => (a['name'] ?? '').toString().toLowerCase().compareTo(
-          (b['name'] ?? '').toString().toLowerCase(),
-        ));
+    list.sort(
+      (a, b) => (a['name'] ?? '').toString().toLowerCase().compareTo(
+        (b['name'] ?? '').toString().toLowerCase(),
+      ),
+    );
     return list;
   }
 
@@ -208,8 +249,9 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     final province = (raw['province'] ?? raw['province_name'] ?? '')
         .toString()
         .trim();
-    final district =
-        (raw['district'] ?? raw['district_name'] ?? '').toString().trim();
+    final district = (raw['district'] ?? raw['district_name'] ?? '')
+        .toString()
+        .trim();
 
     if (city.isNotEmpty && country.isNotEmpty) return '$city, $country';
     if (address.isNotEmpty) return address;
@@ -280,13 +322,11 @@ class DashboardController extends AsyncNotifier<DashboardState> {
   }
 
   bool _isInactive(Map<String, dynamic> user) {
-    final status = (user['status'] ??
-            user['account_status'] ??
-            user['state'] ??
-            '')
-        .toString()
-        .toLowerCase()
-        .trim();
+    final status =
+        (user['status'] ?? user['account_status'] ?? user['state'] ?? '')
+            .toString()
+            .toLowerCase()
+            .trim();
     final activeField = user['active'] ?? user['is_active'] ?? user['isActive'];
     if (activeField is bool) {
       if (activeField) return false;
@@ -320,7 +360,8 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     final me = profileRepo.cached;
     final categories = categoriesRepo.cachedSubcategories ?? const <dynamic>[];
     final services = servicesRepo.cached ?? const <dynamic>[];
-    final notifications = notificationsRepo.cached ?? const <Map<String, dynamic>>[];
+    final notifications =
+        notificationsRepo.cached ?? const <Map<String, dynamic>>[];
 
     final userMap = _extractUserMap(me);
     final name = _resolveName(userMap);
@@ -336,6 +377,8 @@ class DashboardController extends AsyncNotifier<DashboardState> {
       services: List<dynamic>.from(services),
       hasUnread: hasUnread,
       isInactive: _isInactive(userMap),
+      areCategoriesLoading: false,
+      hasResolvedCategories: categories.isNotEmpty,
     );
   }
 }

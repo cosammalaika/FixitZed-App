@@ -127,6 +127,41 @@ class DashboardSkeleton extends StatelessWidget {
   }
 }
 
+class PopularSubcategoriesSkeleton extends StatelessWidget {
+  const PopularSubcategoriesSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerWrapper(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionHeaderSkeleton(titleWidth: 180),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 42,
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 5,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final widths = <double>[92, 128, 110, 104, 120];
+                return _SkeletonBox(
+                  width: widths[index],
+                  height: 42,
+                  radius: 20,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class BookingListSkeleton extends StatelessWidget {
   const BookingListSkeleton({super.key});
 
@@ -281,9 +316,12 @@ class _ShimmerWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseColor = isDark ? const Color(0xFF2D2D30) : const Color(0xFFE3E6EC);
-    final highlightColor =
-        isDark ? const Color(0xFF3C3C40) : const Color(0xFFF2F4F8);
+    final baseColor = isDark
+        ? const Color(0xFF2D2D30)
+        : const Color(0xFFE3E6EC);
+    final highlightColor = isDark
+        ? const Color(0xFF3C3C40)
+        : const Color(0xFFF2F4F8);
     return Shimmer.fromColors(
       baseColor: baseColor,
       highlightColor: highlightColor,
@@ -293,11 +331,7 @@ class _ShimmerWrapper extends StatelessWidget {
 }
 
 class _SkeletonBox extends StatelessWidget {
-  const _SkeletonBox({
-    this.width,
-    required this.height,
-    this.radius = 12,
-  });
+  const _SkeletonBox({this.width, required this.height, this.radius = 12});
 
   final double? width;
   final double height;
@@ -325,11 +359,7 @@ class _SkeletonCircle extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(diameter / 2),
-      child: Container(
-        width: diameter,
-        height: diameter,
-        color: Colors.white,
-      ),
+      child: Container(width: diameter, height: diameter, color: Colors.white),
     );
   }
 }
