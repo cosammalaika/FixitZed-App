@@ -13,6 +13,7 @@ import 'package:fixitzed_app/screens/profile/edit_profile_screen.dart';
 import 'package:fixitzed_app/screens/profile/manage_address_screen.dart';
 import 'package:fixitzed_app/screens/profile/payment_methods_screen.dart';
 import 'package:fixitzed_app/screens/profile/my_booking_screen.dart';
+import 'package:fixitzed_app/screens/profile/notification_booking_detail_screen.dart';
 import 'package:fixitzed_app/screens/profile/settings_screen.dart';
 import 'package:fixitzed_app/screens/profile/help_center_screen.dart';
 import 'package:fixitzed_app/screens/profile/faqs_screen.dart';
@@ -28,10 +29,13 @@ import 'package:fixitzed_app/common/connectivity/connectivity_overlay.dart';
 import 'package:fixitzed_app/widgets/session_redirector.dart';
 import 'package:fixitzed_app/utils/app_snack.dart';
 
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppTheme.load();
   await LocalNotificationService.instance.init();
+  LocalNotificationService.instance.bindNavigator(appNavigatorKey);
   await FcmService.instance.init();
   runApp(const ProviderScope(child: MyApp()));
 }
@@ -45,6 +49,7 @@ class MyApp extends ConsumerWidget {
       valueListenable: AppTheme.mode,
       builder: (context, mode, _) {
         return MaterialApp(
+          navigatorKey: appNavigatorKey,
           scaffoldMessengerKey: AppSnack.scaffoldMessengerKey,
           title: 'FixItZed',
           debugShowCheckedModeBanner: false,
@@ -73,6 +78,8 @@ class MyApp extends ConsumerWidget {
             '/profile/addresses': (context) => const ManageAddressScreen(),
             '/profile/payments': (context) => const PaymentMethodsScreen(),
             '/profile/bookings': (context) => const MyBookingScreen(),
+            '/profile/booking-detail': (context) =>
+                const NotificationBookingDetailScreen(),
             '/profile/settings': (context) => const SettingsScreen(),
             '/profile/invite': (context) => const InviteFriendScreen(),
             '/profile/help': (context) => const HelpCenterScreen(),

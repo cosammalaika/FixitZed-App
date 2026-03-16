@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 
@@ -13,6 +14,8 @@ class LocalNotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  GlobalKey<NavigatorState>? _navigatorKey;
+  String? _pendingPayload;
 
   static const AndroidNotificationChannel _defaultChannel =
       AndroidNotificationChannel(
@@ -43,7 +46,13 @@ class LocalNotificationService {
       iOS: darwinSettings,
     );
 
-    await _plugin.initialize(settings);
+    await _plugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (response) {
+        handlePayload(response.payload);
+      },
+      onDidReceiveBackgroundNotificationResponse: _backgroundTapHandler,
+    );
 
     if (Platform.isAndroid) {
       final androidSpecific = _plugin
@@ -77,6 +86,17 @@ class LocalNotificationService {
     }
 
     _initialized = true;
+  }
+
+  void bindNavigator(GlobalKey<NavigatorState> navigatorKey) {
+    _navigatorKey = navigatorKey;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_pendingPayload != null) {
+        final payload = _pendingPayload;
+        _pendingPayload = null;
+        handlePayload(payload);
+      }
+    });
   }
 
   Future<void> showInstant({
@@ -125,5 +145,51 @@ class LocalNotificationService {
       body: body,
       payload: 'booking_created',
     );
+  }
+
+  void handlePayload(String? payload) {
+    if (payload == null || payload.isEmpty) {
+      return;
+    }
+
+    final navigator = _navigatorKey?.currentState;
+    if (navigator == null) {
+      _pendingPayload = payload;
+      return;
+    }
+
+    if (payload.startsWith('booking_detail:')) {
+      final id = int.tryParse(payload.split(':').last);
+      if (id != null) {
+        navigator.pushNamed('/profile/booking-detail', arguments: {'id': id});
+      }
+      return;
+    }
+
+    if (payload.startsWith('booking_status:')) {
+      final parts = payload.split(':');
+      if (parts.length >= 2) {
+        final id = int.tryParse(parts[1]);
+        if (id != null) {
+          navigator.pushNamed('/profile/booking-detail', arguments: {'id': id});
+        }
+      }
+      return;
+    }
+
+    if (payload.startsWith('remote_notification:')) {
+      navigator.pushNamed('/notifications');
+      return;
+    }
+
+    if (payload == 'booking_created') {
+      navigator.pushNamed('/profile/bookings');
+    }
+  }
+
+  @pragma('vm:entry-point')
+  static void _backgroundTapHandler(NotificationResponse response) {
+    // The plugin re-enters the app with the payload. Navigation is handled
+    // after startup once the navigator key is attached.
   }
 }
