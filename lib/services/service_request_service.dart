@@ -26,6 +26,23 @@ class ServiceRequestResult {
   final int? statusCode;
 }
 
+class CancelRequestResult {
+  const CancelRequestResult.success({
+    required this.request,
+    required this.message,
+  }) : success = true,
+       statusCode = null;
+
+  const CancelRequestResult.failure({required this.message, this.statusCode})
+    : success = false,
+      request = null;
+
+  final bool success;
+  final String message;
+  final int? statusCode;
+  final Map<String, dynamic>? request;
+}
+
 class ServiceRequestService {
   ServiceRequestService({AppSync? sync}) : _sync = sync ?? AppSync.instance;
 
@@ -134,7 +151,17 @@ class ServiceRequestService {
     return lastResult;
   }
 
-  Future<bool> cancelRequest(int requestId) async {
+  Future<CancelRequestResult> cancelRequest(
+    int requestId, {
+    required String reasonKey,
+    String? note,
+  }) async {
+    final trimmedNote = note?.trim();
+    final payload = <String, dynamic>{
+      'reason_key': reasonKey,
+      if (trimmedNote != null && trimmedNote.isNotEmpty) 'note': trimmedNote,
+    };
+
     try {
       final token = await _getToken();
       final headers = _headers(token: token);
@@ -142,10 +169,22 @@ class ServiceRequestService {
         'requests/$requestId/cancel',
         'service-requests/$requestId/cancel',
       ];
+      var lastResult = const CancelRequestResult.failure(
+        message: 'Unable to cancel this booking right now.',
+      );
       for (final path in postEndpoints) {
-        final res = await http.post(_uri(path), headers: headers);
+        final res = await http.post(
+          _uri(path),
+          headers: headers,
+          body: jsonEncode(payload),
+        );
         await SessionGuard.evaluate(res);
+        if (res.statusCode == 404) {
+          continue;
+        }
         if (res.statusCode >= 200 && res.statusCode < 300) {
+          final body = jsonDecode(res.body);
+          final request = _unwrapRequestMap(body);
           _sync.emit(
             AppSyncTopic.bookings,
             payload: <String, dynamic>{
@@ -157,33 +196,24 @@ class ServiceRequestService {
             AppSyncTopic.dashboard,
             payload: const <String, dynamic>{'source': 'bookings'},
           );
-          return true;
+          return CancelRequestResult.success(
+            request: request,
+            message: _extractMessage(res) ?? 'Booking cancelled successfully.',
+          );
         }
+
+        lastResult = CancelRequestResult.failure(
+          message: _extractError(res),
+          statusCode: res.statusCode,
+        );
       }
 
-      final res = await http.patch(
-        _uri('requests/$requestId'),
-        headers: headers,
-        body: jsonEncode({'status': 'cancelled'}),
-      );
-      await SessionGuard.evaluate(res);
-      final ok = res.statusCode >= 200 && res.statusCode < 300;
-      if (ok) {
-        _sync.emit(
-          AppSyncTopic.bookings,
-          payload: <String, dynamic>{
-            'action': 'cancel',
-            'requestId': requestId,
-          },
-        );
-        _sync.emit(
-          AppSyncTopic.dashboard,
-          payload: const <String, dynamic>{'source': 'bookings'},
-        );
-      }
-      return ok;
+      return lastResult;
     } catch (_) {
-      return false;
+      return const CancelRequestResult.failure(
+        message:
+            'Unable to reach the server. Check your connection and try again.',
+      );
     }
   }
 
@@ -442,6 +472,20 @@ class ServiceRequestService {
       default:
         return 'The server rejected the booking (status ${res.statusCode}).';
     }
+  }
+
+  String? _extractMessage(http.Response res) {
+    try {
+      final data = jsonDecode(res.body);
+      if (data is Map<String, dynamic>) {
+        final message = data['message'];
+        if (message is String && message.trim().isNotEmpty) {
+          return message.trim();
+        }
+      }
+    } catch (_) {}
+
+    return null;
   }
 }
 

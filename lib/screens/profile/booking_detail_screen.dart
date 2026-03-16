@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fixitzed_app/core/booking_cancellation.dart';
 import 'package:fixitzed_app/services/payment_service.dart';
 import 'package:fixitzed_app/services/service_request_service.dart';
 import 'package:fixitzed_app/screens/payment_sheet.dart';
@@ -52,6 +54,7 @@ class BookingDetailContent extends StatefulWidget {
 }
 
 class _BookingDetailContentState extends State<BookingDetailContent> {
+  late Map<String, dynamic> _requestData;
   Map<String, dynamic>? _payment;
   bool _paymentLoading = false;
   bool _cancelling = false;
@@ -59,16 +62,23 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
   @override
   void initState() {
     super.initState();
+    _requestData = Map<String, dynamic>.from(widget.request);
     _loadPayment();
+  }
+
+  @override
+  void didUpdateWidget(covariant BookingDetailContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!mapEquals(oldWidget.request, widget.request)) {
+      _requestData = Map<String, dynamic>.from(widget.request);
+      _loadPayment();
+    }
   }
 
   bool _canCancelBooking({
     required String status,
-    required Map<String, dynamic> request,
-    Map<String, dynamic>? fixer,
   }) {
-    if (status.toLowerCase() != 'pending') return false;
-    return !_hasFixerAssigned(request, fixer);
+    return isCustomerCancelableBookingStatus(status);
   }
 
   bool _hasFixerAssigned(
@@ -95,6 +105,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
   Widget _buildPendingActions({
     required BuildContext context,
     required Color brand,
+    required bool hasFixer,
   }) {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -111,7 +122,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Waiting for a fixer',
+            'Need to cancel?',
             style: GoogleFonts.urbanist(
               fontWeight: FontWeight.w800,
               fontSize: 16,
@@ -120,7 +131,9 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
           ),
           const SizedBox(height: 8),
           Text(
-            'No fixer has accepted yet. You can cancel now or keep the request active.',
+            hasFixer
+                ? 'The assigned fixer will be notified once you cancel this booking.'
+                : 'Cancel this request before it moves further in the booking process.',
             style: GoogleFonts.urbanist(color: Colors.black87, height: 1.4),
           ),
           const SizedBox(height: 14),
@@ -146,7 +159,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text(
-                        'Cancel request',
+                        'Cancel booking',
                         key: ValueKey('cancel-label'),
                       ),
               ),
@@ -158,109 +171,57 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
   }
 
   Future<void> _cancelBooking(BuildContext context) async {
-    final id = (widget.request['id'] as num?)?.toInt();
+    final id = (_requestData['id'] as num?)?.toInt();
     if (id == null) return;
 
-    const brand = Color(0xFFF1592A);
-    final confirm = await showDialog<bool>(
+    final result = await showModalBottomSheet<CancelRequestResult>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-          actionsPadding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: brand.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.warning_rounded, color: brand),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Cancel request',
-                  style: GoogleFonts.urbanist(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                    color: const Color(0xFF1F1F1F),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            'Are you sure you want to cancel this request? This action cannot be undone.',
-            style: GoogleFonts.urbanist(color: Colors.black87, height: 1.45),
-          ),
-          actionsAlignment: MainAxisAlignment.spaceBetween,
-          actions: [
-            OutlinedButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.black87,
-                side: BorderSide(color: brand.withValues(alpha: 0.25)),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: const Text('Keep request'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: brand,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: const Text('Cancel request'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirm != true) return;
-
-    setState(() => _cancelling = true);
-    final success = await ServiceRequestService().cancelRequest(id);
-    if (!mounted) return;
-    setState(() => _cancelling = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success
-              ? 'Request cancelled.'
-              : 'Failed to cancel request. Please try again.',
-        ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _CancelBookingSheet(
+        onSubmit: (reasonKey, note) async {
+          if (mounted) {
+            setState(() => _cancelling = true);
+          }
+          final response = await ServiceRequestService().cancelRequest(
+            id,
+            reasonKey: reasonKey,
+            note: note,
+          );
+          if (mounted) {
+            setState(() => _cancelling = false);
+          }
+          return response;
+        },
       ),
     );
 
-    if (success) {
-      Navigator.of(context).pop(true);
+    if (!mounted || result == null || !result.success) return;
+
+    final updatedRequest = result.request;
+    if (updatedRequest != null && updatedRequest.isNotEmpty) {
+      setState(() {
+        _requestData = {
+          ..._requestData,
+          ...updatedRequest,
+        };
+      });
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.message),
+      ),
+    );
   }
 
   Future<void> _loadPayment() async {
-    final id = (widget.request['id'] as num?)?.toInt();
+    final id = (_requestData['id'] as num?)?.toInt();
     if (id == null) return;
     setState(() => _paymentLoading = true);
     final payment = await PaymentService().get(id);
@@ -274,7 +235,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
   @override
   Widget build(BuildContext context) {
     final brand = const Color(0xFFF1592A);
-    final r = widget.request;
+    final r = _requestData;
     final service = (r['service'] is Map)
         ? Map<String, dynamic>.from(r['service'] as Map)
         : null;
@@ -311,9 +272,8 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     final total = _toDouble(r['total'] ?? ((price ?? 0) - (discount ?? 0)));
     final canCancel = _canCancelBooking(
       status: status,
-      request: r,
-      fixer: fixer,
     );
+    final isCancelled = isCancelledBookingStatus(status);
 
     return SingleChildScrollView(
       controller: widget.scrollController,
@@ -352,6 +312,10 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
                 _infoTile(Icons.sell_rounded, 'Coupon', coupon.toUpperCase()),
             ],
           ),
+          if (isCancelled) ...[
+            const SizedBox(height: 20),
+            _buildCancellationDetails(),
+          ],
           if (price != null) ...[
             const SizedBox(height: 20),
             _priceBreakdown(
@@ -363,7 +327,11 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
           ],
           if (canCancel) ...[
             const SizedBox(height: 20),
-            _buildPendingActions(context: context, brand: brand),
+            _buildPendingActions(
+              context: context,
+              brand: brand,
+              hasFixer: hasFixer,
+            ),
           ],
           const SizedBox(height: 20),
           _buildPaymentAction(context: context, brand: brand, status: status),
@@ -377,7 +345,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     required Color brand,
     required String status,
   }) {
-    final id = (widget.request['id'] as num?)?.toInt();
+    final id = (_requestData['id'] as num?)?.toInt();
     if (id == null) return const SizedBox();
 
     if (_paymentLoading) {
@@ -391,13 +359,13 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
 
     if (statusLower == 'completed' && isPaid) {
       return _ReceiptActions(
-        request: widget.request,
+        request: _requestData,
         payment: _payment!,
         brand: brand,
       );
     }
 
-    if (isPaid || amount == null || statusLower == 'completed') {
+    if (isPaid || amount == null || statusLower == 'completed' || isCancelledBookingStatus(statusLower)) {
       return const SizedBox();
     }
 
@@ -724,18 +692,43 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
   }
 
   String _normalizeStatusKey(String value) {
-    final normalized = value.trim().toLowerCase();
-    if (normalized.isEmpty) return 'pending';
-    return normalized
-        .replaceAll(RegExp(r'[^a-z]'), '_')
-        .replaceAll(RegExp('_+'), '_');
+    return normalizeBookingStatusKey(value);
   }
 
   String _effectiveStatus(String status, bool hasFixer) {
     final normalized = _normalizeStatusKey(status);
-    if (!hasFixer) return 'pending';
-    if (normalized == 'pending') return 'accepted';
+    if (normalized == 'pending' && hasFixer) return 'accepted';
     return normalized;
+  }
+
+  Widget _buildCancellationDetails() {
+    final canceledBy = formatCancellationActor(
+      _requestData['canceled_by']?.toString(),
+    );
+    final reason = (_requestData['cancellation_reason_label'] ?? '')
+        .toString()
+        .trim();
+    final note = (_requestData['cancellation_note'] ?? '').toString().trim();
+    final canceledAt = parseAppDate(_requestData['canceled_at']);
+
+    return _infoSection(
+      title: 'Cancellation details',
+      children: [
+        _infoTile(Icons.person_off_rounded, 'Canceled by', canceledBy),
+        _infoTile(
+          Icons.rule_folder_rounded,
+          'Reason',
+          reason.isEmpty ? '—' : reason,
+        ),
+        if (note.isNotEmpty)
+          _infoTile(Icons.notes_rounded, 'Additional note', note),
+        _infoTile(
+          Icons.event_busy_rounded,
+          'Canceled at',
+          canceledAt == null ? '—' : formatAppDateTime(canceledAt),
+        ),
+      ],
+    );
   }
 
   Widget _statusChip(String status) {
@@ -956,6 +949,302 @@ class _ReceiptActions extends StatelessWidget {
               : word[0].toUpperCase() + word.substring(1).toLowerCase(),
         )
         .join(' ');
+  }
+}
+
+class _CancelBookingSheet extends StatefulWidget {
+  const _CancelBookingSheet({required this.onSubmit});
+
+  final Future<CancelRequestResult> Function(String reasonKey, String? note)
+  onSubmit;
+
+  @override
+  State<_CancelBookingSheet> createState() => _CancelBookingSheetState();
+}
+
+class _CancelBookingSheetState extends State<_CancelBookingSheet> {
+  final TextEditingController _noteController = TextEditingController();
+  String? _selectedKey;
+  String? _errorText;
+  bool _submitting = false;
+
+  bool get _isOtherSelected => _selectedKey == 'other';
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final selectedKey = _selectedKey;
+    final trimmedNote = _noteController.text.trim();
+
+    if (selectedKey == null) {
+      setState(() => _errorText = 'Select a cancellation reason to continue.');
+      return;
+    }
+
+    if (selectedKey == 'other' && trimmedNote.isEmpty) {
+      setState(() => _errorText = 'Please specify why you are cancelling.');
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _errorText = null;
+    });
+
+    final result = await widget.onSubmit(
+      selectedKey,
+      _isOtherSelected ? trimmedNote : null,
+    );
+
+    if (!mounted) return;
+
+    if (result.success) {
+      Navigator.of(context).pop(result);
+      return;
+    }
+
+    setState(() {
+      _submitting = false;
+      _errorText = result.message;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final brand = const Color(0xFFF1592A);
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+
+    return SafeArea(
+      top: false,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFFFF8F3), Colors.white],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, bottom + 20),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 48,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Cancel booking',
+                    style: GoogleFonts.urbanist(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 22,
+                      color: const Color(0xFF1F1F1F),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF2EA),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: brand.withValues(alpha: 0.12)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.notifications_active_rounded,
+                            color: Color(0xFFF1592A),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'The assigned fixer will be notified.',
+                            style: GoogleFonts.urbanist(
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Why are you cancelling?',
+                    style: GoogleFonts.urbanist(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...bookingCancellationReasons.map((option) {
+                    final selected = option.key == _selectedKey;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: InkWell(
+                        onTap: _submitting
+                            ? null
+                            : () {
+                                setState(() {
+                                  _selectedKey = option.key;
+                                  _errorText = null;
+                                });
+                              },
+                        borderRadius: BorderRadius.circular(18),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? brand.withValues(alpha: 0.08)
+                                : const Color(0xFFF3F5F7),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: selected
+                                  ? brand
+                                  : Colors.black.withValues(alpha: 0.05),
+                              width: selected ? 1.4 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                selected
+                                    ? Icons.radio_button_checked_rounded
+                                    : Icons.radio_button_off_rounded,
+                                color: selected ? brand : Colors.black38,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  option.label,
+                                  style: GoogleFonts.urbanist(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: !_isOtherSelected
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Please specify',
+                                  style: GoogleFonts.urbanist(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _noteController,
+                                  enabled: !_submitting,
+                                  maxLines: 3,
+                                  minLines: 2,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  decoration: InputDecoration(
+                                    hintText: 'Add a short note',
+                                    filled: true,
+                                    fillColor: const Color(0xFFF3F5F7),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                  ),
+                  if (_errorText != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _errorText!,
+                      style: GoogleFonts.urbanist(
+                        color: const Color(0xFFD32F2F),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _submitting
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text('Keep booking'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _submitting ? null : _submit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: brand,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Text(
+                            _submitting ? 'Cancelling…' : 'Cancel booking',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
