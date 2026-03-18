@@ -13,7 +13,7 @@ class InviteFriendScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileControllerProvider).valueOrNull;
+    final profile = ref.watch(profileControllerProvider).value;
     final name = profile?.name.trim();
     final inviteLink = _buildInviteLink(profile);
     final message = _buildShareMessage(name, inviteLink);

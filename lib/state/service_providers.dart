@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import 'package:fixitzed_app/services/home_service.dart';
 import 'package:fixitzed_app/services/notification_service.dart';
@@ -11,7 +12,6 @@ import 'package:fixitzed_app/repositories/favorites_repository.dart';
 import 'package:fixitzed_app/repositories/notifications_repository.dart';
 import 'package:fixitzed_app/repositories/profile_repository.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
-import 'package:fixitzed_app/state/services_controller.dart';
 import 'package:fixitzed_app/state/services_controller.dart';
 
 final homeServiceProvider = Provider<HomeService>((ref) => HomeService());

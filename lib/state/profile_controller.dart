@@ -58,7 +58,7 @@ class ProfileState {
   }
 }
 
-class ProfileController extends AutoDisposeAsyncNotifier<ProfileState> {
+class ProfileController extends AsyncNotifier<ProfileState> {
   bool _syncRegistered = false;
 
   @override
@@ -246,6 +246,6 @@ class ProfileController extends AutoDisposeAsyncNotifier<ProfileState> {
 }
 
 final profileControllerProvider =
-    AutoDisposeAsyncNotifierProvider<ProfileController, ProfileState>(
+    AsyncNotifierProvider.autoDispose<ProfileController, ProfileState>(
       ProfileController.new,
     );

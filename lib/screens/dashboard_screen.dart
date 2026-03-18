@@ -820,14 +820,14 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
 
         final dashboardAsync = ref.watch(dashboardControllerProvider);
-        final state = dashboardAsync.valueOrNull ?? const DashboardState();
+        final state = dashboardAsync.value ?? const DashboardState();
         final isInitialLoading =
-            dashboardAsync.isLoading && dashboardAsync.valueOrNull == null;
+            dashboardAsync.isLoading && dashboardAsync.value == null;
         final errorText =
             state.error ??
             dashboardAsync.whenOrNull(error: (err, _) => err.toString());
         final topFixers = ref.watch(topFixersProvider);
-        final profileState = ref.watch(profileControllerProvider).valueOrNull;
+        final profileState = ref.watch(profileControllerProvider).value;
 
         if (state.isInactive) {
           return _InactiveAccountView(

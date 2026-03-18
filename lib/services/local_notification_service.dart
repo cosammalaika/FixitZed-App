@@ -44,10 +44,11 @@ class LocalNotificationService {
     final settings = InitializationSettings(
       android: androidSettings,
       iOS: darwinSettings,
+      macOS: darwinSettings,
     );
 
     await _plugin.initialize(
-      settings,
+      settings: settings,
       onDidReceiveNotificationResponse: (response) {
         handlePayload(response.payload);
       },
@@ -123,10 +124,10 @@ class LocalNotificationService {
     );
 
     await _plugin.show(
-      id ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title,
-      body,
-      details,
+      id: id ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title: title,
+      body: body,
+      notificationDetails: details,
       payload: payload,
     );
   }

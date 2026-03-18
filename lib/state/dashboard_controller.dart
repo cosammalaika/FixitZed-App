@@ -78,7 +78,7 @@ class DashboardController extends AsyncNotifier<DashboardState> {
   }
 
   Future<void> refresh() async {
-    final current = state.valueOrNull;
+    final current = state.value;
     final shouldShowLoader =
         current == null ||
         current.categories.isEmpty ||
@@ -106,7 +106,7 @@ class DashboardController extends AsyncNotifier<DashboardState> {
   Future<void> _refreshFromNetwork({bool showLoading = false}) async {
     final startedAt = DateTime.now();
     if (showLoading) {
-      final current = state.valueOrNull ?? const DashboardState();
+      final current = state.value ?? const DashboardState();
       final loadingState = current.copyWith(
         areCategoriesLoading: true,
         hasResolvedCategories: false,

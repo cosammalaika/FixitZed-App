@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fixitzed_app/services/home_service.dart';
 import 'package:fixitzed_app/services/notification_service.dart';
 import 'package:fixitzed_app/services/token_storage.dart';
-import 'package:fixitzed_app/services/preload_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
 
@@ -40,17 +39,23 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _bootstrap() async {
     final home = HomeService();
-    final preload = Future.wait([
-      home.preloadServices(forceRefresh: true),
-      home.fetchCategories().catchError((_) => <dynamic>[]),
-      home.fetchSubcategories().catchError((_) => <dynamic>[]),
-      NotificationService().fetch(page: 1).catchError((_) => <Map>[]),
-    ]).timeout(const Duration(seconds: 12), onTimeout: () => []);
+    Future<void> warm(Future<dynamic> future) {
+      return future.then<void>((_) {}).catchError((_) {});
+    }
 
-    await Future.wait([
-      Future.delayed(const Duration(seconds: 2)),
-      preload,
-    ]).catchError((_) {});
+    final preload = Future.wait<void>([
+      home.preloadServices(forceRefresh: true),
+      warm(home.fetchCategories()),
+      warm(home.fetchSubcategories()),
+      warm(NotificationService().fetch(page: 1)),
+    ]).timeout(const Duration(seconds: 12), onTimeout: () => <void>[]);
+
+    try {
+      await Future.wait<void>([
+        Future<void>.delayed(const Duration(seconds: 2)),
+        preload,
+      ]);
+    } catch (_) {}
 
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();

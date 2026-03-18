@@ -385,7 +385,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _currentPersistedAvatarUrl() {
     final ref = _ref;
     if (ref == null) return '';
-    final current = ref.read(profileControllerProvider).valueOrNull;
+    final current = ref.read(profileControllerProvider).value;
     final avatar = current?.avatarUrl?.trim() ?? '';
     return avatar.toLowerCase() == 'null' ? '' : avatar;
   }
@@ -401,7 +401,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       await ref.read(profileControllerProvider.notifier).refresh();
-      final current = ref.read(profileControllerProvider).valueOrNull;
+      final current = ref.read(profileControllerProvider).value;
       final avatar = current?.avatarUrl?.trim() ?? '';
       final normalizedAvatar = avatar.toLowerCase() == 'null' ? '' : avatar;
       final hasAvatar = normalizedAvatar.isNotEmpty;
@@ -537,7 +537,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           body: profileAsync.when(
             loading: () {
-              final previous = profileAsync.valueOrNull;
+              final previous = profileAsync.value;
               if (previous != null) return _buildBody(previous);
               return const Center(child: CircularProgressIndicator());
             },

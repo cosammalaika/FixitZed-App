@@ -1,13 +1,11 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 final connectivityProvider =
     StateNotifierProvider<ConnectivityController, ConnectivityStatus>((ref) {
-  final controller = ConnectivityController(Connectivity());
-  ref.onDispose(controller.dispose);
-  return controller;
+  return ConnectivityController(Connectivity());
 });
 
 class ConnectivityStatus {
@@ -45,19 +43,12 @@ class ConnectivityController extends StateNotifier<ConnectivityStatus> {
   Future<void> _init() async {
     final initial = await _connectivity.checkConnectivity();
     _setStatus(initial);
-    _subscription =
-        _connectivity.onConnectivityChanged.listen(_setStatus);
+    _subscription = _connectivity.onConnectivityChanged.listen(_setStatus);
   }
 
-  void _setStatus(dynamic results) {
-    final list = results is List<ConnectivityResult>
-        ? results
-        : results is ConnectivityResult
-            ? <ConnectivityResult>[results]
-            : const <ConnectivityResult>[];
-    final primary =
-        list.isNotEmpty ? list.first : ConnectivityResult.none;
-    final online = list.any((r) => r != ConnectivityResult.none);
+  void _setStatus(List<ConnectivityResult> results) {
+    final primary = results.isNotEmpty ? results.first : ConnectivityResult.none;
+    final online = results.any((result) => result != ConnectivityResult.none);
     state = state.copyWith(isOnline: online, result: primary);
   }
 

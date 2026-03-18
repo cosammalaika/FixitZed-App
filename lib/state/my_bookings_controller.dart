@@ -15,7 +15,7 @@ class MyBookingsState {
   final Map<int, Map<String, dynamic>> payments;
 }
 
-class MyBookingsController extends AutoDisposeAsyncNotifier<MyBookingsState> {
+class MyBookingsController extends AsyncNotifier<MyBookingsState> {
   bool _syncRegistered = false;
 
   @override
@@ -84,6 +84,6 @@ class MyBookingsController extends AutoDisposeAsyncNotifier<MyBookingsState> {
 }
 
 final myBookingsControllerProvider =
-    AutoDisposeAsyncNotifierProvider<MyBookingsController, MyBookingsState>(
+    AsyncNotifierProvider.autoDispose<MyBookingsController, MyBookingsState>(
       MyBookingsController.new,
     );
