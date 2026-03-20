@@ -1,11 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/painting.dart' show NetworkImageLoadException;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fixitzed_app/utils/service_utils.dart';
-import 'package:fixitzed_app/widgets/fixer_list_item.dart';
 
 class DashboardGreeting extends StatelessWidget {
   final String name;
@@ -454,81 +451,6 @@ class DashboardBottomNav extends StatelessWidget {
                 ),
         ),
       ),
-    );
-  }
-}
-
-class TopFixersStrip extends StatelessWidget {
-  final AsyncValue<List<dynamic>> fixers;
-  const TopFixersStrip({super.key, required this.fixers});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Top Rated Fixers',
-                style: GoogleFonts.urbanist(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            GestureDetector(
-              onTap: () => Navigator.of(context).pushNamed('/fixers'),
-              child: Text(
-                'View All',
-                style: GoogleFonts.urbanist(
-                  color: const Color(0xFFF1592A),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        fixers.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) =>
-              const Center(child: Text('Unable to load top fixers right now.')),
-          data: (items) {
-            final mapped = items
-                .whereType<Object>()
-                .map<Map<String, dynamic>>((item) {
-                  if (item is Map<String, dynamic>) {
-                    return Map<String, dynamic>.from(item);
-                  }
-                  if (item is Map) {
-                    return item.map(
-                      (key, value) => MapEntry(key.toString(), value),
-                    );
-                  }
-                  return <String, dynamic>{};
-                })
-                .where((map) => map.isNotEmpty)
-                .toList();
-
-            if (mapped.isEmpty) {
-              return const Center(child: Text('No fixers yet'));
-            }
-
-            final displayCount = mapped.length > 5 ? 5 : mapped.length;
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 8),
-              itemCount: displayCount,
-              itemBuilder: (ctx, i) {
-                return FixerListItem(fixer: mapped[i]);
-              },
-            );
-          },
-        ),
-      ],
     );
   }
 }

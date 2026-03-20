@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/state/dashboard_controller.dart';
-import 'package:fixitzed_app/state/fixers_providers.dart';
 import 'package:fixitzed_app/state/profile_controller.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
@@ -826,7 +825,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         final errorText =
             state.error ??
             dashboardAsync.whenOrNull(error: (err, _) => err.toString());
-        final topFixers = ref.watch(topFixersProvider);
         final profileState = ref.watch(profileControllerProvider).value;
 
         if (state.isInactive) {
@@ -858,7 +856,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                     profile: profileState,
                     isInitialLoading: isInitialLoading,
                     errorText: errorText,
-                    topFixers: topFixers,
                     onRetry: _refreshDashboard,
                   ),
                   const MyBookingScreen(),
@@ -878,7 +875,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     required ProfileState? profile,
     required bool isInitialLoading,
     required String? errorText,
-    required AsyncValue<List<dynamic>> topFixers,
     required Future<void> Function() onRetry,
   }) {
     if (isInitialLoading) {
@@ -910,8 +906,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
           const SizedBox(height: 24),
           _serviceSpotlight(state.services, onRetry: onRetry),
-          const SizedBox(height: 24),
-          TopFixersStrip(fixers: topFixers),
         ],
       ),
     );
