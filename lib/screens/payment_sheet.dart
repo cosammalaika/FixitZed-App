@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/services/app_analytics.dart';
 import 'package:fixitzed_app/services/coupon_service.dart';
 import 'package:fixitzed_app/services/loyalty_service.dart';
@@ -127,17 +128,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       _loyaltyBalance = (loyalty?['points'] as num?)?.toInt() ?? 0;
 
-      final rawPointValue = (loyalty?['point_value'] ??
-              loyalty?['point_rate'] ??
-              loyalty?['point_value_rate'])
-          as num?;
+      final rawPointValue =
+          (loyalty?['point_value'] ??
+                  loyalty?['point_rate'] ??
+                  loyalty?['point_value_rate'])
+              as num?;
       _pointValue = rawPointValue?.toDouble() ?? 0.01;
       if (_pointValue <= 0) _pointValue = 0.01;
 
-      final rawThreshold = (loyalty?['threshold'] ??
-              loyalty?['minimum_redeem_points'] ??
-              loyalty?['min_points'])
-          as num?;
+      final rawThreshold =
+          (loyalty?['threshold'] ??
+                  loyalty?['minimum_redeem_points'] ??
+                  loyalty?['min_points'])
+              as num?;
       _loyaltyThreshold = rawThreshold?.toInt() ?? 50;
       if (_loyaltyThreshold < 0) _loyaltyThreshold = 0;
 
@@ -155,24 +158,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final brand = const Color(0xFFF1592A);
+    final theme = Theme.of(context);
+    final colors = theme.fx;
+    final brand = colors.brand;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F3),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: true,
         title: Text(
           'Complete Payment',
           style: GoogleFonts.urbanist(
             fontWeight: FontWeight.w700,
-            color: Colors.black87,
+            color: colors.textPrimary,
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.black87),
+          icon: Icon(Icons.close_rounded, color: colors.textPrimary),
           onPressed: () => Navigator.of(context).pop(false),
         ),
       ),
@@ -185,149 +190,149 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(22),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFF1592A), Color(0xFFFFA26C)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [colors.brand, colors.brandAccent],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: brand.withValues(alpha: 0.18),
+                            blurRadius: 28,
+                            offset: const Offset(0, 18),
                           ),
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow: [
-                            BoxShadow(
-                              color: brand.withValues(alpha: 0.18),
-                              blurRadius: 28,
-                              offset: const Offset(0, 18),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.receipt_long_rounded,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Review your bill',
-                                    style: GoogleFonts.urbanist(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Apply coupons or loyalty points, then settle the payment securely.',
-                                    style: GoogleFonts.urbanist(
-                                      color: Colors.white.withValues(alpha: 0.92),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 20),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 24,
-                              offset: const Offset(0, 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Amount due',
+                            child: const Icon(
+                              Icons.receipt_long_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Review your bill',
+                                  style: GoogleFonts.urbanist(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Apply coupons or loyalty points, then settle the payment securely.',
+                                  style: GoogleFonts.urbanist(
+                                    color: Colors.white.withValues(alpha: 0.92),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.shadow,
+                            blurRadius: 24,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Amount due',
+                            style: GoogleFonts.urbanist(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceTint,
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Text(
+                              _amount == null
+                                  ? '—'
+                                  : 'K${_amount!.toStringAsFixed(2)}',
                               style: GoogleFonts.urbanist(
                                 fontWeight: FontWeight.w800,
-                                fontSize: 16,
+                                fontSize: 18,
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF2EA),
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              child: Text(
-                                _amount == null
-                                    ? '—'
-                                    : 'K${_amount!.toStringAsFixed(2)}',
-                                style: GoogleFonts.urbanist(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 18,
-                                ),
-                              ),
+                          ),
+                          const SizedBox(height: 22),
+                          _couponSection(),
+                          const SizedBox(height: 20),
+                          _loyaltySection(),
+                          if ((_originalAmount ?? _baseAmount ?? _amount) !=
+                              null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 22),
+                              child: _priceSummary(),
                             ),
-                            const SizedBox(height: 22),
-                            _couponSection(),
-                            const SizedBox(height: 20),
-                            _loyaltySection(),
-                            if ((_originalAmount ?? _baseAmount ?? _amount) !=
-                                null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 22),
-                                child: _priceSummary(),
-                              ),
-                          ],
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Select payment method',
-                        style: GoogleFonts.urbanist(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                        ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Select payment method',
+                      style: GoogleFonts.urbanist(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
                       ),
-                      const SizedBox(height: 12),
-                      ...(_methods.isNotEmpty
-                          ? _methods.map(
-                              (m) => _methodTile(
-                                label:
-                                    (m['name'] ?? m['code'] ?? 'Method').toString(),
-                                value: (m['code'] ?? 'cash').toString(),
-                                leading: Icons.payments_rounded,
-                              ),
-                            )
-                          : [
-                              _methodTile(
-                                label: 'Cash',
-                                value: 'cash',
-                                leading: Icons.payments_rounded,
-                              ),
-                            ]),
-                      const SizedBox(height: 24),
-                      SizedBox(
+                    ),
+                    const SizedBox(height: 12),
+                    ...(_methods.isNotEmpty
+                        ? _methods.map(
+                            (m) => _methodTile(
+                              label: (m['name'] ?? m['code'] ?? 'Method')
+                                  .toString(),
+                              value: (m['code'] ?? 'cash').toString(),
+                              leading: Icons.payments_rounded,
+                            ),
+                          )
+                        : [
+                            _methodTile(
+                              label: 'Cash',
+                              value: 'cash',
+                              leading: Icons.payments_rounded,
+                            ),
+                          ]),
+                    const SizedBox(height: 24),
+                    SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: (_amount == null || _submitting)
@@ -341,8 +346,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   method: _method,
                                   transactionId: _ensureTransactionId(),
                                   couponCode: _couponCode,
-                                  loyaltyPoints:
-                                      _useLoyalty ? _loyaltyToUse : 0,
+                                  loyaltyPoints: _useLoyalty
+                                      ? _loyaltyToUse
+                                      : 0,
                                 );
                                 if (!mounted) return;
                                 setState(() => _submitting = false);
@@ -352,21 +358,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   'amount': _amount,
                                   'coupon_applied':
                                       _couponCode?.isNotEmpty ?? false,
-                                  'loyalty_points_used':
-                                      _useLoyalty ? _loyaltyToUse : 0,
+                                  'loyalty_points_used': _useLoyalty
+                                      ? _loyaltyToUse
+                                      : 0,
                                 };
                                 if (!result.success) {
                                   AppAnalytics.instance.logError(
                                     'payment_failed',
                                     message:
-                                        result.message ?? 'Unknown payment error',
+                                        result.message ??
+                                        'Unknown payment error',
                                     parameters: {
                                       ...analyticsPayload,
                                       'status_code': result.statusCode,
                                     },
                                   );
                                   _showSnack(
-                                    message: result.message ??
+                                    message:
+                                        result.message ??
                                         'Payment failed. Please try again.',
                                     success: false,
                                   );
@@ -391,8 +400,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 }
 
                                 _showSnack(
-                                  message: result.message ??
-                                      'Payment successful',
+                                  message:
+                                      result.message ?? 'Payment successful',
                                   success: true,
                                 );
 
@@ -402,16 +411,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: brand,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          child:
-                              Text(_submitting ? 'Processing…' : 'Pay now'),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
+                        child: Text(_submitting ? 'Processing…' : 'Pay now'),
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -425,8 +433,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     required IconData leading,
   }) {
     final selected = _method == value;
-    const brand = Color(0xFFF1592A);
-    const accent = Color(0xFFFFA26C);
+    final colors = Theme.of(context).fx;
+    final brand = colors.brand;
+    final accent = colors.brandAccent;
     return InkWell(
       onTap: () => setState(() => _method = value),
       borderRadius: BorderRadius.circular(18),
@@ -437,13 +446,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: selected
-              ? const LinearGradient(
+              ? LinearGradient(
                   colors: [brand, accent],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 )
               : null,
-          color: selected ? null : const Color(0xFFF3F5F7),
+          color: selected ? null : colors.surfaceSubtle,
           borderRadius: BorderRadius.circular(18),
           boxShadow: selected
               ? [
@@ -462,7 +471,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               decoration: BoxDecoration(
                 color: selected
                     ? Colors.white.withValues(alpha: 0.18)
-                    : const Color(0xFFE8EDF1),
+                    : colors.surfaceRaised,
                 shape: BoxShape.circle,
               ),
               child: Icon(leading, color: selected ? Colors.white : brand),
@@ -473,7 +482,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 label,
                 style: GoogleFonts.urbanist(
                   fontWeight: FontWeight.w700,
-                  color: selected ? Colors.white : Colors.black87,
+                  color: selected ? Colors.white : colors.textPrimary,
                 ),
               ),
             ),
@@ -483,7 +492,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: selected ? Colors.white : Colors.black26,
+                  color: selected ? Colors.white : colors.textMuted,
                   width: 2,
                 ),
               ),
@@ -679,7 +688,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
   }
 
-
   double? _computeDiscount(double? base, Map info) {
     if (base == null) return null;
     final data = (info['data'] is Map)
@@ -716,6 +724,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Widget _couponSection() {
+    final colors = Theme.of(context).fx;
     final applied = _couponCode != null && _couponCode!.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -734,7 +743,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 decoration: InputDecoration(
                   hintText: 'Enter coupon code',
                   filled: true,
-                  fillColor: const Color(0xFFF3F5F7),
+                  fillColor: colors.surfaceSubtle,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 14,
@@ -764,7 +773,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 : ElevatedButton(
                     onPressed: _applyingCoupon ? null : _applyCoupon,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF1592A),
+                      backgroundColor: colors.brand,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 18,
@@ -783,18 +792,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
             margin: const EdgeInsets.only(top: 10),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0x1A2E7D32),
+              color: colors.successContainer,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle, color: Color(0xFF2E7D32)),
+                Icon(Icons.check_circle, color: colors.success),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     (_normalizeCoupon(_couponInfo!)['message'] as String?) ??
                         'Coupon applied',
-                    style: GoogleFonts.urbanist(color: const Color(0xFF2E7D32)),
+                    style: GoogleFonts.urbanist(color: colors.success),
                   ),
                 ),
               ],
@@ -805,6 +814,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Widget _loyaltySection() {
+    final colors = Theme.of(context).fx;
     final base = _baseAmount ?? _amount ?? 0;
     final maxForAmount = _maxRedeemablePointsForAmount(base);
     final meetsThreshold =
@@ -831,7 +841,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFF6EEEA),
+            color: colors.surfaceTint,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -853,7 +863,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         Text(
                           'Worth approximately K$currencyValue',
                           style: GoogleFonts.urbanist(
-                            color: Colors.black54,
+                            color: colors.textSecondary,
                             fontSize: 12,
                           ),
                         ),
@@ -861,7 +871,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         Text(
                           '1 pt = K${_pointValue.toStringAsFixed(2)}',
                           style: GoogleFonts.urbanist(
-                            color: Colors.black45,
+                            color: colors.textMuted,
                             fontSize: 11,
                           ),
                         ),
@@ -871,7 +881,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             child: Text(
                               'Redeem from $minPoints pts (K${thresholdValue ?? '0.00'})',
                               style: GoogleFonts.urbanist(
-                                color: Colors.black45,
+                                color: colors.textMuted,
                                 fontSize: 11,
                               ),
                             ),
@@ -889,7 +899,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             _recalculateLoyalty(reset: value);
                           }
                         : null,
-                    activeThumbColor: const Color(0xFFF1592A),
+                    activeThumbColor: colors.brand,
                   ),
                 ],
               ),
@@ -898,7 +908,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     'Earn $shortfall more points (K${(shortfall * _pointValue).toStringAsFixed(2)}) to unlock redemptions.',
-                    style: GoogleFonts.urbanist(color: Colors.black54),
+                    style: GoogleFonts.urbanist(color: colors.textSecondary),
                   ),
                 )
               else if (!canRedeemNow)
@@ -910,7 +920,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         : _loyaltyBalance <= 0
                         ? 'Earn points by completing requests to unlock rewards.'
                         : 'Insufficient points for this amount. Keep earning to redeem.',
-                    style: GoogleFonts.urbanist(color: Colors.black54),
+                    style: GoogleFonts.urbanist(color: colors.textSecondary),
                   ),
                 ),
               if (canRedeemNow) ...[
@@ -923,7 +933,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   min: 0,
                   max: sliderMax.toDouble(),
                   divisions: sliderMax > 0 ? sliderMax : null,
-                  activeColor: const Color(0xFFF1592A),
+                  activeColor: colors.brand,
                   label: '$_loyaltyToUse pts',
                   onChanged: (value) {
                     setState(() {
@@ -943,7 +953,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     Text(
                       '-K${(_loyaltyDiscount).toStringAsFixed(2)}',
                       style: GoogleFonts.urbanist(
-                        color: const Color(0xFFF1592A),
+                        color: colors.brand,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -958,18 +968,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Widget _priceSummary() {
+    final colors = Theme.of(context).fx;
     final base = _originalAmount ?? _baseAmount ?? _amount ?? 0;
     final coupon = _couponDiscount;
     final loyalty = _loyaltyDiscount;
     final total = _amount ?? (base - coupon - loyalty).clamp(0, base);
-    final labelStyle = GoogleFonts.urbanist(color: Colors.black54);
+    final labelStyle = GoogleFonts.urbanist(color: colors.textSecondary);
     final valueStyle = GoogleFonts.urbanist(fontWeight: FontWeight.w700);
 
-    const brand = Color(0xFFF1592A);
+    final brand = colors.brand;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF2EA),
+        color: colors.surfaceTint,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: brand.withValues(alpha: 0.12)),
       ),
@@ -990,7 +1001,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 const Spacer(),
                 Text(
                   '-${coupon.toStringAsFixed(2)}',
-                  style: valueStyle.copyWith(color: const Color(0xFFD32F2F)),
+                  style: valueStyle.copyWith(color: colors.danger),
                 ),
               ],
             ),
@@ -1003,7 +1014,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   const Spacer(),
                   Text(
                     '-${loyalty.toStringAsFixed(2)}',
-                    style: valueStyle.copyWith(color: const Color(0xFFF1592A)),
+                    style: valueStyle.copyWith(color: colors.brand),
                   ),
                 ],
               ),
@@ -1020,7 +1031,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 total.toStringAsFixed(2),
                 style: GoogleFonts.urbanist(
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF2E7D32),
+                  color: colors.success,
                 ),
               ),
             ],
@@ -1031,7 +1042,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _promptRating() async {
-    final brand = const Color(0xFFF1592A);
+    final brand = Theme.of(context).fx.brand;
     var rating = 5.0;
     var comment = '';
     var submitting = false;
@@ -1086,10 +1097,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).fx.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) {
+        final colors = Theme.of(ctx).fx;
         return StatefulBuilder(
           builder: (ctx, setLocal) {
             final bottom = MediaQuery.of(ctx).viewInsets.bottom;
@@ -1106,7 +1119,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         width: 48,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.black12,
+                          color: colors.border,
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
@@ -1173,7 +1186,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         vertical: 16,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF6EEEA),
+                        color: colors.surfaceTint,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Column(
@@ -1214,7 +1227,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                       filled
                                           ? Icons.star_rounded
                                           : Icons.star_border_rounded,
-                                      color: filled ? brand : Colors.black26,
+                                      color: filled ? brand : colors.textMuted,
                                       size: 36,
                                     ),
                                   ),
@@ -1233,18 +1246,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     const SizedBox(height: 8),
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: colors.surface,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: const Color(0xFFF1592A).withValues(alpha: 0.2),
+                          color: colors.brand.withValues(alpha: 0.2),
                           width: 1.2,
                         ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x112B1B10),
-                            blurRadius: 10,
-                            offset: Offset(0, 4),
-                          ),
+                        boxShadow: [
+                          if (Theme.of(ctx).brightness == Brightness.light)
+                            BoxShadow(
+                              color: colors.shadow,
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
                         ],
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -1271,7 +1285,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 : () => Navigator.of(ctx).pop(false),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: brand,
-                              side: BorderSide(color: brand.withValues(alpha: 0.4)),
+                              side: BorderSide(
+                                color: brand.withValues(alpha: 0.4),
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
@@ -1357,27 +1373,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
-    final color = success ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);
+    final color = success
+        ? Theme.of(context).fx.success
+        : Theme.of(context).fx.danger;
     final icon = success ? Icons.check_circle_rounded : Icons.error_rounded;
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: color,
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: GoogleFonts.urbanist(color: Colors.white),
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: color,
+          content: Row(
+            children: [
+              Icon(icon, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: GoogleFonts.urbanist(color: Colors.white),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
   }
 }

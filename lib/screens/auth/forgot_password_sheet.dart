@@ -3,14 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/core/app_spacing.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/widgets/app_text_field.dart';
 import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
 class ForgotPasswordSheet extends StatefulWidget {
-  const ForgotPasswordSheet({
-    super.key,
-    this.initialIdentifier,
-  });
+  const ForgotPasswordSheet({super.key, this.initialIdentifier});
 
   final String? initialIdentifier;
 
@@ -73,9 +71,13 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(result.displayMessage ??
-            'If we find a matching account, a reset code will be emailed shortly.'),
-        backgroundColor: result.success ? Colors.green : Colors.redAccent,
+        content: Text(
+          result.displayMessage ??
+              'If we find a matching account, a reset code will be emailed shortly.',
+        ),
+        backgroundColor: result.success
+            ? Theme.of(context).fx.success
+            : Theme.of(context).fx.danger,
       ),
     );
   }
@@ -97,9 +99,11 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
     if (result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result.displayMessage ??
-              'Password updated successfully. You can now sign in.'),
-          backgroundColor: Colors.green,
+          content: Text(
+            result.displayMessage ??
+                'Password updated successfully. You can now sign in.',
+          ),
+          backgroundColor: Theme.of(context).fx.success,
         ),
       );
       Navigator.of(context).pop(true);
@@ -107,9 +111,10 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            result.displayMessage ?? 'Unable to update the password. Try again.',
+            result.displayMessage ??
+                'Unable to update the password. Try again.',
           ),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: Theme.of(context).fx.danger,
         ),
       );
     }
@@ -118,17 +123,19 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const accent = Color(0xFFF1592A);
+    final colors = theme.fx;
+    final accent = colors.brand;
 
     return KeyboardSafeForm(
       padding: const EdgeInsets.fromLTRB(0, AppSpacing.md, 0, 0),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: colors.border),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: colors.shadow,
               blurRadius: 24,
               offset: const Offset(0, 12),
             ),
@@ -145,7 +152,7 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
                   width: 48,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.black12,
+                    color: colors.border,
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -157,11 +164,13 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.12),
+                      color: colors.surfaceTint,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      _codeSent ? Icons.lock_reset_rounded : Icons.mark_email_read_outlined,
+                      _codeSent
+                          ? Icons.lock_reset_rounded
+                          : Icons.mark_email_read_outlined,
                       color: accent,
                     ),
                   ),
@@ -175,6 +184,7 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
                           style: GoogleFonts.urbanist(
                             fontWeight: FontWeight.w800,
                             fontSize: 20,
+                            color: colors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -183,7 +193,7 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
                               ? 'We just sent you a 6-digit code. Enter it below and set a new password to finish.'
                               : 'Forgot your password? Enter the email or phone number on your account and we’ll email you a reset code.',
                           style: GoogleFonts.urbanist(
-                            color: theme.hintColor,
+                            color: colors.textSecondary,
                             height: 1.5,
                           ),
                         ),
@@ -197,7 +207,9 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
                 duration: const Duration(milliseconds: 250),
                 switchInCurve: Curves.easeOut,
                 switchOutCurve: Curves.easeIn,
-                child: _codeSent ? _buildResetForm(accent) : _buildRequestForm(accent),
+                child: _codeSent
+                    ? _buildResetForm(accent)
+                    : _buildRequestForm(accent),
               ),
             ],
           ),
@@ -350,9 +362,7 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
             onPressed: _requesting
                 ? null
                 : () => setState(() => _codeSent = false),
-            style: TextButton.styleFrom(
-              foregroundColor: accent,
-            ),
+            style: TextButton.styleFrom(foregroundColor: accent),
             child: const Text(
               'Send code again',
               style: TextStyle(fontWeight: FontWeight.w600),

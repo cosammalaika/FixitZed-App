@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 
 class DashboardGreeting extends StatelessWidget {
@@ -24,14 +25,13 @@ class DashboardGreeting extends StatelessWidget {
   Widget build(BuildContext context) {
     final avatar = (avatarUrl ?? '').trim();
     final hasAvatar = avatar.isNotEmpty && avatar.toLowerCase() != 'null';
+    final colors = Theme.of(context).fx;
     return Row(
       children: [
         CircleAvatar(
           radius: 24,
-          backgroundColor: Colors.white,
-          child: ClipOval(
-            child: _buildAvatarImage(avatar, hasAvatar),
-          ),
+          backgroundColor: colors.surfaceRaised,
+          child: ClipOval(child: _buildAvatarImage(avatar, hasAvatar)),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -59,17 +59,21 @@ class DashboardGreeting extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   shape: BoxShape.circle,
                   boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
+                    if (Theme.of(context).brightness == Brightness.light)
+                      BoxShadow(
+                        color: colors.shadow,
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
                   ],
                 ),
-                child: const Icon(Icons.notifications_none_rounded),
+                child: Icon(
+                  Icons.notifications_none_rounded,
+                  color: colors.textPrimary,
+                ),
               ),
             ),
             if (hasUnread)
@@ -82,7 +86,7 @@ class DashboardGreeting extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.red,
                     borderRadius: BorderRadius.circular(5),
-                    border: Border.all(color: Colors.white, width: 1.5),
+                    border: Border.all(color: colors.surface, width: 1.5),
                   ),
                 ),
               ),
@@ -104,12 +108,7 @@ class DashboardGreeting extends StatelessWidget {
     }
 
     if (!avatar.startsWith('http://') && !avatar.startsWith('https://')) {
-      return Image.asset(
-        avatar,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-      );
+      return Image.asset(avatar, width: size, height: size, fit: BoxFit.cover);
     }
 
     _debugAvatarLog('[Avatar] LOAD ATTEMPT url=$avatar');
@@ -184,10 +183,11 @@ class _DashboardSearchFieldState extends State<DashboardSearchField> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.fx;
     return TextField(
       controller: _controller,
       style: TextStyle(color: theme.colorScheme.onSurface),
-      cursorColor: const Color(0xFFF1592A),
+      cursorColor: colors.brand,
       textInputAction: TextInputAction.search,
       onSubmitted: (value) {
         final trimmed = value.trim();
@@ -210,9 +210,9 @@ class _DashboardSearchFieldState extends State<DashboardSearchField> {
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: theme.dividerColor),
         ),
-        focusedBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
-          borderSide: BorderSide(color: Color(0xFFF1592A), width: 1.2),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(16)),
+          borderSide: BorderSide(color: colors.brand, width: 1.2),
         ),
       ),
     );
@@ -223,11 +223,13 @@ class _DashboardSearchFieldState extends State<DashboardSearchField> {
 
     await showModalBottomSheet<void>(
       context: context,
+      backgroundColor: Theme.of(context).fx.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         final maxSheetHeight = MediaQuery.of(ctx).size.height * 0.75;
+        final colors = Theme.of(ctx).fx;
         return SafeArea(
           child: SizedBox(
             height: maxSheetHeight,
@@ -241,7 +243,7 @@ class _DashboardSearchFieldState extends State<DashboardSearchField> {
                       width: 36,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.black12,
+                        color: colors.border,
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
@@ -270,8 +272,9 @@ class _DashboardSearchFieldState extends State<DashboardSearchField> {
                         ),
                         if (options.isNotEmpty)
                           ...options.map((cat) {
-                            final label = (cat['name'] ?? cat['title'] ?? 'Category')
-                                .toString();
+                            final label =
+                                (cat['name'] ?? cat['title'] ?? 'Category')
+                                    .toString();
                             return ListTile(
                               contentPadding: EdgeInsets.zero,
                               leading: const Icon(Icons.label_rounded),
@@ -288,7 +291,9 @@ class _DashboardSearchFieldState extends State<DashboardSearchField> {
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
                               'No categories available yet. Try refreshing the dashboard.',
-                              style: GoogleFonts.urbanist(color: Colors.black54),
+                              style: GoogleFonts.urbanist(
+                                color: colors.textSecondary,
+                              ),
                             ),
                           ),
                       ],
@@ -317,7 +322,8 @@ class DashboardBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFFF1592A);
+    final colors = Theme.of(context).fx;
+    final brand = colors.brand;
     final items = [
       {
         'icon': currentIndex == 0 ? Icons.home_rounded : Icons.home_outlined,
@@ -346,18 +352,19 @@ class DashboardBottomNav extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(24),
             topRight: Radius.circular(24),
           ),
           boxShadow: [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 20,
-              offset: Offset(0, -4),
-            ),
+            if (Theme.of(context).brightness == Brightness.light)
+              BoxShadow(
+                color: colors.shadow,
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
           ],
         ),
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -376,7 +383,7 @@ class DashboardBottomNav extends StatelessWidget {
                       ),
                       decoration: sel
                           ? BoxDecoration(
-                              color: const Color(0x1AF1592A),
+                              color: colors.surfaceTint,
                               borderRadius: BorderRadius.circular(20),
                             )
                           : null,
@@ -385,7 +392,7 @@ class DashboardBottomNav extends StatelessWidget {
                         children: [
                           Icon(
                             items[i]['icon'] as IconData,
-                            color: sel ? brand : Colors.black38,
+                            color: sel ? brand : colors.textMuted,
                             size: sel ? 26 : 24,
                           ),
                           const SizedBox(height: 4),
@@ -396,7 +403,7 @@ class DashboardBottomNav extends StatelessWidget {
                               fontWeight: sel
                                   ? FontWeight.w700
                                   : FontWeight.w500,
-                              color: sel ? brand : Colors.black45,
+                              color: sel ? brand : colors.textMuted,
                             ),
                           ),
                         ],
@@ -419,7 +426,7 @@ class DashboardBottomNav extends StatelessWidget {
                             height: 50,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF1592A),
+                              color: brand,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: const [
                                 BoxShadow(
@@ -436,12 +443,12 @@ class DashboardBottomNav extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
+                          Text(
                             'Book',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFFF1592A),
+                              color: brand,
                             ),
                           ),
                         ],
@@ -462,19 +469,16 @@ class CategoryIconLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
+            color: colors.surfaceSubtle,
             shape: BoxShape.circle,
           ),
-          child: const Icon(
-            Icons.handyman_rounded,
-            color: Color(0xFFF1592A),
-            size: 28,
-          ),
+          child: Icon(Icons.handyman_rounded, color: colors.brand, size: 28),
         ),
         const SizedBox(height: 8),
         Text(label, style: GoogleFonts.urbanist()),
@@ -489,6 +493,7 @@ class CategoriesBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -505,23 +510,20 @@ class CategoriesBlock extends StatelessWidget {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-              child: Row(
+            child: Row(
               children: () {
                 if (categories.isEmpty) {
                   return [
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: colors.surfaceSubtle,
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.category_outlined,
-                            color: Color(0xFFF1592A),
-                          ),
+                          Icon(Icons.category_outlined, color: colors.brand),
                           const SizedBox(height: 8),
                           Text(
                             'No categories available right now.',
@@ -531,7 +533,9 @@ class CategoriesBlock extends StatelessWidget {
                           ),
                           Text(
                             'Pull to refresh the dashboard once services are added.',
-                            style: GoogleFonts.urbanist(color: Colors.black54),
+                            style: GoogleFonts.urbanist(
+                              color: colors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -541,8 +545,8 @@ class CategoriesBlock extends StatelessWidget {
                 final items = <Widget>[];
                 for (var i = 0; i < categories.length; i++) {
                   final c = categories[i] as Map;
-                  final label =
-                      (c['name'] ?? c['title'] ?? 'Category').toString();
+                  final label = (c['name'] ?? c['title'] ?? 'Category')
+                      .toString();
                   if (items.isNotEmpty) items.add(const SizedBox(width: 16));
                   items.add(
                     CategoryIconLabel(
@@ -576,9 +580,10 @@ class PopularCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: colors.surfaceSubtle,
         borderRadius: BorderRadius.circular(16),
       ),
       clipBehavior: Clip.antiAlias,
@@ -597,7 +602,7 @@ class PopularCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           width: double.infinity,
                         )
-                      : Container(color: Colors.grey.shade300),
+                      : Container(color: colors.skeletonBase),
                 ),
                 Positioned(right: 8, top: 8, child: favoriteButton),
               ],
@@ -627,6 +632,7 @@ class PopularServicesBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -646,7 +652,7 @@ class PopularServicesBlock extends StatelessWidget {
               child: Text(
                 'View All',
                 style: GoogleFonts.urbanist(
-                  color: const Color(0xFFF1592A),
+                  color: colors.brand,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -664,15 +670,15 @@ class PopularServicesBlock extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: colors.surfaceSubtle,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.miscellaneous_services_rounded,
-                            color: Color(0xFFF1592A),
+                            color: colors.brand,
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -685,7 +691,7 @@ class PopularServicesBlock extends StatelessWidget {
                             'Check back after services are published.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.urbanist(
-                              color: Colors.black54,
+                              color: colors.textSecondary,
                               fontSize: 12,
                             ),
                           ),
@@ -721,16 +727,13 @@ class PopularServicesBlock extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
+                          color: colors.surfaceSubtle,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(
-                              Icons.more_horiz_rounded,
-                              color: Color(0xFFF1592A),
-                            ),
+                            Icon(Icons.more_horiz_rounded, color: colors.brand),
                             const SizedBox(height: 8),
                             Text(
                               'More services coming soon',

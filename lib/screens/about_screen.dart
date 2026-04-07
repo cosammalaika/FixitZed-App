@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
+
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
@@ -13,6 +15,7 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).fx;
     final textTheme = GoogleFonts.urbanistTextTheme(
       Theme.of(context).textTheme,
     );
@@ -26,11 +29,12 @@ class AboutScreen extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: colors.border),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: colors.shadow,
               blurRadius: 20,
               offset: const Offset(0, 12),
             ),
@@ -42,10 +46,10 @@ class AboutScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0x1AF1592A),
+                color: colors.surfaceTint,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(icon, color: const Color(0xFFF1592A)),
+              child: Icon(icon, color: colors.brand),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -56,14 +60,14 @@ class AboutScreen extends StatelessWidget {
                     title,
                     style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1F1F1F),
+                      color: colors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     message,
                     style: textTheme.bodyMedium?.copyWith(
-                      color: Colors.black54,
+                      color: colors.textSecondary,
                       height: 1.45,
                     ),
                   ),
@@ -76,7 +80,7 @@ class AboutScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F4F1),
+      backgroundColor: colors.page,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -100,14 +104,14 @@ class AboutScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFF1592A), Color(0xFFFF8A5C)],
+                  colors: [AppTheme.brand, AppTheme.brandAccent],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFF1592A).withValues(alpha: 0.22),
+                    color: colors.brand.withValues(alpha: 0.22),
                     blurRadius: 24,
                     offset: const Offset(0, 16),
                   ),
@@ -140,11 +144,12 @@ class AboutScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: colors.border),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: colors.shadow,
                     blurRadius: 18,
                     offset: const Offset(0, 10),
                   ),
@@ -156,18 +161,17 @@ class AboutScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0x1AF1592A),
+                      color: colors.surfaceTint,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Icon(Icons.menu_book_rounded,
-                        color: Color(0xFFF1592A)),
+                    child: Icon(Icons.menu_book_rounded, color: colors.brand),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       _scripture,
                       style: textTheme.bodyMedium?.copyWith(
-                        color: Colors.black87,
+                        color: colors.textPrimary,
                         height: 1.45,
                         fontStyle: FontStyle.italic,
                         fontWeight: FontWeight.w600,

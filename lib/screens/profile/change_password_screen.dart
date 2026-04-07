@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/core/app_spacing.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/widgets/app_text_field.dart';
 import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
@@ -38,25 +39,30 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   }
 
   InputDecoration _dec(String label, {Widget? suffix}) => InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.18),
-        labelStyle: TextStyle(color: Theme.of(context).hintColor),
-        hintStyle: TextStyle(color: Theme.of(context).hintColor),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).dividerColor, width: 1),
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).dividerColor, width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.2),
-        ),
-        suffixIcon: suffix,
-      );
+    labelText: label,
+    filled: true,
+    fillColor: Theme.of(
+      context,
+    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.18),
+    labelStyle: TextStyle(color: Theme.of(context).hintColor),
+    hintStyle: TextStyle(color: Theme.of(context).hintColor),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+    ),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(
+        color: Theme.of(context).colorScheme.primary,
+        width: 1.2,
+      ),
+    ),
+    suffixIcon: suffix,
+  );
 
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -68,20 +74,27 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (!mounted) return;
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'Password updated' : 'Failed to update password')),
+      SnackBar(
+        content: Text(ok ? 'Password updated' : 'Failed to update password'),
+        backgroundColor: ok
+            ? Theme.of(context).fx.success
+            : Theme.of(context).fx.danger,
+      ),
     );
     if (ok) Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFFF1592A);
+    final brand = Theme.of(context).fx.brand;
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        iconTheme: IconThemeData(
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
         centerTitle: true,
         title: Text(
           'Change Password',
@@ -106,10 +119,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   obscureText: !_showCurrent,
                   labelText: 'Current Password',
                   suffixIcon: IconButton(
-                    icon: Icon(_showCurrent ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () => setState(() => _showCurrent = !_showCurrent),
+                    icon: Icon(
+                      _showCurrent ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () =>
+                        setState(() => _showCurrent = !_showCurrent),
                   ),
-                  validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'Required' : null,
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -122,7 +139,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   obscureText: !_showNew,
                   labelText: 'New Password',
                   suffixIcon: IconButton(
-                    icon: Icon(_showNew ? Icons.visibility : Icons.visibility_off),
+                    icon: Icon(
+                      _showNew ? Icons.visibility : Icons.visibility_off,
+                    ),
                     onPressed: () => setState(() => _showNew = !_showNew),
                   ),
                   validator: (v) {
@@ -144,8 +163,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   labelText: 'Confirm New Password',
                   onFieldSubmitted: (_) => _save(),
                   suffixIcon: IconButton(
-                    icon: Icon(_showConfirm ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () => setState(() => _showConfirm = !_showConfirm),
+                    icon: Icon(
+                      _showConfirm ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () =>
+                        setState(() => _showConfirm = !_showConfirm),
                   ),
                   validator: (v) {
                     if ((v ?? '').isEmpty) return 'Required';
@@ -161,7 +183,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   backgroundColor: brand,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
                 ),
                 child: _saving
                     ? const SizedBox(

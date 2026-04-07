@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-enum ServiceAvailability {
-  available,
-  unavailable,
-  unknown,
-}
+enum ServiceAvailability { available, unavailable, unknown }
 
 class ServiceListTile extends StatelessWidget {
   const ServiceListTile({
@@ -30,26 +27,28 @@ class ServiceListTile extends StatelessWidget {
   final bool showFavorite;
 
   Color _pillColor(BuildContext context) {
+    final colors = Theme.of(context).fx;
     switch (availability) {
       case ServiceAvailability.available:
-        return Colors.green.withOpacity(0.12);
+        return colors.successContainer;
       case ServiceAvailability.unavailable:
-        return Colors.orange.withOpacity(0.12);
+        return colors.warningContainer;
       case ServiceAvailability.unknown:
       default:
-        return Theme.of(context).colorScheme.primary.withOpacity(0.08);
+        return colors.surfaceTint;
     }
   }
 
   Color _pillTextColor(BuildContext context) {
+    final colors = Theme.of(context).fx;
     switch (availability) {
       case ServiceAvailability.available:
-        return Colors.green.shade800;
+        return colors.success;
       case ServiceAvailability.unavailable:
-        return Colors.orange.shade800;
+        return colors.warning;
       case ServiceAvailability.unknown:
       default:
-        return Theme.of(context).hintColor;
+        return colors.textMuted;
     }
   }
 
@@ -67,10 +66,11 @@ class ServiceListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     return Material(
-      color: Colors.white,
+      color: colors.surface,
       elevation: 0,
-      shadowColor: Colors.black.withOpacity(0.03),
+      shadowColor: colors.shadow,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
@@ -79,9 +79,7 @@ class ServiceListTile extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.black.withOpacity(0.04),
-            ),
+            border: Border.all(color: colors.border),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,7 +88,7 @@ class ServiceListTile extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: const Color(0x1AF1592A),
+                  color: colors.surfaceTint,
                   shape: BoxShape.circle,
                 ),
                 child: leadingImage != null && leadingImage!.isNotEmpty
@@ -102,8 +100,7 @@ class ServiceListTile extends StatelessWidget {
                           fit: BoxFit.cover,
                         ),
                       )
-                    : const Icon(Icons.handyman_rounded,
-                        color: Color(0xFFF1592A)),
+                    : Icon(Icons.handyman_rounded, color: colors.brand),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -122,7 +119,7 @@ class ServiceListTile extends StatelessWidget {
                       subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.urbanist(color: Colors.black54),
+                      style: GoogleFonts.urbanist(color: colors.textSecondary),
                     ),
                     const SizedBox(height: 8),
                     Container(
@@ -151,7 +148,7 @@ class ServiceListTile extends StatelessWidget {
                 IconButton(
                   icon: Icon(
                     favorite ? Icons.favorite : Icons.favorite_border,
-                    color: favorite ? Colors.red : Colors.grey,
+                    color: favorite ? colors.danger : colors.textMuted,
                   ),
                   onPressed: onFavoriteTap,
                 ),

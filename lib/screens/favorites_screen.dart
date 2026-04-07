@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/repositories/favorites_repository.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
 import 'package:fixitzed_app/state/auth_controller.dart';
@@ -124,6 +125,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                         final img = (s['image'] ?? s['image_url'] ?? '')
                             .toString();
                         final liked = _favIds.contains(id);
+                        final colors = Theme.of(context).fx;
                         return GestureDetector(
                           onTap: () =>
                               showServiceDetailsSheet(context, service: s),
@@ -131,7 +133,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                             margin: const EdgeInsets.symmetric(vertical: 8),
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF3F5F7),
+                              color: colors.surfaceSubtle,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
@@ -154,14 +156,14 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                                           height: 56,
                                           alignment: Alignment.center,
                                           decoration: BoxDecoration(
-                                            color: Colors.white,
+                                            color: colors.surfaceRaised,
                                             borderRadius: BorderRadius.circular(
                                               12,
                                             ),
                                           ),
-                                          child: const Icon(
+                                          child: Icon(
                                             Icons.handyman_rounded,
-                                            color: Colors.grey,
+                                            color: colors.textMuted,
                                           ),
                                         ),
                                 ),
@@ -187,8 +189,8 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                                                   ? Icons.favorite
                                                   : Icons.favorite_border,
                                               color: liked
-                                                  ? Colors.red
-                                                  : Colors.grey,
+                                                  ? colors.danger
+                                                  : colors.textMuted,
                                             ),
                                             onPressed: () async {
                                               final repo = ref.read(
@@ -206,7 +208,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.urbanist(
-                                            color: Colors.black54,
+                                            color: colors.textSecondary,
                                           ),
                                         ),
                                     ],
@@ -239,16 +241,17 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
   }
 
   Widget _emptyState(BuildContext context) {
+    final colors = Theme.of(context).fx;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.favorite_border_rounded,
               size: 64,
-              color: Colors.grey,
+              color: colors.textMuted,
             ),
             const SizedBox(height: 12),
             Text(
@@ -262,7 +265,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
             Text(
               'Tap the heart on any service to add it here.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.urbanist(color: Colors.black54),
+              style: GoogleFonts.urbanist(color: colors.textSecondary),
             ),
           ],
         ),
@@ -278,8 +281,9 @@ class _GuestFavoritesView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFFF1592A);
     final theme = Theme.of(context);
+    final colors = theme.fx;
+    final brand = colors.brand;
 
     return Scaffold(
       appBar: AppBar(
@@ -306,10 +310,10 @@ class _GuestFavoritesView extends StatelessWidget {
                 width: 68,
                 height: 68,
                 decoration: BoxDecoration(
-                  color: brand.withOpacity(0.12),
+                  color: colors.surfaceTint,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.favorite_border_rounded,
                   color: brand,
                   size: 32,

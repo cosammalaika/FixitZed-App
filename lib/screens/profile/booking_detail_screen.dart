@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/core/booking_cancellation.dart';
 import 'package:fixitzed_app/services/payment_service.dart';
 import 'package:fixitzed_app/services/service_request_service.dart';
@@ -75,9 +76,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     }
   }
 
-  bool _canCancelBooking({
-    required String status,
-  }) {
+  bool _canCancelBooking({required String status}) {
     return isCustomerCancelableBookingStatus(status);
   }
 
@@ -107,11 +106,12 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     required Color brand,
     required bool hasFixer,
   }) {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.white, const Color(0xFFFFEFE7)],
+          colors: [colors.surface, colors.surfaceTint],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -134,7 +134,10 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
             hasFixer
                 ? 'The assigned fixer will be notified once you cancel this booking.'
                 : 'Cancel this request before it moves further in the booking process.',
-            style: GoogleFonts.urbanist(color: Colors.black87, height: 1.4),
+            style: GoogleFonts.urbanist(
+              color: colors.textSecondary,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 14),
           SizedBox(
@@ -142,8 +145,8 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
             child: OutlinedButton(
               onPressed: _cancelling ? null : () => _cancelBooking(context),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.redAccent,
-                side: const BorderSide(color: Colors.redAccent, width: 1.1),
+                foregroundColor: colors.danger,
+                side: BorderSide(color: colors.danger, width: 1.1),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -206,18 +209,13 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     final updatedRequest = result.request;
     if (updatedRequest != null && updatedRequest.isNotEmpty) {
       setState(() {
-        _requestData = {
-          ..._requestData,
-          ...updatedRequest,
-        };
+        _requestData = {..._requestData, ...updatedRequest};
       });
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result.message),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(result.message)));
   }
 
   Future<void> _loadPayment() async {
@@ -234,7 +232,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
 
   @override
   Widget build(BuildContext context) {
-    final brand = const Color(0xFFF1592A);
+    final brand = Theme.of(context).fx.brand;
     final r = _requestData;
     final service = (r['service'] is Map)
         ? Map<String, dynamic>.from(r['service'] as Map)
@@ -270,9 +268,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     final price = _toDouble(r['price'] ?? r['amount'] ?? r['total']);
     final discount = _toDouble(r['discount'] ?? r['discount_amount']);
     final total = _toDouble(r['total'] ?? ((price ?? 0) - (discount ?? 0)));
-    final canCancel = _canCancelBooking(
-      status: status,
-    );
+    final canCancel = _canCancelBooking(status: status);
     final isCancelled = isCancelledBookingStatus(status);
 
     return SingleChildScrollView(
@@ -365,7 +361,10 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
       );
     }
 
-    if (isPaid || amount == null || statusLower == 'completed' || isCancelledBookingStatus(statusLower)) {
+    if (isPaid ||
+        amount == null ||
+        statusLower == 'completed' ||
+        isCancelledBookingStatus(statusLower)) {
       return const SizedBox();
     }
 
@@ -538,11 +537,13 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
   }
 
   Widget _infoSection({required String title, required List<Widget> children}) {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F5F7),
+        color: colors.surfaceSubtle,
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,6 +553,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
             style: GoogleFonts.urbanist(
               fontWeight: FontWeight.w800,
               fontSize: 16,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
@@ -567,6 +569,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     String value, {
     Widget? trailing,
   }) {
+    final colors = Theme.of(context).fx;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -575,10 +578,10 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors.surface,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: const Color(0xFFF1592A)),
+            child: Icon(icon, color: colors.brand),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -588,14 +591,17 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
                 Text(
                   label,
                   style: GoogleFonts.urbanist(
-                    color: Colors.black54,
+                    color: colors.textMuted,
                     fontSize: 12,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
+                  style: GoogleFonts.urbanist(
+                    fontWeight: FontWeight.w700,
+                    color: colors.textPrimary,
+                  ),
                 ),
               ],
             ),
@@ -612,16 +618,18 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     required double total,
     required Color brand,
   }) {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
+        border: Border.all(color: colors.border),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x11000000),
+            color: colors.shadow,
             blurRadius: 18,
-            offset: Offset(0, 12),
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -633,16 +641,13 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
             style: GoogleFonts.urbanist(
               fontWeight: FontWeight.w800,
               fontSize: 16,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 14),
           _priceRow('Subtotal', price),
           if (discount != null && discount > 0)
-            _priceRow(
-              'Discount',
-              -discount,
-              highlightColor: const Color(0xFFD32F2F),
-            ),
+            _priceRow('Discount', -discount, highlightColor: colors.danger),
           const Divider(height: 24),
           _priceRow('Total due', total, isTotal: true, highlightColor: brand),
         ],
@@ -654,14 +659,17 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
     String label,
     double amount, {
     bool isTotal = false,
-    Color highlightColor = Colors.black87,
+    Color? highlightColor,
   }) {
+    final colors = Theme.of(context).fx;
+    final effectiveHighlight = highlightColor ?? colors.textPrimary;
     return Row(
       children: [
         Text(
           label,
           style: GoogleFonts.urbanist(
             fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
+            color: colors.textSecondary,
           ),
         ),
         const Spacer(),
@@ -669,7 +677,7 @@ class _BookingDetailContentState extends State<BookingDetailContent> {
           '${amount >= 0 ? '' : '-'}${amount.abs().toStringAsFixed(2)}',
           style: GoogleFonts.urbanist(
             fontWeight: isTotal ? FontWeight.w800 : FontWeight.w700,
-            color: isTotal ? highlightColor : null,
+            color: isTotal ? effectiveHighlight : colors.textPrimary,
           ),
         ),
       ],
@@ -781,6 +789,7 @@ class _ReceiptActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     final amount = _toCurrency(payment['amount']);
     final method = (payment['payment_method'] ?? 'manual').toString();
     final paidAtRaw =
@@ -812,11 +821,11 @@ class _ReceiptActions extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: brand.withValues(alpha: 0.12),
+                      color: colors.shadow,
                       blurRadius: 14,
                       offset: const Offset(0, 6),
                     ),
@@ -842,13 +851,13 @@ class _ReceiptActions extends StatelessWidget {
                       amount != null
                           ? 'K$amount · ${_formatMethod(method)}'
                           : _formatMethod(method),
-                      style: GoogleFonts.urbanist(color: Colors.black87),
+                      style: GoogleFonts.urbanist(color: colors.textPrimary),
                     ),
                     if (paidAt != null)
                       Text(
                         paidAt,
                         style: GoogleFonts.urbanist(
-                          color: Colors.black54,
+                          color: colors.textMuted,
                           fontSize: 12,
                         ),
                       ),
@@ -1015,7 +1024,8 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final brand = const Color(0xFFF1592A);
+    final colors = Theme.of(context).fx;
+    final brand = colors.brand;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
 
     return SafeArea(
@@ -1023,9 +1033,9 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: DecoratedBox(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFFFFF8F3), Colors.white],
+              colors: [colors.surfaceRaised, colors.surface],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -1042,7 +1052,7 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                       width: 48,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.black12,
+                        color: colors.border,
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
@@ -1053,14 +1063,14 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                     style: GoogleFonts.urbanist(
                       fontWeight: FontWeight.w800,
                       fontSize: 22,
-                      color: const Color(0xFF1F1F1F),
+                      color: colors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF2EA),
+                      color: colors.surfaceTint,
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: brand.withValues(alpha: 0.12)),
                     ),
@@ -1069,13 +1079,13 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                       children: [
                         Container(
                           padding: const EdgeInsets.all(10),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: colors.surface,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.notifications_active_rounded,
-                            color: Color(0xFFF1592A),
+                            color: brand,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1083,7 +1093,7 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                           child: Text(
                             'The assigned fixer will be notified.',
                             style: GoogleFonts.urbanist(
-                              color: Colors.black87,
+                              color: colors.textPrimary,
                               fontWeight: FontWeight.w600,
                               height: 1.35,
                             ),
@@ -1098,6 +1108,7 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                     style: GoogleFonts.urbanist(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
+                      color: colors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1121,12 +1132,10 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                           decoration: BoxDecoration(
                             color: selected
                                 ? brand.withValues(alpha: 0.08)
-                                : const Color(0xFFF3F5F7),
+                                : colors.surfaceRaised,
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
-                              color: selected
-                                  ? brand
-                                  : Colors.black.withValues(alpha: 0.05),
+                              color: selected ? brand : colors.border,
                               width: selected ? 1.4 : 1,
                             ),
                           ),
@@ -1136,7 +1145,7 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                                 selected
                                     ? Icons.radio_button_checked_rounded
                                     : Icons.radio_button_off_rounded,
-                                color: selected ? brand : Colors.black38,
+                                color: selected ? brand : colors.textMuted,
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -1144,7 +1153,7 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                                   option.label,
                                   style: GoogleFonts.urbanist(
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
+                                    color: colors.textPrimary,
                                   ),
                                 ),
                               ),
@@ -1167,6 +1176,7 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                                   'Please specify',
                                   style: GoogleFonts.urbanist(
                                     fontWeight: FontWeight.w700,
+                                    color: colors.textPrimary,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -1180,7 +1190,7 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                                   decoration: InputDecoration(
                                     hintText: 'Add a short note',
                                     filled: true,
-                                    fillColor: const Color(0xFFF3F5F7),
+                                    fillColor: colors.surfaceRaised,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(16),
                                       borderSide: BorderSide.none,
@@ -1196,7 +1206,7 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                     Text(
                       _errorText!,
                       style: GoogleFonts.urbanist(
-                        color: const Color(0xFFD32F2F),
+                        color: colors.danger,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1210,7 +1220,7 @@ class _CancelBookingSheetState extends State<_CancelBookingSheet> {
                               ? null
                               : () => Navigator.of(context).pop(),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.black87,
+                            foregroundColor: colors.textPrimary,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),

@@ -9,6 +9,7 @@ import 'package:fixitzed_app/data/province_districts.dart';
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/services/location_service.dart';
 import 'package:fixitzed_app/core/app_spacing.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/widgets/app_text_field.dart';
 import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
@@ -34,7 +35,7 @@ class _WizardStep {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-  final orange = const Color(0xFFF1592A);
+  final orange = AppTheme.brand;
 
   static const List<_WizardStep> _steps = [
     _WizardStep(
@@ -357,7 +358,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     required String message,
     List<String> details = const [],
   }) async {
-    const brand = Color(0xFFF1592A);
+    final colors = Theme.of(context).fx;
     await showDialog(
       context: context,
       barrierDismissible: true,
@@ -372,12 +373,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: brand.withValues(alpha: 0.12),
+                  color: colors.surfaceTint,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.error_outline_rounded,
-                  color: brand,
+                  color: colors.brand,
                   size: 32,
                 ),
               ),
@@ -388,13 +389,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 style: GoogleFonts.urbanist(
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.urbanist(color: Colors.black87),
+                style: GoogleFonts.urbanist(color: colors.textSecondary),
               ),
               if (details.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -404,14 +406,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          '• ',
-                          style: TextStyle(color: Colors.black54),
-                        ),
+                        Text('• ', style: TextStyle(color: colors.textMuted)),
                         Expanded(
                           child: Text(
                             line,
-                            style: GoogleFonts.urbanist(color: Colors.black54),
+                            style: GoogleFonts.urbanist(
+                              color: colors.textSecondary,
+                            ),
                           ),
                         ),
                       ],
@@ -425,7 +426,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(ctx).pop(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: brand,
+                    backgroundColor: colors.brand,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -899,20 +900,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }) {
     final step = _steps[index];
     final theme = Theme.of(context);
-    final cardColor = theme.colorScheme.surface.withOpacity(
-      theme.brightness == Brightness.dark ? 0.9 : 0.94,
-    );
+    final colors = theme.fx;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
       decoration: BoxDecoration(
-        color: cardColor,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: colors.shadow,
             blurRadius: 10,
             offset: const Offset(0, 6),
           ),
@@ -928,9 +928,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: orange.withOpacity(0.14),
+                  color: colors.surfaceTint,
                 ),
-                child: Icon(step.icon, color: orange),
+                child: Icon(step.icon, color: colors.brand),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -948,7 +948,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       step.subtitle,
                       style: GoogleFonts.urbanist(
                         fontSize: 14,
-                        color: Theme.of(context).hintColor,
+                        color: colors.textSecondary,
                       ),
                     ),
                   ],
@@ -1115,19 +1115,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             offset: const Offset(0, -26),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Theme.of(context).canvasColor
-                                    .withOpacity(
-                                      Theme.of(context).brightness ==
-                                              Brightness.dark
-                                          ? 0.92
-                                          : 0.96,
-                                    ),
+                                color: Theme.of(context).fx.surface,
                                 borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(26),
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.03),
+                                    color: Theme.of(context).fx.shadow,
                                     blurRadius: 14,
                                     offset: const Offset(0, 10),
                                   ),

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/repositories/categories_repository.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
@@ -332,6 +333,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                   final img = (s['image'] ?? s['image_url'] ?? '').toString();
                   final liked = _fav.contains(id);
                   final availability = _availabilityForService(s, id);
+                  final colors = Theme.of(context).fx;
                   return GestureDetector(
                     onTap: () async {
                       if (availability == ServiceAvailability.unknown) {
@@ -354,7 +356,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                       margin: const EdgeInsets.symmetric(vertical: 8),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF3F5F7),
+                        color: colors.surfaceSubtle,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -376,12 +378,12 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                                     height: 56,
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: colors.surfaceRaised,
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: const Icon(
+                                    child: Icon(
                                       Icons.handyman_rounded,
-                                      color: Colors.grey,
+                                      color: colors.textMuted,
                                     ),
                                   ),
                           ),
@@ -415,7 +417,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                                                 maxLines: 2,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: GoogleFonts.urbanist(
-                                                  color: Colors.black54,
+                                                  color: colors.textSecondary,
                                                 ),
                                               ),
                                             ),
@@ -432,7 +434,9 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                                         liked
                                             ? Icons.favorite
                                             : Icons.favorite_border,
-                                        color: liked ? Colors.red : Colors.grey,
+                                        color: liked
+                                            ? colors.danger
+                                            : colors.textMuted,
                                       ),
                                       onPressed: () async {
                                         final allowed = await ensureAuthenticated(
@@ -816,10 +820,12 @@ class _ServicesListScreenState extends State<ServicesListScreen>
         : _deriveCategoryOptions(_allServices);
     final selection = await showModalBottomSheet<Map<String, dynamic>?>(
       context: context,
+      backgroundColor: Theme.of(context).fx.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
+        final colors = Theme.of(ctx).fx;
         return SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -831,7 +837,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.black12,
+                      color: colors.border,
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
@@ -853,13 +859,10 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                       leading: const Icon(Icons.grid_view_rounded),
                       title: const Text('All subcategories'),
                       trailing: allSelected
-                          ? const Icon(
-                              Icons.check_rounded,
-                              color: Color(0xFFF1592A),
-                            )
+                          ? Icon(Icons.check_rounded, color: colors.brand)
                           : null,
                       selected: allSelected,
-                      selectedTileColor: const Color(0x1AF1592A),
+                      selectedTileColor: colors.surfaceTint,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -875,7 +878,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       'No subcategories available yet. Try refreshing the list.',
-                      style: GoogleFonts.urbanist(color: Colors.black54),
+                      style: GoogleFonts.urbanist(color: colors.textSecondary),
                     ),
                   )
                 else
@@ -890,12 +893,9 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                         leading: const Icon(Icons.label_rounded),
                         title: Text(label),
                         selected: selected,
-                        selectedTileColor: const Color(0x1AF1592A),
+                        selectedTileColor: colors.surfaceTint,
                         trailing: selected
-                            ? const Icon(
-                                Icons.check_rounded,
-                                color: Color(0xFFF1592A),
-                              )
+                            ? Icon(Icons.check_rounded, color: colors.brand)
                             : null,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -939,25 +939,26 @@ class _AvailabilityPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     Color bg;
     Color text;
     String label;
 
     switch (availability) {
       case ServiceAvailability.available:
-        bg = Colors.green.withOpacity(0.12);
-        text = Colors.green.shade800;
+        bg = colors.successContainer;
+        text = colors.success;
         label = 'Fixers available';
         break;
       case ServiceAvailability.unavailable:
-        bg = Colors.orange.withOpacity(0.12);
-        text = Colors.orange.shade800;
+        bg = colors.warningContainer;
+        text = colors.warning;
         label = 'No fixers yet';
         break;
       case ServiceAvailability.unknown:
       default:
-        bg = Colors.black.withOpacity(0.06);
-        text = Colors.black54;
+        bg = colors.surfaceSubtle;
+        text = colors.textMuted;
         label = 'Checking...';
     }
 

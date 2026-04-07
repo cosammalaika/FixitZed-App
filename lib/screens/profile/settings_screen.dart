@@ -70,10 +70,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showSnack(String message, {bool success = true}) {
     if (!mounted) return;
+    final colors = Theme.of(context).fx;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: success ? const Color(0xFF2E7D32) : Colors.redAccent,
+        backgroundColor: success ? colors.success : colors.danger,
       ),
     );
   }
@@ -84,13 +85,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required List<Widget> children,
   }) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final sectionColor = scheme.surface;
-    final divider = Divider(
-      height: 1,
-      color: scheme.outline.withOpacity(isDark ? 0.15 : 0.08),
-    );
+    final colors = theme.fx;
+    final divider = Divider(height: 1, color: colors.border);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 24, 0, 0),
@@ -104,7 +100,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: GoogleFonts.urbanist(
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
-                color: scheme.onSurface.withOpacity(isDark ? 0.65 : 0.55),
+                color: colors.textMuted,
                 letterSpacing: 0.2,
               ),
             ),
@@ -112,17 +108,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 10),
           Container(
             decoration: BoxDecoration(
-              color: sectionColor,
+              color: colors.surface,
               borderRadius: BorderRadius.circular(22),
-              boxShadow: isDark
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 18,
-                        offset: const Offset(0, 12),
-                      ),
-                    ],
+              border: Border.all(color: colors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.shadow,
+                  blurRadius: 18,
+                  offset: const Offset(0, 12),
+                ),
+              ],
             ),
             child: Column(
               children: [
@@ -149,7 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _languageTile(BuildContext context, Color textColor, Color hintColor) {
-    final scheme = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).fx;
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: () async {
@@ -159,24 +154,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           backgroundColor: Colors.transparent,
           builder: (ctx) {
             final theme = Theme.of(ctx);
-            final sc = theme.colorScheme;
-            final isDark = theme.brightness == Brightness.dark;
+            final sheetColors = theme.fx;
             return ClipRRect(
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(26),
               ),
               child: Container(
                 decoration: BoxDecoration(
-                  color: sc.surface,
-                  boxShadow: isDark
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 20,
-                            offset: const Offset(0, -6),
-                          ),
-                        ],
+                  color: sheetColors.surface,
+                  boxShadow: [
+                    BoxShadow(
+                      color: sheetColors.shadow,
+                      blurRadius: 20,
+                      offset: const Offset(0, -6),
+                    ),
+                  ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -186,24 +178,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       width: 44,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: sc.outlineVariant.withOpacity(0.5),
+                        color: sheetColors.border,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                     const SizedBox(height: 12),
                     for (final lang in ['English', 'Bemba', 'Nyanja'])
                       ListTile(
-                        leading: const Icon(Icons.translate_rounded),
+                        leading: Icon(
+                          Icons.translate_rounded,
+                          color: sheetColors.brand,
+                        ),
                         title: Text(
                           lang,
                           style: GoogleFonts.urbanist(
                             fontWeight: lang == language
                                 ? FontWeight.w700
                                 : FontWeight.w500,
+                            color: sheetColors.textPrimary,
                           ),
                         ),
                         trailing: lang == language
-                            ? Icon(Icons.check_rounded, color: sc.primary)
+                            ? Icon(
+                                Icons.check_rounded,
+                                color: sheetColors.brand,
+                              )
                             : null,
                         onTap: () => Navigator.pop(ctx, lang),
                       ),
@@ -242,7 +241,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
-            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+            Icon(Icons.chevron_right_rounded, color: colors.textMuted),
           ],
         ),
       ),
@@ -337,6 +336,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     bool loading = false,
   }) {
     final scheme = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).fx;
     final resolvedIconColor = iconColor ?? scheme.primary;
 
     return InkWell(
@@ -349,7 +349,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: resolvedIconColor.withOpacity(0.1),
+                color: resolvedIconColor.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: resolvedIconColor),
@@ -382,10 +382,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: 24,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Icon(
-                    Icons.chevron_right_rounded,
-                    color: scheme.onSurfaceVariant,
-                  ),
+                : Icon(Icons.chevron_right_rounded, color: colors.textMuted),
           ],
         ),
       ),
@@ -419,7 +416,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<bool?> _showDeleteAccountSheet() {
     final controller = TextEditingController();
-    const destructive = Color(0xFFD64545);
+    final destructive = Theme.of(context).fx.danger;
 
     return showModalBottomSheet<bool>(
       context: context,
@@ -428,7 +425,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         final theme = Theme.of(ctx);
-        final scheme = theme.colorScheme;
+        final colors = theme.fx;
         final bottomInset = MediaQuery.of(ctx).padding.bottom;
         var canDelete = false;
 
@@ -456,7 +453,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             width: 44,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: scheme.outlineVariant.withOpacity(0.7),
+                              color: colors.border,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -470,7 +467,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               color: destructive.withOpacity(0.12),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.delete_forever_rounded,
                               color: destructive,
                               size: 34,
@@ -483,7 +480,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'Delete account permanently?',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.urbanist(
-                              color: scheme.onSurface,
+                              color: colors.textPrimary,
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
                             ),
@@ -494,7 +491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'This action cannot be undone. Your profile will be deleted, active sessions will be revoked, and personal app data such as saved locations, notifications and profile details will be removed or anonymized according to FixItZed policy.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.urbanist(
-                            color: scheme.onSurfaceVariant,
+                            color: colors.textSecondary,
                             height: 1.45,
                           ),
                         ),
@@ -511,7 +508,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.warning_amber_rounded,
                                 color: destructive,
                               ),
@@ -520,7 +517,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 child: Text(
                                   'Pending bookings may be cancelled and you will lose access to booking history, settings and saved account data.',
                                   style: GoogleFonts.urbanist(
-                                    color: scheme.onSurface,
+                                    color: colors.textPrimary,
                                     fontWeight: FontWeight.w600,
                                     height: 1.35,
                                   ),
@@ -533,7 +530,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Text(
                           'Type DELETE to confirm',
                           style: GoogleFonts.urbanist(
-                            color: scheme.onSurface,
+                            color: colors.textPrimary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -547,13 +544,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           decoration: InputDecoration(
                             hintText: 'DELETE',
                             filled: true,
-                            fillColor: scheme.surface,
+                            fillColor: colors.surfaceSubtle,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
+                              borderSide: BorderSide(
                                 color: destructive,
                                 width: 1.2,
                               ),
@@ -609,8 +606,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _heroCard(BuildContext context) {
-    const brand = Color(0xFFF1592A);
-    const accent = Color(0xFFFFA26C);
+    const brand = AppTheme.brand;
+    const accent = AppTheme.brandAccent;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final gradient = LinearGradient(
       colors: isDark
@@ -623,7 +620,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ? null
         : [
             BoxShadow(
-              color: brand.withOpacity(0.18),
+              color: Theme.of(context).fx.shadow,
               blurRadius: 20,
               offset: const Offset(0, 12),
             ),
@@ -676,26 +673,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final onSurface = scheme.onSurface;
-    final hintColor = scheme.onSurface.withOpacity(
-      Theme.of(context).brightness == Brightness.dark ? 0.6 : 0.55,
-    );
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final colors = theme.fx;
+    final onSurface = colors.textPrimary;
+    final hintColor = colors.textSecondary;
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         iconTheme: IconThemeData(color: scheme.onSurface),
         title: Text(
           'Settings',
           style: GoogleFonts.urbanist(
-            color: Theme.of(context).colorScheme.onSurface,
+            color: colors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
         centerTitle: true,
       ),
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -757,8 +754,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'Delete Account',
                       subtitle: 'Permanently delete your FixItZed account',
                       icon: Icons.delete_forever_rounded,
-                      iconColor: const Color(0xFFD64545),
-                      textColor: const Color(0xFFD64545),
+                      iconColor: colors.danger,
+                      textColor: colors.danger,
                       hintColor: hintColor,
                       loading: _deletingAccount,
                       onTap: _openDeleteAccountFlow,

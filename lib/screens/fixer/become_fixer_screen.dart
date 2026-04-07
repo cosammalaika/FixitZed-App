@@ -10,10 +10,10 @@ import 'package:http/http.dart' as http;
 import 'package:fixitzed_app/services/token_storage.dart';
 
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/screens/camera/take_photo_screen.dart';
 import 'package:fixitzed_app/services/home_service.dart';
 import 'package:fixitzed_app/services/session_guard.dart';
-import 'package:fixitzed_app/utils/service_utils.dart';
 
 enum _AttachmentAction { camera, gallery, file }
 
@@ -130,7 +130,8 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
 
   int get _selectedServiceCount => _selectedServices.length;
 
-  bool get _serviceLimitReached => _selectedServiceCount >= _maxSelectedServices;
+  bool get _serviceLimitReached =>
+      _selectedServiceCount >= _maxSelectedServices;
 
   bool get _canSubmitServicesStep =>
       _selectedServiceCount > 0 && _acceptedTerms;
@@ -173,13 +174,14 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
   }
 
   String _serviceCategoryFromService(Map<String, dynamic> service) {
-    final raw = (service['category'] ??
-            service['category_name'] ??
-            service['categoryName'] ??
-            service['cat'] ??
-            '')
-        .toString()
-        .trim();
+    final raw =
+        (service['category'] ??
+                service['category_name'] ??
+                service['categoryName'] ??
+                service['cat'] ??
+                '')
+            .toString()
+            .trim();
     if (raw.isNotEmpty) return raw;
     return 'General';
   }
@@ -220,6 +222,8 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
   }
 
   Widget _buildCategoryTile(_ServiceCategoryGroup category, Color brand) {
+    final theme = Theme.of(context);
+    final colors = theme.fx;
     final expanded = _expandedCategoryKeys.contains(category.key);
     final selectedCount = category.services.where((service) {
       final id = _serviceId(service);
@@ -235,7 +239,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
             alignment: Alignment.centerLeft,
             child: Text(
               'No services available in this category yet.',
-              style: GoogleFonts.urbanist(color: Colors.black54, fontSize: 12),
+              style: GoogleFonts.urbanist(
+                color: colors.textMuted,
+                fontSize: 12,
+              ),
             ),
           )
         : Wrap(spacing: 8, runSpacing: 8, children: chips);
@@ -243,17 +250,15 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: expanded
-              ? brand.withValues(alpha: 0.35)
-              : const Color(0xFFE0E3EB),
+          color: expanded ? brand.withValues(alpha: 0.35) : colors.border,
         ),
         boxShadow: expanded
             ? [
                 BoxShadow(
-                  color: brand.withValues(alpha: 0.08),
+                  color: colors.shadow,
                   blurRadius: 18,
                   offset: const Offset(0, 10),
                 ),
@@ -282,6 +287,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                 child: Text(
                   category.label,
                   style: GoogleFonts.urbanist(
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
                   ),
@@ -354,7 +360,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
           .toList();
       for (var i = 0; i < workPhotoPaths.length; i++) {
         request.files.add(
-          await http.MultipartFile.fromPath('work_photos[$i]', workPhotoPaths[i]),
+          await http.MultipartFile.fromPath(
+            'work_photos[$i]',
+            workPhotoPaths[i],
+          ),
         );
       }
 
@@ -364,7 +373,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
           .toList();
       for (var i = 0; i < supportingPaths.length; i++) {
         request.files.add(
-          await http.MultipartFile.fromPath('supporting_documents[$i]', supportingPaths[i]),
+          await http.MultipartFile.fromPath(
+            'supporting_documents[$i]',
+            supportingPaths[i],
+          ),
         );
       }
 
@@ -406,7 +418,9 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: isDisabled ? () => _showSnack('Maximum 10 services allowed') : null,
+      onTap: isDisabled
+          ? () => _showSnack('Maximum 10 services allowed')
+          : null,
       child: IgnorePointer(
         ignoring: isDisabled,
         child: AnimatedOpacity(
@@ -578,11 +592,13 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
     String? helper,
     VoidCallback? onRemove,
   }) {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F5F7),
+        color: colors.surfaceSubtle,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -592,7 +608,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
             children: [
               Text(
                 requiredField ? '$label *' : label,
-                style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
+                style: GoogleFonts.urbanist(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               TextButton(
                 onPressed: () =>
@@ -607,7 +626,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
               child: Text(
                 helper,
                 style: GoogleFonts.urbanist(
-                  color: Colors.black54,
+                  color: colors.textMuted,
                   fontSize: 12,
                 ),
               ),
@@ -617,23 +636,31 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
               margin: const EdgeInsets.only(top: 12),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colors.border),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.insert_drive_file, color: Color(0xFFF1592A)),
+                  Icon(Icons.insert_drive_file, color: colors.brand),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '${file.name} · ${_fileSize(file.size)}',
-                      style: GoogleFonts.urbanist(fontWeight: FontWeight.w600),
+                      style: GoogleFonts.urbanist(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (onRemove != null)
                     IconButton(
-                      icon: const Icon(Icons.close, size: 18),
+                      icon: Icon(
+                        Icons.close,
+                        size: 18,
+                        color: colors.textMuted,
+                      ),
                       onPressed: onRemove,
                     ),
                 ],
@@ -651,11 +678,13 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
   }
 
   Widget _supportingDocsSection() {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F5F7),
+        color: colors.surfaceSubtle,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -665,7 +694,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
             children: [
               Text(
                 'Supporting documents (optional)',
-                style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
+                style: GoogleFonts.urbanist(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               TextButton.icon(
                 onPressed: () async {
@@ -689,7 +721,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
           const SizedBox(height: 4),
           Text(
             'Certificates, permits or any extra proof (PDF or image, max 5 files).',
-            style: GoogleFonts.urbanist(color: Colors.black54, fontSize: 12),
+            style: GoogleFonts.urbanist(color: colors.textMuted, fontSize: 12),
           ),
           if (_supportingDocs.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -833,23 +865,25 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFFF1592A);
-    const accent = Color(0xFFFFA26C);
+    final theme = Theme.of(context);
+    final colors = theme.fx;
+    final brand = colors.brand;
+    final accent = colors.brandAccent;
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: colors.textPrimary),
         title: Text(
           'Become a Fixer',
           style: GoogleFonts.urbanist(
-            color: Colors.black,
+            color: colors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
         centerTitle: true,
       ),
-      backgroundColor: const Color(0xFFFEFAF6),
+      backgroundColor: colors.page,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Form(
@@ -861,14 +895,14 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: colors.surface,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: brand.withValues(alpha: 0.12)),
+                        border: Border.all(color: colors.border),
                       ),
                       child: TabBar(
                         controller: _tabController,
                         labelColor: brand,
-                        unselectedLabelColor: Colors.black54,
+                        unselectedLabelColor: colors.textMuted,
                         indicator: BoxDecoration(
                           color: brand.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
@@ -907,8 +941,8 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                               onPressed: _submitting
                                   ? null
                                   : (_step == 0
-                                      ? () => Navigator.of(context).pop()
-                                      : _goBack),
+                                        ? () => Navigator.of(context).pop()
+                                        : _goBack),
                               style: OutlinedButton.styleFrom(
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
@@ -927,8 +961,8 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                               onPressed: _submitting
                                   ? null
                                   : (_step == 2 && !_canSubmitServicesStep
-                                      ? null
-                                      : _goNext),
+                                        ? null
+                                        : _goNext),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: brand,
                                 foregroundColor: Colors.white,
@@ -958,6 +992,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
   }
 
   Widget _profileTab(Color brand) {
+    final colors = Theme.of(context).fx;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: _cardShell(
@@ -979,9 +1014,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
             const SizedBox(height: 12),
             Text(
               'Tell us about your skills and where you operate. This helps customers know you better.',
-              style: GoogleFonts.urbanist(
-                color: Colors.black54,
-              ),
+              style: GoogleFonts.urbanist(color: colors.textSecondary),
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -991,12 +1024,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                 hintText:
                     'Describe your experience, qualifications, and preferred areas.',
                 filled: true,
-                fillColor: const Color(0xFFF7F9FC),
+                fillColor: colors.surfaceRaised,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(
-                    color: brand.withValues(alpha: 0.2),
-                  ),
+                  borderSide: BorderSide(color: colors.border),
                 ),
               ),
               validator: (value) {
@@ -1015,25 +1046,20 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
               decoration: InputDecoration(
                 hintText: 'Business location (optional)',
                 filled: true,
-                fillColor: const Color(0xFFF7F9FC),
+                fillColor: colors.surfaceRaised,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(
-                    color: brand.withValues(alpha: 0.2),
-                  ),
+                  borderSide: BorderSide(color: colors.border),
                 ),
                 suffixIcon: IconButton(
                   icon: _requestingLocation
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.my_location_rounded),
-                  onPressed:
-                      _requestingLocation ? null : _useCurrentLocation,
+                  onPressed: _requestingLocation ? null : _useCurrentLocation,
                 ),
               ),
             ),
@@ -1105,6 +1131,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
   }
 
   Widget _servicesTab(Color brand) {
+    final colors = Theme.of(context).fx;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: _cardShell(
@@ -1114,10 +1141,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
           children: [
             Row(
               children: [
-                _chip(
-                  icon: Icons.build_circle_rounded,
-                  label: 'Offerings',
-                ),
+                _chip(icon: Icons.build_circle_rounded, label: 'Offerings'),
                 const SizedBox(width: 8),
                 _chip(
                   icon: Icons.rule_folder_outlined,
@@ -1129,22 +1153,20 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
             const SizedBox(height: 12),
             Text(
               'Select the services you can handle. Customers will see these on your profile.',
-              style: GoogleFonts.urbanist(
-                color: Colors.black54,
-              ),
+              style: GoogleFonts.urbanist(color: colors.textSecondary),
             ),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: _serviceLimitReached
-                    ? const Color(0xFFFFF3E9)
-                    : const Color(0xFFF7F9FC),
+                    ? colors.warningContainer
+                    : colors.surfaceRaised,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: _serviceLimitReached
                       ? brand.withValues(alpha: 0.3)
-                      : const Color(0xFFE0E3EB),
+                      : colors.border,
                 ),
               ),
               child: Row(
@@ -1152,14 +1174,14 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                   Icon(
                     Icons.checklist_rounded,
                     size: 18,
-                    color: _serviceLimitReached ? brand : Colors.black54,
+                    color: _serviceLimitReached ? brand : colors.textMuted,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Selected $_selectedServiceCount / $_maxSelectedServices',
                     style: GoogleFonts.urbanist(
                       fontWeight: FontWeight.w700,
-                      color: _serviceLimitReached ? brand : Colors.black87,
+                      color: _serviceLimitReached ? brand : colors.textPrimary,
                     ),
                   ),
                 ],
@@ -1170,14 +1192,12 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3E9),
+                  color: colors.warningContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   'No services available yet. Please try again later.',
-                  style: GoogleFonts.urbanist(
-                    color: Colors.black54,
-                  ),
+                  style: GoogleFonts.urbanist(color: colors.textSecondary),
                 ),
               )
             else
@@ -1193,7 +1213,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                   'Select at least one service you offer.',
                   style: GoogleFonts.urbanist(
                     fontSize: 12,
-                    color: Colors.black54,
+                    color: colors.textMuted,
                   ),
                 ),
               ),
@@ -1213,12 +1233,12 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF7F9FC),
+                color: colors.surfaceRaised,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: _acceptedTerms
                       ? brand.withValues(alpha: 0.35)
-                      : const Color(0xFFE0E3EB),
+                      : colors.border,
                 ),
               ),
               child: Row(
@@ -1246,7 +1266,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                           'You agree to provide accurate documents and follow FixitZed standards for all jobs.',
                           style: GoogleFonts.urbanist(
                             fontSize: 12,
-                            color: Colors.black54,
+                            color: colors.textMuted,
                           ),
                         ),
                         Align(
@@ -1274,11 +1294,13 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
   }
 
   Widget _workPhotosSection() {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F5F7),
+        color: colors.surfaceSubtle,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1288,7 +1310,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
             children: [
               Text(
                 'Work photos (3 required)',
-                style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
+                style: GoogleFonts.urbanist(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               TextButton.icon(
                 onPressed: () async {
@@ -1313,7 +1338,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
           const SizedBox(height: 4),
           Text(
             'Upload 3 clear photos of your recent work (JPG, PNG or WEBP, max 5MB each).',
-            style: GoogleFonts.urbanist(color: Colors.black54, fontSize: 12),
+            style: GoogleFonts.urbanist(color: colors.textMuted, fontSize: 12),
           ),
           if (_workPhotos.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -1331,12 +1356,12 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                       width: 92,
                       height: 92,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: colors.surface,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFE0E3EB)),
+                        border: Border.all(color: colors.border),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: colors.shadow,
                             blurRadius: 10,
                             offset: const Offset(0, 6),
                           ),
@@ -1357,6 +1382,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                                 child: Text(
                                   file.name,
                                   style: GoogleFonts.urbanist(
+                                    color: colors.textPrimary,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -1372,7 +1398,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                       right: -8,
                       child: IconButton(
                         icon: const Icon(Icons.close, size: 18),
-                        color: Colors.black87,
+                        color: colors.textPrimary,
                         splashRadius: 18,
                         onPressed: () => setState(() {
                           _workPhotos.removeAt(index);
@@ -1388,7 +1414,10 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
             const SizedBox(height: 8),
             Text(
               'Add ${3 - _workPhotos.length} more photo${_workPhotos.length == 2 ? '' : 's'}.',
-              style: GoogleFonts.urbanist(fontSize: 12, color: Colors.black54),
+              style: GoogleFonts.urbanist(
+                fontSize: 12,
+                color: colors.textMuted,
+              ),
             ),
           ],
         ],
@@ -1403,7 +1432,8 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (_) {
+      builder: (sheetContext) {
+        final colors = Theme.of(sheetContext).fx;
         return Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -1413,6 +1443,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
               Text(
                 'Terms & Conditions',
                 style: GoogleFonts.urbanist(
+                  color: colors.textPrimary,
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
                 ),
@@ -1421,12 +1452,15 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
               Text(
                 'By applying as a Fixer, you confirm your documents are genuine, '
                 'consent to verification checks, and agree to follow FixitZed service standards.',
-                style: GoogleFonts.urbanist(color: Colors.black87),
+                style: GoogleFonts.urbanist(color: colors.textPrimary),
               ),
               const SizedBox(height: 10),
               Text(
                 'For the full Terms & Conditions please review the FixitZed policy shared by our team or on our website.',
-                style: GoogleFonts.urbanist(color: Colors.black54, fontSize: 12),
+                style: GoogleFonts.urbanist(
+                  color: colors.textMuted,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -1489,10 +1523,7 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
                   color: Colors.white.withValues(alpha: 0.18),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.handyman_rounded,
-                  color: Colors.white,
-                ),
+                child: const Icon(Icons.handyman_rounded, color: Colors.white),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1535,15 +1566,16 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
   }
 
   Widget _cardShell(Color brand, Widget child) {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: brand.withValues(alpha: 0.08)),
+        border: Border.all(color: colors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: colors.shadow,
             blurRadius: 12,
             offset: const Offset(0, 8),
           ),
@@ -1553,24 +1585,29 @@ class _BecomeFixerScreenState extends State<BecomeFixerScreen>
     );
   }
 
-  Widget _chip({required IconData icon, required String label, bool subtle = false}) {
+  Widget _chip({
+    required IconData icon,
+    required String label,
+    bool subtle = false,
+  }) {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: subtle ? const Color(0xFFFFF1E8) : const Color(0xFFFFE5D8),
+        color: subtle ? colors.surfaceTint : colors.warningContainer,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: const Color(0xFFF1592A)),
+          Icon(icon, size: 16, color: colors.brand),
           const SizedBox(width: 6),
           Text(
             label,
             style: GoogleFonts.urbanist(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF6A2B0A),
+              color: colors.brand,
             ),
           ),
         ],
@@ -1588,9 +1625,9 @@ class _Tag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.14),
+        color: Colors.white.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.22)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
       ),
       child: Text(
         text,

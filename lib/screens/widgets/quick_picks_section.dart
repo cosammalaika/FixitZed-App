@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
+
 class QuickPicksSection extends StatelessWidget {
   const QuickPicksSection({
     super.key,
@@ -18,7 +20,8 @@ class QuickPicksSection extends StatelessWidget {
   final int limit;
 
   int? _readyCount(Map<dynamic, dynamic> service) {
-    final val = service['opted_in_fixers_count'] ??
+    final val =
+        service['opted_in_fixers_count'] ??
         service['ready_fixers_count'] ??
         service['readyFixersCount'] ??
         service['fixers_count'] ??
@@ -33,7 +36,8 @@ class QuickPicksSection extends StatelessWidget {
   }
 
   bool? _hasReadyFlag(Map<dynamic, dynamic> service) {
-    final raw = service['has_fixers'] ??
+    final raw =
+        service['has_fixers'] ??
         service['hasFixers'] ??
         service['has_ready_fixers'] ??
         service['hasReadyFixers'] ??
@@ -46,9 +50,7 @@ class QuickPicksSection extends StatelessWidget {
       if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
         return true;
       }
-      if (normalized == 'false' ||
-          normalized == '0' ||
-          normalized == 'no') {
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
         return false;
       }
     }
@@ -57,12 +59,14 @@ class QuickPicksSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     final filtered = services
         .whereType<Map>()
         .where((map) {
           final count = _readyCount(map);
-          final hasFixers =
-              count != null ? count > 0 : (_hasReadyFlag(map) ?? false);
+          final hasFixers = count != null
+              ? count > 0
+              : (_hasReadyFlag(map) ?? false);
           return hasFixers || services.length <= limit;
         })
         .take(limit)
@@ -92,7 +96,7 @@ class QuickPicksSection extends StatelessWidget {
               child: Text(
                 'View All',
                 style: GoogleFonts.urbanist(
-                  color: const Color(0xFFF1592A),
+                  color: colors.brand,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -100,26 +104,26 @@ class QuickPicksSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        ...filtered.map(
-          (svc) {
-            final count = _readyCount(svc);
-            final hasFixers =
-                count != null ? count > 0 : (_hasReadyFlag(svc) ?? false);
-            return QuickPickTile(
-              title: (svc['name'] ?? svc['title'] ?? 'Service').toString(),
-              subtitle: (svc['category_name'] ??
-                      svc['subcategory_name'] ??
-                      svc['category']?['name'] ??
-                      svc['subcategory']?['name'] ??
-                      svc['description'] ??
-                      '')
-                  .toString(),
-              icon: Icons.build_rounded,
-              available: hasFixers,
-              onTap: () => onTapService(svc),
-            );
-          },
-        ),
+        ...filtered.map((svc) {
+          final count = _readyCount(svc);
+          final hasFixers = count != null
+              ? count > 0
+              : (_hasReadyFlag(svc) ?? false);
+          return QuickPickTile(
+            title: (svc['name'] ?? svc['title'] ?? 'Service').toString(),
+            subtitle:
+                (svc['category_name'] ??
+                        svc['subcategory_name'] ??
+                        svc['category']?['name'] ??
+                        svc['subcategory']?['name'] ??
+                        svc['description'] ??
+                        '')
+                    .toString(),
+            icon: Icons.build_rounded,
+            available: hasFixers,
+            onTap: () => onTapService(svc),
+          );
+        }),
       ],
     );
   }
@@ -143,12 +147,13 @@ class QuickPickTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
+        color: colors.surface,
         elevation: 0,
-        shadowColor: Colors.black.withOpacity(0.04),
+        shadowColor: colors.shadow,
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           onTap: onTap,
@@ -157,7 +162,7 @@ class QuickPickTile extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.black.withOpacity(0.03)),
+              border: Border.all(color: colors.border),
             ),
             child: Row(
               children: [
@@ -165,10 +170,10 @@ class QuickPickTile extends StatelessWidget {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: const Color(0x1AF1592A),
+                    color: colors.surfaceTint,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, color: const Color(0xFFF1592A)),
+                  child: Icon(icon, color: colors.brand),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -180,12 +185,15 @@ class QuickPickTile extends StatelessWidget {
                         style: GoogleFonts.urbanist(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
+                          color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         subtitle.isEmpty ? 'Tap to book quickly' : subtitle,
-                        style: GoogleFonts.urbanist(color: Colors.black54),
+                        style: GoogleFonts.urbanist(
+                          color: colors.textSecondary,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -195,10 +203,7 @@ class QuickPickTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 _AvailabilityPill(available: available),
                 const SizedBox(width: 8),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.black38,
-                ),
+                Icon(Icons.chevron_right_rounded, color: colors.textMuted),
               ],
             ),
           ),
@@ -214,10 +219,9 @@ class _AvailabilityPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = available
-        ? Colors.green.withOpacity(0.12)
-        : Colors.black.withOpacity(0.06);
-    final text = available ? Colors.green.shade800 : Colors.black54;
+    final colors = Theme.of(context).fx;
+    final bg = available ? colors.successContainer : colors.surfaceSubtle;
+    final text = available ? colors.success : colors.textSecondary;
     final label = available ? 'Available' : 'No fixers';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -229,7 +233,9 @@ class _AvailabilityPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            available ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+            available
+                ? Icons.check_circle_rounded
+                : Icons.warning_amber_rounded,
             size: 14,
             color: text,
           ),

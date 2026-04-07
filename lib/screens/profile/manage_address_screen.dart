@@ -3,6 +3,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/services/locations_service.dart';
 
 class ManageAddressScreen extends StatefulWidget {
@@ -62,8 +63,9 @@ class _ManageAddressScreenState extends State<ManageAddressScreen> {
     if (ok) {
       setState(() {
         _dirty = true;
-        _addresses =
-            _addresses.where((element) => _parseId(element['id']) != id).toList();
+        _addresses = _addresses
+            .where((element) => _parseId(element['id']) != id)
+            .toList();
       });
       _showSnack('Address removed');
     } else {
@@ -96,9 +98,7 @@ class _ManageAddressScreenState extends State<ManageAddressScreen> {
     if (saved != null) {
       _dirty = true;
       await _load();
-      _showSnack(
-        initial == null ? 'Address saved' : 'Address updated',
-      );
+      _showSnack(initial == null ? 'Address saved' : 'Address updated');
     } else {
       _showSnack(
         'Unable to save the address. Please try again.',
@@ -109,10 +109,11 @@ class _ManageAddressScreenState extends State<ManageAddressScreen> {
 
   void _showSnack(String message, {bool success = true}) {
     if (!mounted) return;
+    final colors = Theme.of(context).fx;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: success ? const Color(0xFF2E7D32) : Colors.redAccent,
+        backgroundColor: success ? colors.success : colors.danger,
       ),
     );
   }
@@ -146,6 +147,7 @@ class _ManageAddressScreenState extends State<ManageAddressScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.fx;
 
     Future<bool> handlePop() async {
       Navigator.of(context).pop(_dirty);
@@ -180,175 +182,177 @@ class _ManageAddressScreenState extends State<ManageAddressScreen> {
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : _addresses.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.maps_home_work_outlined,
-                            size: 64,
-                            color: Color(0xFFB0B7C3),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No saved addresses yet',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.urbanist(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 18,
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.maps_home_work_outlined,
+                        size: 64,
+                        color: colors.textMuted,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No saved addresses yet',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.urbanist(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Add your frequently used locations to speed up new requests.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.urbanist(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                  itemBuilder: (context, index) {
+                    final address = _addresses[index];
+                    final label =
+                        (address['label'] ?? address['address'] ?? 'Address')
+                            .toString();
+                    final line = (address['address'] ?? address['line1'] ?? '')
+                        .toString();
+                    final city = (address['city'] ?? address['town'] ?? '')
+                        .toString();
+                    final details =
+                        (address['details'] ?? address['description'] ?? '')
+                            .toString();
+                    final badge = _isDefault(address)
+                        ? Container(
+                            margin: const EdgeInsets.only(left: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Add your frequently used locations to speed up new requests.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.urbanist(color: Colors.black54),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceTint,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Default',
+                              style: GoogleFonts.urbanist(
+                                color: colors.brand,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          )
+                        : null;
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: colors.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.shadow,
+                            blurRadius: 16,
+                            offset: const Offset(0, 10),
                           ),
                         ],
                       ),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                      itemBuilder: (context, index) {
-                        final address = _addresses[index];
-                        final label =
-                            (address['label'] ?? address['address'] ?? 'Address')
-                                .toString();
-                        final line =
-                            (address['address'] ?? address['line1'] ?? '')
-                                .toString();
-                        final city = (address['city'] ?? address['town'] ?? '')
-                            .toString();
-                        final details =
-                            (address['details'] ?? address['description'] ?? '')
-                                .toString();
-                        final badge = _isDefault(address)
-                            ? Container(
-                                margin: const EdgeInsets.only(left: 8),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0x1AF1592A),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'Default',
-                                  style: GoogleFonts.urbanist(
-                                    color: const Color(0xFFF1592A),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              )
-                            : null;
-                        return Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: theme.cardColor,
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x11000000),
-                                blurRadius: 16,
-                                offset: Offset(0, 10),
-                              ),
-                            ],
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceTint,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.place_rounded,
+                              color: colors.brand,
+                            ),
                           ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0x1AF1592A),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.place_rounded,
-                                  color: Color(0xFFF1592A),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
                                   children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            label,
-                                            style: GoogleFonts.urbanist(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 16,
-                                            ),
-                                          ),
+                                    Expanded(
+                                      child: Text(
+                                        label,
+                                        style: GoogleFonts.urbanist(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 16,
+                                          color: colors.textPrimary,
                                         ),
-                                        if (badge != null) badge,
-                                      ],
+                                      ),
                                     ),
-                                    if (line.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        line,
-                                        style: GoogleFonts.urbanist(
-                                          color: Colors.black87,
-                                        ),
-                                      ),
-                                    ],
-                                    if (city.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        city,
-                                        style: GoogleFonts.urbanist(
-                                          color: Colors.black54,
-                                        ),
-                                      ),
-                                    ],
-                                    if (details.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        details,
-                                        style: GoogleFonts.urbanist(
-                                          color: Colors.black54,
-                                        ),
-                                      ),
-                                    ],
+                                    if (badge != null) badge,
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                children: [
-                                  IconButton(
-                                    tooltip: 'Edit',
-                                    onPressed: () => _openEditor(
-                                      initial: address,
+                                if (line.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    line,
+                                    style: GoogleFonts.urbanist(
+                                      color: colors.textPrimary,
                                     ),
-                                    icon: const Icon(Icons.edit_rounded),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Delete',
-                                    onPressed: () => _delete(address),
-                                    icon: const Icon(Icons.delete_outline_rounded),
                                   ),
                                 ],
+                                if (city.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    city,
+                                    style: GoogleFonts.urbanist(
+                                      color: colors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                                if (details.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    details,
+                                    style: GoogleFonts.urbanist(
+                                      color: colors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            children: [
+                              IconButton(
+                                tooltip: 'Edit',
+                                onPressed: () => _openEditor(initial: address),
+                                icon: const Icon(Icons.edit_rounded),
+                              ),
+                              IconButton(
+                                tooltip: 'Delete',
+                                onPressed: () => _delete(address),
+                                icon: const Icon(Icons.delete_outline_rounded),
                               ),
                             ],
                           ),
-                        );
-                      },
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemCount: _addresses.length,
-                    ),
-                  ),
+                        ],
+                      ),
+                    );
+                  },
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemCount: _addresses.length,
+                ),
+              ),
       ),
     );
   }
@@ -469,14 +473,15 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final colors = Theme.of(context).fx;
     final title = widget.initial == null ? 'Add address' : 'Edit address';
 
     return Padding(
@@ -492,7 +497,7 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
                   width: 48,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.black12,
+                    color: colors.border,
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -503,25 +508,24 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
                 style: GoogleFonts.urbanist(
                   fontWeight: FontWeight.w800,
                   fontSize: 20,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 20),
               TextFormField(
                 controller: _labelCtrl,
                 decoration: const InputDecoration(labelText: 'Label'),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? 'Enter a label'
-                        : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Enter a label'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _addressCtrl,
                 decoration: const InputDecoration(labelText: 'Address line'),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? 'Enter the address'
-                        : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Enter the address'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -531,8 +535,9 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _detailsCtrl,
-                decoration:
-                    const InputDecoration(labelText: 'Instructions (optional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Instructions (optional)',
+                ),
                 maxLines: 2,
               ),
               const SizedBox(height: 12),
@@ -541,8 +546,9 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
                   Expanded(
                     child: TextFormField(
                       controller: _latCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(labelText: 'Latitude'),
                     ),
                   ),
@@ -550,8 +556,9 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
                   Expanded(
                     child: TextFormField(
                       controller: _lngCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(labelText: 'Longitude'),
                     ),
                   ),

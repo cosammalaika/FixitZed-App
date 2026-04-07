@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fixitzed_app/core/date_utils.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 
 class AppNotification {
   const AppNotification({
@@ -130,7 +131,7 @@ class NotificationDetailsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final colors = theme.fx;
     final visual = NotificationVisualStyle.resolve(theme, notification);
     final title = notification.title.trim().isEmpty
         ? 'Notification'
@@ -142,16 +143,11 @@ class NotificationDetailsSheet extends StatelessWidget {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final size = MediaQuery.sizeOf(context);
     final sheetTop = theme.brightness == Brightness.dark
-        ? Color.alphaBlend(
-            const Color(0xFFF1592A).withValues(alpha: 0.12),
-            scheme.surface,
-          )
-        : const Color(0xFFFFF5EE);
-    final cardBorder = scheme.outline.withValues(
-      alpha: theme.brightness == Brightness.dark ? 0.28 : 0.12,
-    );
-    final textPrimary = scheme.onSurface;
-    final textSecondary = scheme.onSurface.withValues(alpha: 0.62);
+        ? Color.alphaBlend(colors.brand.withValues(alpha: 0.12), colors.surface)
+        : colors.surfaceTint;
+    final cardBorder = colors.border;
+    final textPrimary = colors.textPrimary;
+    final textSecondary = colors.textSecondary;
 
     return SafeArea(
       top: false,
@@ -181,18 +177,14 @@ class NotificationDetailsSheet extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [sheetTop, scheme.surface],
+                      colors: [sheetTop, colors.surface],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
                     borderRadius: BorderRadius.circular(32),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: theme.brightness == Brightness.dark
-                              ? 0.34
-                              : 0.12,
-                        ),
+                        color: colors.shadow,
                         blurRadius: 28,
                         offset: const Offset(0, 16),
                       ),
@@ -209,7 +201,7 @@ class NotificationDetailsSheet extends StatelessWidget {
                             width: 44,
                             height: 5,
                             decoration: BoxDecoration(
-                              color: scheme.onSurface.withValues(alpha: 0.12),
+                              color: colors.border,
                               borderRadius: BorderRadius.circular(999),
                             ),
                           ),
@@ -218,16 +210,12 @@ class NotificationDetailsSheet extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: scheme.surface,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(26),
                             border: Border.all(color: cardBorder),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(
-                                  alpha: theme.brightness == Brightness.dark
-                                      ? 0.18
-                                      : 0.05,
-                                ),
+                                color: colors.shadow,
                                 blurRadius: 18,
                                 offset: const Offset(0, 10),
                               ),
@@ -272,7 +260,7 @@ class NotificationDetailsSheet extends StatelessWidget {
                                     width: 48,
                                     height: 48,
                                     decoration: BoxDecoration(
-                                      color: scheme.surface,
+                                      color: colors.surfaceSubtle,
                                       shape: BoxShape.circle,
                                       border: Border.all(color: cardBorder),
                                     ),
@@ -292,16 +280,12 @@ class NotificationDetailsSheet extends StatelessWidget {
                           width: double.infinity,
                           padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
                           decoration: BoxDecoration(
-                            color: scheme.surface,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(28),
                             border: Border.all(color: cardBorder),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(
-                                  alpha: theme.brightness == Brightness.dark
-                                      ? 0.16
-                                      : 0.04,
-                                ),
+                                color: colors.shadow,
                                 blurRadius: 16,
                                 offset: const Offset(0, 8),
                               ),
@@ -331,10 +315,7 @@ class NotificationDetailsSheet extends StatelessWidget {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              Divider(
-                                color: scheme.outline.withValues(alpha: 0.12),
-                                height: 1,
-                              ),
+                              Divider(color: colors.border, height: 1),
                               const SizedBox(height: 18),
                               Text(
                                 message,
@@ -345,17 +326,14 @@ class NotificationDetailsSheet extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 20),
-                              Divider(
-                                color: scheme.outline.withValues(alpha: 0.12),
-                                height: 1,
-                              ),
+                              Divider(color: colors.border, height: 1),
                               const SizedBox(height: 10),
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
                                   onPressed: () => Navigator.of(context).pop(),
                                   style: TextButton.styleFrom(
-                                    foregroundColor: const Color(0xFFF1592A),
+                                    foregroundColor: colors.brand,
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 10,
                                       vertical: 8,
@@ -401,7 +379,7 @@ class NotificationVisualStyle {
     ThemeData theme,
     AppNotification notification,
   ) {
-    final scheme = theme.colorScheme;
+    final colors = theme.fx;
     final hints = <String>[
       notification.type,
       notification.iconKey ?? '',
@@ -413,13 +391,8 @@ class NotificationVisualStyle {
       notification.data['category']?.toString() ?? '',
     ].join(' ').toLowerCase();
 
-    const brand = Color(0xFFF1592A);
-    const green = Color(0xFF2E9D6A);
-    const blue = Color(0xFF3276E8);
-    const red = Color(0xFFE45A4F);
-
     Color tinted(Color color, double opacity) {
-      return Color.alphaBlend(color.withValues(alpha: opacity), scheme.surface);
+      return Color.alphaBlend(color.withValues(alpha: opacity), colors.surface);
     }
 
     if (_hasAny(hints, [
@@ -432,9 +405,9 @@ class NotificationVisualStyle {
     ])) {
       return NotificationVisualStyle(
         icon: Icons.account_balance_wallet_outlined,
-        accentColor: green,
+        accentColor: colors.success,
         backgroundColor: tinted(
-          green,
+          colors.success,
           theme.brightness == Brightness.dark ? 0.18 : 0.12,
         ),
       );
@@ -442,9 +415,9 @@ class NotificationVisualStyle {
     if (_hasAny(hints, ['chat', 'message', 'support', 'reply'])) {
       return NotificationVisualStyle(
         icon: Icons.chat_bubble_outline_rounded,
-        accentColor: blue,
+        accentColor: colors.info,
         backgroundColor: tinted(
-          blue,
+          colors.info,
           theme.brightness == Brightness.dark ? 0.18 : 0.12,
         ),
       );
@@ -459,9 +432,9 @@ class NotificationVisualStyle {
     ])) {
       return NotificationVisualStyle(
         icon: Icons.error_outline_rounded,
-        accentColor: red,
+        accentColor: colors.danger,
         backgroundColor: tinted(
-          red,
+          colors.danger,
           theme.brightness == Brightness.dark ? 0.18 : 0.12,
         ),
       );
@@ -477,18 +450,18 @@ class NotificationVisualStyle {
     ])) {
       return NotificationVisualStyle(
         icon: Icons.event_available_rounded,
-        accentColor: brand,
+        accentColor: colors.brand,
         backgroundColor: tinted(
-          brand,
+          colors.brand,
           theme.brightness == Brightness.dark ? 0.2 : 0.12,
         ),
       );
     }
     return NotificationVisualStyle(
       icon: Icons.notifications_active_outlined,
-      accentColor: brand,
+      accentColor: colors.brand,
       backgroundColor: tinted(
-        brand,
+        colors.brand,
         theme.brightness == Brightness.dark ? 0.2 : 0.12,
       ),
     );
@@ -510,18 +483,9 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final background = isRead
-        ? scheme.onSurface.withValues(
-            alpha: theme.brightness == Brightness.dark ? 0.14 : 0.08,
-          )
-        : const Color(0xFFF1592A).withValues(
-            alpha: theme.brightness == Brightness.dark ? 0.18 : 0.12,
-          );
-    final foreground = isRead
-        ? scheme.onSurface.withValues(alpha: 0.82)
-        : const Color(0xFFF1592A);
+    final colors = Theme.of(context).fx;
+    final background = isRead ? colors.surfaceSubtle : colors.surfaceTint;
+    final foreground = isRead ? colors.textSecondary : colors.brand;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

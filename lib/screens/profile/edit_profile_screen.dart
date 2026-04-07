@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/services/home_service.dart';
 import 'package:fixitzed_app/core/app_spacing.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/widgets/app_text_field.dart';
 import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
@@ -126,7 +127,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message?.isNotEmpty == true ? message! : 'Failed to update profile.')),
+      SnackBar(
+        content: Text(
+          message?.isNotEmpty == true ? message! : 'Failed to update profile.',
+        ),
+      ),
     );
   }
 
@@ -178,7 +183,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   InputDecoration _dec(String label) => InputDecoration(
     labelText: label,
     filled: true,
-    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.18),
+    fillColor: Theme.of(
+      context,
+    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.18),
     labelStyle: TextStyle(color: Theme.of(context).hintColor),
     hintStyle: TextStyle(color: Theme.of(context).hintColor),
     enabledBorder: OutlineInputBorder(
@@ -205,7 +212,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       style: GoogleFonts.urbanist(
         fontWeight: FontWeight.w800,
         fontSize: 14,
-        color: Theme.of(context).hintColor,
+        color: Theme.of(context).fx.textSecondary,
       ),
     ),
   );
@@ -267,7 +274,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFFF1592A);
+    final brand = Theme.of(context).fx.brand;
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
@@ -303,9 +310,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         nextFocusNode: _lastFocus,
                         textInputAction: TextInputAction.next,
                         labelText: 'First Name',
-                        onChanged: (_) => _clearBackendFieldErrors(
-                          const ['first_name', 'firstName', 'name', 'full_name'],
-                        ),
+                        onChanged: (_) => _clearBackendFieldErrors(const [
+                          'first_name',
+                          'firstName',
+                          'name',
+                          'full_name',
+                        ]),
                         validator: (v) => _validateNameField(
                           v,
                           requiredMessage: 'Required',
@@ -327,9 +337,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         nextFocusNode: _emailFocus,
                         textInputAction: TextInputAction.next,
                         labelText: 'Last Name',
-                        onChanged: (_) => _clearBackendFieldErrors(
-                          const ['last_name', 'lastName', 'name', 'full_name'],
-                        ),
+                        onChanged: (_) => _clearBackendFieldErrors(const [
+                          'last_name',
+                          'lastName',
+                          'name',
+                          'full_name',
+                        ]),
                         validator: (v) => _validateNameField(
                           v,
                           requiredMessage: 'Required',
@@ -362,7 +375,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: brand,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.md,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
@@ -371,9 +386,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Text('Save Changes'),
                     ),
@@ -410,12 +423,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         labelText: 'New Password',
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _showNew
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                            _showNew ? Icons.visibility : Icons.visibility_off,
                           ),
-                          onPressed: () =>
-                              setState(() => _showNew = !_showNew),
+                          onPressed: () => setState(() => _showNew = !_showNew),
                         ),
                       ),
                     ),
@@ -446,7 +456,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: brand,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.md,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
@@ -455,16 +467,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Text('Update Password'),
                     ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
-            );
+            ),
+    );
   }
 }

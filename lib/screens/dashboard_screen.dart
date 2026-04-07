@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/state/dashboard_controller.dart';
 import 'package:fixitzed_app/state/profile_controller.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
@@ -404,18 +405,15 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _bookingHero() {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF1592A), Color(0xFFFFA26C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: colors.brandGradient,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFF1592A).withValues(alpha: 0.18),
+            color: colors.brand.withValues(alpha: 0.18),
             blurRadius: 22,
             offset: const Offset(0, 18),
           ),
@@ -449,7 +447,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   label: const Text('Request a service'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFFF1592A),
+                    foregroundColor: colors.brand,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -500,6 +498,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     required bool isLoading,
     required bool hasResolved,
   }) {
+    final colors = Theme.of(context).fx;
     if (isLoading || (!hasResolved && categories.isEmpty)) {
       return const PopularSubcategoriesSkeleton();
     }
@@ -538,7 +537,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               child: Text(
                 'View All',
                 style: GoogleFonts.urbanist(
-                  color: const Color(0xFFF1592A),
+                  color: colors.brand,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -577,14 +576,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0x1AF1592A),
+                    color: colors.surfaceTint,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     name,
                     style: GoogleFonts.urbanist(
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFFF1592A),
+                      color: colors.brand,
                     ),
                   ),
                 ),
@@ -600,6 +599,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     List<dynamic> services, {
     required Future<void> Function() onRetry,
   }) {
+    final colors = Theme.of(context).fx;
     final cached = _servicesRepo?.getCachedServices() ?? const <dynamic>[];
     final source = cached.isNotEmpty ? cached : services;
     _scheduleQuickPickAvailability(source);
@@ -634,7 +634,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               child: Text(
                 'View All',
                 style: GoogleFonts.urbanist(
-                  color: const Color(0xFFF1592A),
+                  color: colors.brand,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -670,14 +670,15 @@ class _DashboardScreenState extends State<DashboardScreen>
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 12,
-                    offset: const Offset(0, 8),
-                  ),
+                  if (Theme.of(context).brightness == Brightness.light)
+                    BoxShadow(
+                      color: colors.shadow,
+                      blurRadius: 12,
+                      offset: const Offset(0, 8),
+                    ),
                 ],
               ),
               child: Row(
@@ -686,7 +687,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: const Color(0x1AF1592A),
+                      color: colors.surfaceTint,
                       borderRadius: BorderRadius.circular(16),
                       image: image.isNotEmpty
                           ? DecorationImage(
@@ -696,10 +697,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           : null,
                     ),
                     child: image.isEmpty
-                        ? const Icon(
-                            Icons.build_rounded,
-                            color: Color(0xFFF1592A),
-                          )
+                        ? Icon(Icons.build_rounded, color: colors.brand)
                         : null,
                   ),
                   const SizedBox(width: 14),
@@ -717,7 +715,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
-                          style: GoogleFonts.urbanist(color: Colors.black54),
+                          style: GoogleFonts.urbanist(
+                            color: colors.textSecondary,
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -727,10 +727,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   const SizedBox(width: 8),
                   _AvailabilityPill(availability: availability),
                   const SizedBox(width: 8),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: Colors.black38,
-                  ),
+                  Icon(Icons.chevron_right_rounded, color: colors.textMuted),
                 ],
               ),
             ),
@@ -896,13 +893,13 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         _ensureServicesRepo(ref);
         return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.dark,
-            statusBarBrightness: Brightness.light,
-          ),
+          value:
+              (Theme.of(context).brightness == Brightness.dark
+                      ? SystemUiOverlayStyle.light
+                      : SystemUiOverlayStyle.dark)
+                  .copyWith(statusBarColor: Colors.transparent),
           child: Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             bottomNavigationBar: _bottomNav(),
             body: SafeArea(
               child: IndexedStack(
@@ -984,10 +981,11 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     final content = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.black38),
+        Icon(Icons.wifi_off_rounded, size: 48, color: colors.textMuted),
         const SizedBox(height: 16),
         Text(
           message,
@@ -1002,14 +1000,14 @@ class _ErrorState extends StatelessWidget {
           Text(
             detail!,
             textAlign: TextAlign.center,
-            style: GoogleFonts.urbanist(color: Colors.black54),
+            style: GoogleFonts.urbanist(color: colors.textSecondary),
           ),
         ],
         const SizedBox(height: 20),
         ElevatedButton.icon(
           onPressed: () => onRetry(),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFF1592A),
+            backgroundColor: colors.brand,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
@@ -1026,11 +1024,9 @@ class _ErrorState extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFFDF6F2),
+          color: colors.surfaceTint,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: const Color(0xFFF1592A).withValues(alpha: 0.12),
-          ),
+          border: Border.all(color: colors.brand.withValues(alpha: 0.12)),
         ),
         child: content,
       );
@@ -1064,9 +1060,10 @@ class _InactiveAccountView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = Color(0xFFF1592A);
+    final colors = Theme.of(context).fx;
+    final accent = colors.brand;
     return Scaffold(
-      backgroundColor: const Color(0xFFFDF6F2),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -1080,7 +1077,7 @@ class _InactiveAccountView extends StatelessWidget {
                     color: accent.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.error_outline_rounded,
                     color: accent,
                     size: 44,
@@ -1093,7 +1090,7 @@ class _InactiveAccountView extends StatelessWidget {
                   style: GoogleFonts.urbanist(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1F1F1F),
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1101,7 +1098,7 @@ class _InactiveAccountView extends StatelessWidget {
                   'Your account is currently inactive. Please contact support or try again later.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.urbanist(
-                    color: const Color(0xFF4A4A4A),
+                    color: colors.textSecondary,
                     height: 1.5,
                   ),
                 ),
@@ -1128,7 +1125,7 @@ class _InactiveAccountView extends StatelessWidget {
                     onPressed: onLogout,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: accent,
-                      side: const BorderSide(color: accent),
+                      side: BorderSide(color: accent),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -1152,32 +1149,33 @@ class _AvailabilityPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     late final Color bg;
     late final Color text;
     late final String label;
     late final IconData icon;
     switch (availability) {
       case FixerAvailability.available:
-        bg = Colors.green.withValues(alpha: 0.12);
-        text = Colors.green.shade800;
+        bg = colors.successContainer;
+        text = colors.success;
         label = 'Available';
         icon = Icons.check_circle_rounded;
         break;
       case FixerAvailability.none:
-        bg = Colors.black.withValues(alpha: 0.06);
-        text = Colors.black54;
+        bg = colors.warningContainer;
+        text = colors.warning;
         label = 'No fixers';
         icon = Icons.warning_amber_rounded;
         break;
       case FixerAvailability.checking:
-        bg = Colors.black.withValues(alpha: 0.05);
-        text = Colors.black45;
+        bg = colors.surfaceSubtle;
+        text = colors.textMuted;
         label = 'Checking...';
         icon = Icons.more_horiz_rounded;
         break;
       case FixerAvailability.unknown:
-        bg = Colors.black.withValues(alpha: 0.05);
-        text = Colors.black45;
+        bg = colors.surfaceSubtle;
+        text = colors.textMuted;
         label = 'Checking...';
         icon = Icons.more_horiz_rounded;
         break;

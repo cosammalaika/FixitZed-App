@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/screens/sign_in_screen.dart';
 import 'package:fixitzed_app/screens/sign_up_screen.dart';
 import 'package:fixitzed_app/services/token_storage.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 
 enum _AuthRequiredChoice { signIn, signUp }
 
@@ -144,7 +145,7 @@ class _AuthRequiredScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    const brand = Color(0xFFF1592A);
+    final colors = theme.fx;
 
     return Scaffold(
       appBar: AppBar(
@@ -166,10 +167,7 @@ class _AuthRequiredScaffold extends StatelessWidget {
                 onSignIn: onSignIn,
                 onSignUp: onSignUp,
                 onContinueBrowsing: onContinueBrowsing,
-                brand: brand,
-                surface: theme.cardColor,
-                textColor: scheme.onSurface,
-                hintColor: scheme.onSurfaceVariant,
+                colors: colors,
               ),
             ),
           ),
@@ -193,9 +191,8 @@ class _AuthRequiredSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    const brand = Color(0xFFF1592A);
+    final colors = theme.fx;
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -209,7 +206,7 @@ class _AuthRequiredSheet extends StatelessWidget {
               width: 44,
               height: 4,
               decoration: BoxDecoration(
-                color: scheme.outlineVariant.withOpacity(0.7),
+                color: colors.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -223,10 +220,7 @@ class _AuthRequiredSheet extends StatelessWidget {
               onSignUp: () =>
                   Navigator.of(context).pop(_AuthRequiredChoice.signUp),
               onContinueBrowsing: () => Navigator.of(context).pop(),
-              brand: brand,
-              surface: theme.cardColor,
-              textColor: scheme.onSurface,
-              hintColor: scheme.onSurfaceVariant,
+              colors: colors,
               embedded: true,
             ),
           ],
@@ -244,10 +238,7 @@ class _AuthRequiredCard extends StatelessWidget {
     required this.onSignIn,
     required this.onSignUp,
     required this.onContinueBrowsing,
-    required this.brand,
-    required this.surface,
-    required this.textColor,
-    required this.hintColor,
+    required this.colors,
     this.embedded = false,
   });
 
@@ -257,10 +248,7 @@ class _AuthRequiredCard extends StatelessWidget {
   final VoidCallback onSignIn;
   final VoidCallback onSignUp;
   final VoidCallback onContinueBrowsing;
-  final Color brand;
-  final Color surface;
-  final Color textColor;
-  final Color hintColor;
+  final AppThemeColors colors;
   final bool embedded;
 
   @override
@@ -271,11 +259,12 @@ class _AuthRequiredCard extends StatelessWidget {
       decoration: embedded
           ? null
           : BoxDecoration(
-              color: surface,
+              color: colors.surface,
               borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.border),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: colors.shadow,
                   blurRadius: 18,
                   offset: const Offset(0, 10),
                 ),
@@ -288,10 +277,14 @@ class _AuthRequiredCard extends StatelessWidget {
             width: 66,
             height: 66,
             decoration: BoxDecoration(
-              color: brand.withOpacity(0.12),
+              color: colors.surfaceTint,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.lock_outline_rounded, color: brand, size: 30),
+            child: Icon(
+              Icons.lock_outline_rounded,
+              color: colors.brand,
+              size: 30,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -300,14 +293,17 @@ class _AuthRequiredCard extends StatelessWidget {
             style: GoogleFonts.urbanist(
               fontSize: 20,
               fontWeight: FontWeight.w800,
-              color: textColor,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: GoogleFonts.urbanist(color: hintColor, height: 1.45),
+            style: GoogleFonts.urbanist(
+              color: colors.textSecondary,
+              height: 1.45,
+            ),
           ),
           const SizedBox(height: 22),
           SizedBox(
@@ -315,7 +311,7 @@ class _AuthRequiredCard extends StatelessWidget {
             child: ElevatedButton(
               onPressed: onSignIn,
               style: ElevatedButton.styleFrom(
-                backgroundColor: brand,
+                backgroundColor: colors.brand,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -337,8 +333,8 @@ class _AuthRequiredCard extends StatelessWidget {
             child: OutlinedButton(
               onPressed: onSignUp,
               style: OutlinedButton.styleFrom(
-                foregroundColor: brand,
-                side: BorderSide(color: brand.withOpacity(0.55)),
+                foregroundColor: colors.brand,
+                side: BorderSide(color: colors.brand.withOpacity(0.55)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -356,7 +352,7 @@ class _AuthRequiredCard extends StatelessWidget {
             child: Text(
               'Maybe Not Now',
               style: GoogleFonts.urbanist(
-                color: hintColor,
+                color: colors.textSecondary,
                 fontWeight: FontWeight.w700,
               ),
             ),

@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 
 class EReceiptScreen extends StatefulWidget {
@@ -49,15 +50,21 @@ class _EReceiptScreenState extends State<EReceiptScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final brand = const Color(0xFFF1592A);
+    final theme = Theme.of(context);
+    final colors = theme.fx;
+    final brand = colors.brand;
     final serviceName = _serviceName();
     final fixerName = _fixerName();
 
     // Parse possibly heterogeneous date inputs
-    final scheduledDt =
-        parseAppDate(_request['scheduled_at'] ?? _request['scheduledAt'] ?? _request['schedule']);
-    final paidAtDt =
-        parseAppDate(_payment['paid_at'] ?? _payment['updated_at'] ?? _payment['created_at']);
+    final scheduledDt = parseAppDate(
+      _request['scheduled_at'] ??
+          _request['scheduledAt'] ??
+          _request['schedule'],
+    );
+    final paidAtDt = parseAppDate(
+      _payment['paid_at'] ?? _payment['updated_at'] ?? _payment['created_at'],
+    );
 
     final location = (_request['location'] ?? 'Not provided').toString();
     final transactionId = _payment['transaction_id']?.toString() ?? 'N/A';
@@ -70,18 +77,18 @@ class _EReceiptScreenState extends State<EReceiptScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        foregroundColor: colors.textPrimary,
         centerTitle: true,
         elevation: 0,
         title: Text(
           'E-Receipt',
           style: GoogleFonts.urbanist(
             fontWeight: FontWeight.w700,
-            color: Colors.black87,
+            color: colors.textPrimary,
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.black87),
+        iconTheme: IconThemeData(color: colors.textPrimary),
         actions: [
           IconButton(
             tooltip: 'Share',
@@ -96,7 +103,7 @@ class _EReceiptScreenState extends State<EReceiptScreen> {
           ),
         ],
       ),
-      backgroundColor: const Color(0xFFFFF7F2),
+      backgroundColor: colors.page,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -111,11 +118,11 @@ class _EReceiptScreenState extends State<EReceiptScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(32),
-                        boxShadow: const [
+                        boxShadow: [
                           BoxShadow(
-                            color: Color(0x1A000000),
+                            color: colors.shadow,
                             blurRadius: 24,
-                            offset: Offset(0, 16),
+                            offset: const Offset(0, 16),
                           ),
                         ],
                       ),
@@ -503,7 +510,9 @@ String _resolveFixerNameForReceipt({
 
   for (final key in ['user', 'profile', 'account']) {
     if (resolvedExplore[key] is Map) {
-      final nested = fromMap(Map<String, dynamic>.from(resolvedExplore[key] as Map));
+      final nested = fromMap(
+        Map<String, dynamic>.from(resolvedExplore[key] as Map),
+      );
       if (nested.isNotEmpty) return nested;
     }
   }

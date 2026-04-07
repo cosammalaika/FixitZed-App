@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/state/profile_controller.dart';
 
 class InviteFriendScreen extends ConsumerWidget {
@@ -17,19 +18,20 @@ class InviteFriendScreen extends ConsumerWidget {
     final name = profile?.name.trim();
     final inviteLink = _buildInviteLink(profile);
     final message = _buildShareMessage(name, inviteLink);
+    final colors = Theme.of(context).fx;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF7F2),
+      backgroundColor: colors.page,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.black87,
+        foregroundColor: colors.textPrimary,
         elevation: 0,
         centerTitle: true,
         title: Text(
           'Invite a Friend',
           style: GoogleFonts.urbanist(
             fontWeight: FontWeight.w700,
-            color: const Color(0xFF1F1F1F),
+            color: colors.textPrimary,
           ),
         ),
       ),
@@ -92,7 +94,7 @@ class InviteFriendScreen extends ConsumerWidget {
           style: GoogleFonts.urbanist(color: Colors.white),
         ),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: Theme.of(context).fx.success,
       ),
     );
   }
@@ -106,12 +108,13 @@ class _InviteHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brand = const Color(0xFFF1592A);
+    final colors = Theme.of(context).fx;
+    final brand = colors.brand;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFF1592A), Color(0xFFFF9155)],
+          colors: [AppTheme.brand, AppTheme.brandAccent],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -203,15 +206,17 @@ class _InviteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brand = const Color(0xFFF1592A);
+    final colors = Theme.of(context).fx;
+    final brand = colors.brand;
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: colors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: colors.shadow,
             blurRadius: 20,
             offset: const Offset(0, 12),
           ),
@@ -225,21 +230,22 @@ class _InviteCard extends StatelessWidget {
             style: GoogleFonts.urbanist(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF1F1F1F),
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
           Text(
             'Send this link in chats, groups or social media. '
             'The first booking your friend completes unlocks rewards for both of you.',
-            style: GoogleFonts.urbanist(color: Colors.black54),
+            style: GoogleFonts.urbanist(color: colors.textSecondary),
           ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F5F7),
+              color: colors.surfaceSubtle,
               borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: colors.border),
             ),
             child: Row(
               children: [
@@ -248,7 +254,7 @@ class _InviteCard extends StatelessWidget {
                     inviteLink,
                     style: GoogleFonts.urbanist(
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1F1F1F),
+                      color: colors.textPrimary,
                     ),
                   ),
                 ),
@@ -297,14 +303,16 @@ class _PerksCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: colors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: colors.shadow,
             blurRadius: 16,
             offset: const Offset(0, 10),
           ),
@@ -318,6 +326,7 @@ class _PerksCard extends StatelessWidget {
             style: GoogleFonts.urbanist(
               fontSize: 18,
               fontWeight: FontWeight.w700,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
@@ -332,12 +341,12 @@ class _PerksCard extends StatelessWidget {
                     height: 22,
                     margin: const EdgeInsets.only(top: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0x1AF1592A),
+                      color: colors.surfaceTint,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.check_rounded,
-                      color: Color(0xFFF1592A),
+                      color: colors.brand,
                       size: 16,
                     ),
                   ),
@@ -345,7 +354,7 @@ class _PerksCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       perk,
-                      style: GoogleFonts.urbanist(color: Colors.black87),
+                      style: GoogleFonts.urbanist(color: colors.textSecondary),
                     ),
                   ),
                 ],

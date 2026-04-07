@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fixitzed_app/core/fixer_utils.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 
 class FixerListItem extends StatelessWidget {
   final Map fixer;
@@ -34,7 +35,13 @@ class FixerListItem extends StatelessWidget {
 
     // nested common keys
     if (names.length < 3) {
-      for (final key in const ['fixer', 'user', 'profile', 'fixer_profile', 'owner']) {
+      for (final key in const [
+        'fixer',
+        'user',
+        'profile',
+        'fixer_profile',
+        'owner',
+      ]) {
         final nested = f[key];
         if (nested is Map) addFrom(nested['services']);
         if (names.length >= 3) break;
@@ -76,7 +83,13 @@ class FixerListItem extends StatelessWidget {
       }
     }
     // Try nested common containers
-    for (final key in const ['fixer', 'user', 'profile', 'fixer_profile', 'owner']) {
+    for (final key in const [
+      'fixer',
+      'user',
+      'profile',
+      'fixer_profile',
+      'owner',
+    ]) {
       final nested = f[key];
       if (nested is Map) {
         final s = _skillsOf(nested);
@@ -93,12 +106,13 @@ class FixerListItem extends StatelessWidget {
     final rating = fixerRating(fixer);
     final skills = _skillsOf(fixer);
     final services = _serviceNames(fixer);
+    final colors = Theme.of(context).fx;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8EEE8),
+        color: colors.surfaceTint,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -113,12 +127,12 @@ class FixerListItem extends StatelessWidget {
                       avatar,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
-                        color: const Color(0xFFF1592A),
+                        color: colors.brand,
                         child: const Icon(Icons.person, color: Colors.white),
                       ),
                     )
                   : Container(
-                      color: const Color(0xFFF1592A),
+                      color: colors.brand,
                       child: const Icon(Icons.person, color: Colors.white),
                     ),
             ),
@@ -159,9 +173,7 @@ class FixerListItem extends StatelessWidget {
                             const SizedBox(width: 2),
                             Text(
                               rating.toStringAsFixed(1),
-                              style: GoogleFonts.urbanist(
-                                fontSize: 12,
-                              ),
+                              style: GoogleFonts.urbanist(fontSize: 12),
                             ),
                           ],
                         ),
@@ -181,14 +193,14 @@ class FixerListItem extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1592A).withValues(alpha: 0.1),
+                          color: colors.surfaceRaised,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           services[j],
                           style: GoogleFonts.urbanist(
                             fontSize: 12,
-                            color: const Color(0xFFF1592A),
+                            color: colors.brand,
                           ),
                         ),
                       ),
@@ -199,9 +211,7 @@ class FixerListItem extends StatelessWidget {
                     skills,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.urbanist(
-                      color: Colors.black54,
-                    ),
+                    style: GoogleFonts.urbanist(color: colors.textSecondary),
                   ),
               ],
             ),

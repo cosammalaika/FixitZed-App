@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/services/report_service.dart';
 
 class HelpCenterScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.fx;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: theme.scaffoldBackgroundColor,
@@ -65,9 +67,15 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
               borderRadius: BorderRadius.circular(18),
             ),
             tileColor: theme.cardColor,
-            leading: const Icon(Icons.help_outline_rounded),
-            title: const Text('Read frequently asked questions'),
-            trailing: const Icon(Icons.chevron_right_rounded),
+            leading: Icon(Icons.help_outline_rounded, color: colors.brand),
+            title: Text(
+              'Read frequently asked questions',
+              style: TextStyle(color: colors.textPrimary),
+            ),
+            trailing: Icon(
+              Icons.chevron_right_rounded,
+              color: colors.textMuted,
+            ),
           ),
           const SizedBox(height: 12),
           ListTile(
@@ -76,9 +84,15 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
               borderRadius: BorderRadius.circular(18),
             ),
             tileColor: theme.cardColor,
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Review app preferences'),
-            trailing: const Icon(Icons.chevron_right_rounded),
+            leading: Icon(Icons.settings_outlined, color: colors.brand),
+            title: Text(
+              'Review app preferences',
+              style: TextStyle(color: colors.textPrimary),
+            ),
+            trailing: Icon(
+              Icons.chevron_right_rounded,
+              color: colors.textMuted,
+            ),
           ),
           const SizedBox(height: 24),
           _sectionTitle('Need to report something?'),
@@ -99,18 +113,19 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
   }
 
   Widget _heroCard() {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFF1592A), Color(0xFFFF9155)],
+          colors: [AppTheme.brand, AppTheme.brandAccent],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFF1592A).withValues(alpha: 0.2),
+            color: colors.shadow,
             blurRadius: 24,
             offset: const Offset(0, 16),
           ),
@@ -155,24 +170,28 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     required String subtitle,
     VoidCallback? onTap,
   }) {
+    final colors = Theme.of(context).fx;
     return ListTile(
       onTap: onTap,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      tileColor: Colors.white,
+      tileColor: colors.surface,
       leading: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0x1AF1592A),
+          color: colors.surfaceTint,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Icon(icon, color: const Color(0xFFF1592A)),
+        child: Icon(icon, color: colors.brand),
       ),
       title: Text(
         label,
-        style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
+        style: GoogleFonts.urbanist(
+          fontWeight: FontWeight.w700,
+          color: colors.textPrimary,
+        ),
       ),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.open_in_new_rounded),
+      subtitle: Text(subtitle, style: TextStyle(color: colors.textSecondary)),
+      trailing: Icon(Icons.open_in_new_rounded, color: colors.textMuted),
     );
   }
 
@@ -188,6 +207,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       ),
       builder: (ctx) {
         final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+        final colors = Theme.of(ctx).fx;
         return Padding(
           padding: EdgeInsets.fromLTRB(20, 16, 20, bottomInset + 16),
           child: Column(
@@ -197,7 +217,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.black12,
+                  color: colors.border,
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
@@ -207,6 +227,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                 style: GoogleFonts.urbanist(
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 12),
@@ -267,7 +288,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
               ? 'Report submitted. We will be in touch.'
               : 'Unable to send report',
         ),
-        backgroundColor: ok ? const Color(0xFF2E7D32) : Colors.redAccent,
+        backgroundColor: ok
+            ? Theme.of(context).fx.success
+            : Theme.of(context).fx.danger,
       ),
     );
   }

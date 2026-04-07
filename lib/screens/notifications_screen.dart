@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/screens/widgets/notification_details_sheet.dart';
 import 'package:fixitzed_app/services/notification_service.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -69,6 +70,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _dismissBackground({required bool leading}) {
+    final colors = Theme.of(context).fx;
     return Align(
       alignment: leading ? Alignment.centerLeft : Alignment.centerRight,
       child: Container(
@@ -76,13 +78,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         height: 56,
         margin: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFD84343),
+          color: colors.danger,
           borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x33000000),
+              color: colors.shadow,
               blurRadius: 10,
-              offset: Offset(0, 4),
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -139,8 +141,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           style: GoogleFonts.urbanist(color: Colors.white),
         ),
         backgroundColor: synced
-            ? const Color(0xFF2E7D32)
-            : const Color(0xFFE67E22),
+            ? Theme.of(context).fx.success
+            : Theme.of(context).fx.warning,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -167,7 +169,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final details = AppNotification.fromMap(n);
     final timeStr = formatAppTime(details.createdAt);
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final colors = theme.fx;
     final visual = NotificationVisualStyle.resolve(theme, details);
     final title = details.title.trim().isEmpty
         ? 'Notification'
@@ -176,17 +178,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ? 'No additional details available.'
         : details.message.trim();
     final cardColor = details.isRead
-        ? theme.brightness == Brightness.dark
-              ? Color.alphaBlend(
-                  Colors.white.withValues(alpha: 0.04),
-                  scheme.surface,
-                )
-              : const Color(0xFFF3F5F7)
+        ? colors.surfaceSubtle
         : Color.alphaBlend(
-            const Color(0xFFF1592A).withValues(
+            colors.brand.withValues(
               alpha: theme.brightness == Brightness.dark ? 0.12 : 0.05,
             ),
-            scheme.surface,
+            colors.surface,
           );
 
     return Material(
@@ -194,8 +191,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: InkWell(
         onTap: () => _handleTap(n),
         borderRadius: BorderRadius.circular(20),
-        splashColor: const Color(0xFFF1592A).withValues(alpha: 0.1),
-        highlightColor: const Color(0xFFF1592A).withValues(alpha: 0.04),
+        splashColor: colors.brand.withValues(alpha: 0.1),
+        highlightColor: colors.brand.withValues(alpha: 0.04),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Ink(
@@ -206,7 +203,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               border: Border.all(
                 color: details.isRead
                     ? Colors.transparent
-                    : const Color(0xFFF1592A).withValues(alpha: 0.12),
+                    : colors.brand.withValues(alpha: 0.18),
               ),
             ),
             child: Row(
@@ -233,14 +230,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               style: GoogleFonts.urbanist(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
-                                color: scheme.onSurface,
+                                color: colors.textPrimary,
                               ),
                             ),
                           ),
                           Text(
                             timeStr,
                             style: GoogleFonts.urbanist(
-                              color: scheme.onSurface.withValues(alpha: 0.45),
+                              color: colors.textMuted,
                               fontSize: 12,
                             ),
                           ),
@@ -252,7 +249,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.urbanist(
-                          color: scheme.onSurface.withValues(alpha: 0.62),
+                          color: colors.textSecondary,
                           height: 1.25,
                         ),
                       ),
@@ -264,8 +261,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     width: 8,
                     height: 8,
                     margin: const EdgeInsets.only(left: 8, top: 6),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF1592A),
+                    decoration: BoxDecoration(
+                      color: colors.brand,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -337,6 +334,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.fx;
     final today = <Map<String, dynamic>>[];
     final yesterday = <Map<String, dynamic>>[];
     final earlier = <Map<String, dynamic>>[];
@@ -354,12 +353,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Theme.of(context).colorScheme.onSurface,
+            color: theme.colorScheme.onSurface,
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -372,7 +371,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ),
       ),
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -401,9 +400,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     await _load();
                                   }
                                 },
-                          child: const Text(
+                          child: Text(
                             'Mark All As Read',
-                            style: TextStyle(color: Color(0xFFF1592A)),
+                            style: TextStyle(color: colors.brand),
                           ),
                         ),
                       ],
@@ -440,18 +439,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       padding: const EdgeInsets.only(top: 80),
                       child: Column(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.notifications_none_rounded,
                             size: 64,
-                            color: Colors.black26,
+                            color: colors.textMuted,
                           ),
                           const SizedBox(height: 12),
                           Text(
                             'No notifications',
                             style: GoogleFonts.urbanist(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.62),
+                              color: colors.textSecondary,
                             ),
                           ),
                         ],

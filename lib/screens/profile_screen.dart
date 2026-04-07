@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/screens/camera/take_photo_screen.dart';
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/services/profile_photo_service.dart';
@@ -527,7 +528,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final authState = ref.watch(authControllerProvider);
         if (authState.isInitializing) {
           return Scaffold(
-            backgroundColor: const Color(0xFFF9F4F1),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: _profileAppBar(),
             body: const Center(child: CircularProgressIndicator()),
           );
@@ -539,7 +540,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final profileAsync = ref.watch(profileControllerProvider);
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF9F4F1),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: _profileAppBar(),
           body: profileAsync.when(
             loading: () {
@@ -553,10 +554,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.wifi_off_rounded,
                       size: 48,
-                      color: Colors.black38,
+                      color: Theme.of(context).fx.textMuted,
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -571,7 +572,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Text(
                       err.toString(),
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.urbanist(color: Colors.black54),
+                      style: GoogleFonts.urbanist(
+                        color: Theme.of(context).fx.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton.icon(
@@ -579,7 +582,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           .read(profileControllerProvider.notifier)
                           .refresh(),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF1592A),
+                        backgroundColor: Theme.of(context).fx.brand,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),
@@ -600,14 +603,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   PreferredSizeWidget _profileAppBar() {
+    final colors = Theme.of(context).fx;
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
       leading: Navigator.of(context).canPop()
           ? IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.arrow_back_ios_new_rounded,
-                color: Colors.black,
+                color: colors.textPrimary,
               ),
               onPressed: () => Navigator.of(context).pop(),
             )
@@ -616,7 +620,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       title: Text(
         'Profile',
         style: GoogleFonts.urbanist(
-          color: const Color(0xFF2C2C2C),
+          color: colors.textPrimary,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -624,7 +628,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildGuestProfile(WidgetRef ref) {
-    const brand = Color(0xFFF1592A);
+    final colors = Theme.of(context).fx;
+    final brand = colors.brand;
 
     Future<void> authenticate() async {
       final ok = await ensureAuthenticated(
@@ -639,7 +644,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F4F1),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _profileAppBar(),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -650,14 +655,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 18,
-                      offset: const Offset(0, 10),
-                    ),
+                    if (Theme.of(context).brightness == Brightness.light)
+                      BoxShadow(
+                        color: colors.shadow,
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
+                      ),
                   ],
                 ),
                 child: Column(
@@ -666,10 +672,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       width: 72,
                       height: 72,
                       decoration: BoxDecoration(
-                        color: brand.withOpacity(0.12),
+                        color: colors.surfaceTint,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.person_outline_rounded,
                         color: brand,
                         size: 34,
@@ -682,7 +688,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: GoogleFonts.urbanist(
                         fontSize: 21,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF2C2C2C),
+                        color: colors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -690,7 +696,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       'Sign in to request services, track bookings, manage your account and delete your account in-app.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.urbanist(
-                        color: const Color(0xFF6A6A6A),
+                        color: colors.textSecondary,
                         height: 1.45,
                       ),
                     ),
@@ -725,7 +731,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -974,8 +980,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFFD9C9), Color(0xFFFFF1EA)],
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).fx.surfaceTint,
+                    Theme.of(context).fx.surfaceSubtle,
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -989,15 +998,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).fx.surfaceRaised,
                           shape: BoxShape.circle,
                           boxShadow: [
-                            BoxShadow(color: Colors.black12, blurRadius: 10),
+                            BoxShadow(
+                              color: Theme.of(context).fx.shadow,
+                              blurRadius: 10,
+                            ),
                           ],
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.handyman_rounded,
-                          color: Color(0xFFF1592A),
+                          color: Theme.of(context).fx.brand,
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -1007,7 +1019,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: GoogleFonts.urbanist(
                             fontWeight: FontWeight.w800,
                             fontSize: 18,
-                            color: const Color(0xFF2C2C2C),
+                            color: Theme.of(context).fx.textPrimary,
                           ),
                         ),
                       ),
@@ -1016,7 +1028,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 12),
                   Text(
                     'Apply in a few minutes and start taking on service requests tailored to your skills.',
-                    style: GoogleFonts.urbanist(color: const Color(0xFF5B5B5B)),
+                    style: GoogleFonts.urbanist(
+                      color: Theme.of(context).fx.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   SizedBox(
@@ -1025,7 +1039,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onPressed: () =>
                           Navigator.pushNamed(context, '/fixer/apply'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF1592A),
+                        backgroundColor: Theme.of(context).fx.brand,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -1159,7 +1173,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
       onTap: () => _showOptions(context, hasImage: validUrl),
       child: CircleAvatar(
         radius: widget.radius,
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).fx.surfaceRaised,
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.center,
@@ -1190,8 +1204,10 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
   }
 
   void _showOptions(BuildContext context, {required bool hasImage}) {
+    final colors = Theme.of(context).fx;
     showModalBottomSheet<void>(
       context: context,
+      backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1204,7 +1220,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
               width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.black12,
+                color: colors.border,
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
@@ -1334,17 +1350,13 @@ extension _ReportSheet on _ProfileScreenState {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final colors = theme.fx;
         final bottom = MediaQuery.of(ctx).viewInsets.bottom;
         return ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFFFF8F3), Colors.white],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
+            decoration: BoxDecoration(gradient: colors.sheetGradient),
             child: Padding(
               padding: EdgeInsets.fromLTRB(20, 16, 20, bottom + 20),
               child: StatefulBuilder(
@@ -1358,7 +1370,7 @@ extension _ReportSheet on _ProfileScreenState {
                     hintText: hint,
                     prefixIcon: icon != null ? Icon(icon) : null,
                     filled: true,
-                    fillColor: const Color(0xFFF3F5F7),
+                    fillColor: colors.surfaceSubtle,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -1377,7 +1389,7 @@ extension _ReportSheet on _ProfileScreenState {
                           width: 46,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: Colors.black12,
+                            color: colors.border,
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
@@ -1489,7 +1501,7 @@ extension _ReportSheet on _ProfileScreenState {
                                   if (ok) Navigator.of(ctx).pop();
                                 },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF1592A),
+                            backgroundColor: colors.brand,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(

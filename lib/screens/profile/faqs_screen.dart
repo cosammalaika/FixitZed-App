@@ -1,31 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
+
 class FaqsScreen extends StatelessWidget {
   const FaqsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
     final faqs = <Map<String, String>>[
       {
         'q': 'How do I request a service?',
-        'a': 'From the home screen, choose a category, pick a service, and select a time that works for you. Confirm your request and you are set.'
+        'a':
+            'From the home screen, choose a category, pick a service, and select a time that works for you. Confirm your request and you are set.',
       },
       {
         'q': 'How do I become a fixer?',
-        'a': 'Open Profile and tap "Become a Fixer". Fill in your skills and details and submit your application for review.'
+        'a':
+            'Open Profile and tap "Become a Fixer". Fill in your skills and details and submit your application for review.',
       },
       {
         'q': 'How do I change my email or name?',
-        'a': 'Go to Profile > Edit Profile, update your details and save.'
+        'a': 'Go to Profile > Edit Profile, update your details and save.',
       },
       {
         'q': 'What payment methods are supported?',
-        'a': 'You can add and manage cards or mobile money in Profile > Payment Methods.'
+        'a':
+            'You can add and manage cards or mobile money in Profile > Payment Methods.',
       },
       {
         'q': 'How can I contact support?',
-        'a': 'Use the Help Center options or reach out via the contact details provided in the app settings.'
+        'a':
+            'Use the Help Center options or reach out via the contact details provided in the app settings.',
       },
     ];
 
@@ -33,9 +40,17 @@ class FaqsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        iconTheme: IconThemeData(
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
         centerTitle: true,
-        title: Text('FAQs', style: GoogleFonts.urbanist(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w700)),
+        title: Text(
+          'FAQs',
+          style: GoogleFonts.urbanist(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: ListView.builder(
@@ -46,20 +61,38 @@ class FaqsScreen extends StatelessWidget {
           return Container(
             margin: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F5F7),
+              color: colors.surface,
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.border),
             ),
             child: Theme(
-              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              data: Theme.of(
+                context,
+              ).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                tilePadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                title: Text(item['q']!, style: GoogleFonts.urbanist(fontWeight: FontWeight.w700)),
+                title: Text(
+                  item['q']!,
+                  style: GoogleFonts.urbanist(
+                    fontWeight: FontWeight.w700,
+                    color: colors.textPrimary,
+                  ),
+                ),
                 children: [
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(item['a']!, style: GoogleFonts.urbanist(color: Theme.of(context).hintColor, height: 1.25)),
-                  )
+                    child: Text(
+                      item['a']!,
+                      style: GoogleFonts.urbanist(
+                        color: colors.textSecondary,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/screens/booking_sheet.dart';
 import 'package:fixitzed_app/widgets/auth_required.dart';
 
@@ -107,13 +108,14 @@ Future<void> showServiceDetailsSheet(
     builder: (sheetContext) {
       final theme = Theme.of(sheetContext);
       final scheme = theme.colorScheme;
+      final colors = theme.fx;
       final bottomInset = MediaQuery.of(sheetContext).padding.bottom;
-      const brand = Color(0xFFF1592A);
+      final brand = colors.brand;
 
       return ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: Container(
-          color: theme.cardColor,
+          color: colors.surface,
           padding: EdgeInsets.fromLTRB(20, 12, 20, 18 + bottomInset),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -147,14 +149,10 @@ Future<void> showServiceDetailsSheet(
                   width: double.infinity,
                   height: 120,
                   decoration: BoxDecoration(
-                    color: brand.withOpacity(0.1),
+                    color: colors.surfaceTint,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
-                    Icons.handyman_rounded,
-                    color: brand,
-                    size: 38,
-                  ),
+                  child: Icon(Icons.handyman_rounded, color: brand, size: 38),
                 ),
               const SizedBox(height: 18),
               if (category != null && category.isNotEmpty) ...[
@@ -164,7 +162,7 @@ Future<void> showServiceDetailsSheet(
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: brand.withOpacity(0.1),
+                    color: colors.surfaceTint,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(

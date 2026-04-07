@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
+
 /// Draggable pill that triggers [onCompleted] when fully swiped.
 class SwipeActionButton extends StatefulWidget {
   const SwipeActionButton({
@@ -13,8 +15,8 @@ class SwipeActionButton extends StatefulWidget {
     this.height = 56,
     this.enabled = true,
     this.icon = Icons.chevron_right_rounded,
-    this.knobColor = Colors.white,
-    this.trackColor = const Color(0xFFF1592A),
+    this.knobColor,
+    this.trackColor,
     this.successIcon = Icons.check_rounded,
     this.gradient,
     this.progressColor,
@@ -28,8 +30,8 @@ class SwipeActionButton extends StatefulWidget {
   final bool enabled;
   final IconData icon;
   final IconData successIcon;
-  final Color knobColor;
-  final Color trackColor;
+  final Color? knobColor;
+  final Color? trackColor;
   final Gradient? gradient;
   final Color? progressColor;
 
@@ -72,9 +74,9 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
 
   bool get _canInteract => widget.enabled && !_processing;
 
-  Gradient _resolveGradient(double progress) {
+  Gradient _resolveGradient(double progress, Color trackColor) {
     if (widget.gradient != null) return widget.gradient!;
-    final base = widget.trackColor;
+    final base = trackColor;
     final softened = _lighten(base, 0.12);
     final end = _mix(softened, base, progress.clamp(0.0, 1.0));
     final start = _mix(_darken(base, 0.18), softened, progress.clamp(0.0, 1.0));
@@ -110,14 +112,15 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
     _resetController.stop();
     _resetAnimation?.removeListener(_resetTick);
     _resetAnimation?.removeStatusListener(_handleStatus);
-    _resetAnimation = Tween<double>(begin: _percent, end: 0).animate(
-      CurvedAnimation(
-        parent: _resetController,
-        curve: Curves.easeOutCubic,
-      ),
-    )
-      ..addListener(_resetTick)
-      ..addStatusListener(_handleStatus);
+    _resetAnimation =
+        Tween<double>(begin: _percent, end: 0).animate(
+            CurvedAnimation(
+              parent: _resetController,
+              curve: Curves.easeOutCubic,
+            ),
+          )
+          ..addListener(_resetTick)
+          ..addStatusListener(_handleStatus);
     _resetController
       ..reset()
       ..forward();
@@ -162,27 +165,33 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
         final knobSize = height - 12;
         final maxExtent = math.max(0.0, width - knobSize - 12);
         final progress = _percent.clamp(0.0, 1.0);
+        final theme = Theme.of(context);
+        final colors = theme.fx;
+        final trackColor = widget.trackColor ?? colors.brand;
+        final baseKnobColor = widget.knobColor ?? theme.colorScheme.onPrimary;
+        final onTrackColor = theme.colorScheme.onPrimary;
         final offset = maxExtent * progress;
-        final labelStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            );
+        final labelStyle = theme.textTheme.titleMedium?.copyWith(
+          color: onTrackColor,
+          fontWeight: FontWeight.w700,
+        );
         final showReleaseLabel =
             !_processing && !_completed && progress >= 0.75;
         final displayLabel = showReleaseLabel
             ? (widget.releaseLabel ?? 'Release to confirm')
             : widget.label;
-        final baseProgressColor = widget.progressColor ?? Colors.white;
-        final overlayStart =
-            baseProgressColor.withOpacity(0.22 + (0.28 * progress));
-        final overlayEnd =
-            baseProgressColor.withOpacity(0.12 + (0.18 * progress));
+        final baseProgressColor = widget.progressColor ?? onTrackColor;
+        final overlayStart = baseProgressColor.withOpacity(
+          0.22 + (0.28 * progress),
+        );
+        final overlayEnd = baseProgressColor.withOpacity(
+          0.12 + (0.18 * progress),
+        );
         final knobColor =
-            Color.lerp(widget.knobColor, Colors.white, progress * 0.35) ??
-            widget.knobColor;
+            Color.lerp(baseKnobColor, onTrackColor, progress * 0.35) ??
+            baseKnobColor;
         final iconColor =
-            Color.lerp(widget.trackColor, Colors.white, progress * 0.45) ??
-            widget.trackColor;
+            Color.lerp(trackColor, onTrackColor, progress * 0.45) ?? trackColor;
 
         return Semantics(
           button: true,
@@ -202,11 +211,11 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
               child: Container(
                 height: height,
                 decoration: BoxDecoration(
-                  gradient: _resolveGradient(progress),
+                  gradient: _resolveGradient(progress, trackColor),
                   borderRadius: BorderRadius.circular(height),
                   boxShadow: [
                     BoxShadow(
-                      color: widget.trackColor.withOpacity(0.22),
+                      color: trackColor.withOpacity(0.22),
                       blurRadius: 12,
                       offset: const Offset(0, 6),
                     ),
@@ -221,17 +230,15 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: FractionallySizedBox(
-                            widthFactor:
-                                progress > 0 ? progress.clamp(0.0, 1.0) : 0.001,
+                            widthFactor: progress > 0
+                                ? progress.clamp(0.0, 1.0)
+                                : 0.001,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
-                                  colors: [
-                                    overlayStart,
-                                    overlayEnd,
-                                  ],
+                                  colors: [overlayStart, overlayEnd],
                                 ),
                               ),
                             ),
@@ -262,12 +269,12 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
                                 opacity: arrowOpacity,
                                 child: Icon(
                                   Icons.chevron_right_rounded,
-                                  color: Colors.white.withOpacity(
+                                  color: onTrackColor.withOpacity(
                                     0.55 + arrowOpacity * 0.4,
                                   ),
                                   size: constraints.biggest.height
-                                    .clamp(12.0, 18.0)
-                                    .toDouble(),
+                                      .clamp(12.0, 18.0)
+                                      .toDouble(),
                                 ),
                               );
                             }).toList(),
@@ -284,7 +291,7 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
                             height: 18,
                             child: CircularProgressIndicator(
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
+                                onTrackColor,
                               ),
                               strokeWidth: 2.4,
                             ),
@@ -308,15 +315,12 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(
-                              0.18 + (progress * 0.22),
+                            color: colors.shadow.withOpacity(
+                              0.28 + (progress * 0.22),
                             ),
                             borderRadius: BorderRadius.circular(height),
                           ),
-                          child: Text(
-                            displayLabel,
-                            style: labelStyle,
-                          ),
+                          child: Text(displayLabel, style: labelStyle),
                         ),
                       ),
                     Positioned(
@@ -329,7 +333,7 @@ class _SwipeActionButtonState extends State<SwipeActionButton>
                           borderRadius: BorderRadius.circular(knobSize / 2),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.12),
+                              color: colors.shadow,
                               blurRadius: 10,
                               offset: const Offset(0, 6),
                             ),

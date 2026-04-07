@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/core/booking_status.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/state/auth_controller.dart';
@@ -19,6 +20,7 @@ class MyBookingScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final colors = theme.fx;
     final authState = ref.watch(authControllerProvider);
 
     if (authState.isInitializing) {
@@ -59,11 +61,7 @@ class MyBookingScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.wifi_off_rounded,
-                  size: 48,
-                  color: Colors.black38,
-                ),
+                Icon(Icons.wifi_off_rounded, size: 48, color: colors.textMuted),
                 const SizedBox(height: 16),
                 Text(
                   'Unable to load your bookings.',
@@ -77,14 +75,14 @@ class MyBookingScreen extends ConsumerWidget {
                 Text(
                   err.toString(),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.urbanist(color: Colors.black54),
+                  style: GoogleFonts.urbanist(color: colors.textSecondary),
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
                   onPressed: () =>
                       ref.read(myBookingsControllerProvider.notifier).refresh(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF1592A),
+                    backgroundColor: colors.brand,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
@@ -109,7 +107,7 @@ class MyBookingScreen extends ConsumerWidget {
                     'No bookings yet',
                     style: GoogleFonts.urbanist(
                       fontWeight: FontWeight.w600,
-                      color: Colors.black54,
+                      color: colors.textSecondary,
                     ),
                   ),
                 ),
@@ -176,16 +174,16 @@ class MyBookingScreen extends ConsumerWidget {
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3F5F7),
+                      color: colors.surfaceSubtle,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       children: [
-                        const CircleAvatar(
-                          backgroundColor: Color(0x1AF1592A),
+                        CircleAvatar(
+                          backgroundColor: colors.surfaceTint,
                           child: Icon(
                             Icons.event_available_rounded,
-                            color: Color(0xFFF1592A),
+                            color: colors.brand,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -204,14 +202,14 @@ class MyBookingScreen extends ConsumerWidget {
                                 Text(
                                   'Scheduled: $scheduledLabel',
                                   style: GoogleFonts.urbanist(
-                                    color: Colors.black54,
+                                    color: colors.textSecondary,
                                   ),
                                 ),
                               if (fixer != null)
                                 Text(
                                   'Fixer: ${_fixerName(fixer)}',
                                   style: GoogleFonts.urbanist(
-                                    color: Colors.black54,
+                                    color: colors.textSecondary,
                                   ),
                                 ),
                             ],
@@ -240,7 +238,7 @@ class MyBookingScreen extends ConsumerWidget {
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFF1592A),
+                                  backgroundColor: colors.brand,
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -365,8 +363,9 @@ class _GuestBookingsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFFF1592A);
     final theme = Theme.of(context);
+    final colors = theme.fx;
+    final brand = colors.brand;
 
     return Scaffold(
       appBar: AppBar(
@@ -393,14 +392,10 @@ class _GuestBookingsView extends StatelessWidget {
                 width: 68,
                 height: 68,
                 decoration: BoxDecoration(
-                  color: brand.withOpacity(0.12),
+                  color: colors.surfaceTint,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.event_note_outlined,
-                  color: brand,
-                  size: 32,
-                ),
+                child: Icon(Icons.event_note_outlined, color: brand, size: 32),
               ),
               const SizedBox(height: 16),
               Text(

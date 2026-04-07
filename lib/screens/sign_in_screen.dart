@@ -11,6 +11,7 @@ import 'package:fixitzed_app/screens/sign_up_screen.dart';
 import 'package:fixitzed_app/screens/auth/forgot_password_sheet.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/core/app_spacing.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/widgets/app_text_field.dart';
 import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
@@ -122,7 +123,7 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _showAlert(String title, String message) async {
-    const brand = Color(0xFFF1592A);
+    final colors = Theme.of(context).fx;
     await showDialog(
       context: context,
       barrierDismissible: true,
@@ -137,12 +138,12 @@ class _SignInScreenState extends State<SignInScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: brand.withValues(alpha: 0.12),
+                  color: colors.surfaceTint,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.error_outline_rounded,
-                  color: brand,
+                  color: colors.brand,
                   size: 32,
                 ),
               ),
@@ -153,13 +154,14 @@ class _SignInScreenState extends State<SignInScreen> {
                 style: GoogleFonts.urbanist(
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.urbanist(color: Colors.black87),
+                style: GoogleFonts.urbanist(color: colors.textSecondary),
               ),
               const SizedBox(height: 20),
               SizedBox(
@@ -167,7 +169,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(ctx).pop(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: brand,
+                    backgroundColor: colors.brand,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -190,7 +192,7 @@ class _SignInScreenState extends State<SignInScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).fx.surface,
       builder: (ctx) =>
           ForgotPasswordSheet(initialIdentifier: seed.isEmpty ? null : seed),
     );
@@ -205,7 +207,8 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final orange = const Color(0xFFF1592A);
+    final colors = Theme.of(context).fx;
+    final orange = colors.brand;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -300,11 +303,12 @@ class _SignInScreenState extends State<SignInScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.08),
+                          color: colors.shadow,
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
                       ],
+                      border: Border.all(color: colors.border),
                     ),
                     child: Form(
                       key: _formKey,

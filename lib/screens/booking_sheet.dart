@@ -13,6 +13,7 @@ import 'package:fixitzed_app/services/service_request_service.dart';
 import 'package:fixitzed_app/services/locations_service.dart';
 import 'package:fixitzed_app/widgets/swipe_action_button.dart';
 import 'package:fixitzed_app/core/app_spacing.dart';
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/widgets/app_text_field.dart';
 import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
@@ -249,18 +250,19 @@ class _BookingSheetState extends State<BookingSheet> {
   }
 
   Widget _buildHeroHeader() {
+    final colors = Theme.of(context).fx;
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF1592A), Color(0xFFFF9155)],
+        gradient: LinearGradient(
+          colors: [colors.brand, colors.brandAccent],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFF1592A).withValues(alpha: 0.25),
+            color: colors.brand.withValues(alpha: 0.25),
             blurRadius: 24,
             offset: const Offset(0, 16),
           ),
@@ -353,15 +355,16 @@ class _BookingSheetState extends State<BookingSheet> {
     required String title,
     required List<Widget> children,
   }) {
+    final colors = Theme.of(context).fx;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: colors.shadow,
             blurRadius: 22,
             offset: const Offset(0, 14),
           ),
@@ -375,10 +378,10 @@ class _BookingSheetState extends State<BookingSheet> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0x1AF1592A),
+                  color: colors.surfaceTint,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: const Color(0xFFF1592A)),
+                child: Icon(icon, color: colors.brand),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -387,7 +390,7 @@ class _BookingSheetState extends State<BookingSheet> {
                   style: GoogleFonts.urbanist(
                     fontWeight: FontWeight.w800,
                     fontSize: 17,
-                    color: Colors.black87,
+                    color: colors.textPrimary,
                   ),
                 ),
               ),
@@ -408,7 +411,8 @@ class _BookingSheetState extends State<BookingSheet> {
     String? helper,
   }) {
     final enabled = onTap != null;
-    final textColor = enabled ? Colors.black87 : Colors.black45;
+    final colors = Theme.of(context).fx;
+    final textColor = enabled ? colors.textPrimary : colors.textMuted;
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
@@ -416,10 +420,12 @@ class _BookingSheetState extends State<BookingSheet> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFDF3ED),
+          color: colors.surfaceTint,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: enabled ? const Color(0xFFF6C2A6) : const Color(0xFFE5E5E5),
+            color: enabled
+                ? colors.brand.withValues(alpha: 0.35)
+                : colors.border,
           ),
         ),
         child: Column(
@@ -431,17 +437,17 @@ class _BookingSheetState extends State<BookingSheet> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: colors.surfaceRaised,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
+                        color: colors.shadow,
                         blurRadius: 6,
                         offset: const Offset(0, 3),
                       ),
                     ],
                   ),
-                  child: Icon(icon, size: 20, color: const Color(0xFFF1592A)),
+                  child: Icon(icon, size: 20, color: colors.brand),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -453,7 +459,7 @@ class _BookingSheetState extends State<BookingSheet> {
                         style: GoogleFonts.urbanist(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF9C531D),
+                          color: colors.brand,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -470,7 +476,7 @@ class _BookingSheetState extends State<BookingSheet> {
                 ),
                 Icon(
                   enabled ? Icons.chevron_right_rounded : Icons.lock_outline,
-                  color: enabled ? const Color(0xFFF1592A) : Colors.black26,
+                  color: enabled ? colors.brand : colors.textMuted,
                 ),
               ],
             ),
@@ -481,7 +487,7 @@ class _BookingSheetState extends State<BookingSheet> {
                   helper,
                   style: GoogleFonts.urbanist(
                     fontSize: 12,
-                    color: Colors.black54,
+                    color: colors.textSecondary,
                   ),
                 ),
               ),
@@ -497,7 +503,7 @@ class _BookingSheetState extends State<BookingSheet> {
     required Color background,
     Color? foreground,
   }) {
-    final fg = foreground ?? const Color(0xFFF1592A);
+    final fg = foreground ?? Theme.of(context).fx.brand;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -884,6 +890,7 @@ class _BookingSheetState extends State<BookingSheet> {
   @override
   Widget build(BuildContext context) {
     final viewInsets = MediaQuery.viewInsetsOf(context).bottom;
+    final colors = Theme.of(context).fx;
     return AnimatedPadding(
       duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.only(bottom: viewInsets),
@@ -901,9 +908,9 @@ class _BookingSheetState extends State<BookingSheet> {
                 child: SafeArea(
                   top: false,
                   child: Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFF7F2),
-                      borderRadius: BorderRadius.vertical(
+                    decoration: BoxDecoration(
+                      color: colors.page,
+                      borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(20),
                       ),
                     ),
@@ -936,6 +943,7 @@ class _BookingSheetState extends State<BookingSheet> {
   }
 
   Widget _buildBodyContent() {
+    final colors = Theme.of(context).fx;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
@@ -951,7 +959,7 @@ class _BookingSheetState extends State<BookingSheet> {
               width: 44,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: colors.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -971,7 +979,7 @@ class _BookingSheetState extends State<BookingSheet> {
               loadingLabel: 'Requesting…',
               releaseLabel: 'Release to submit',
               enabled: !_submitting,
-              trackColor: const Color(0xFFF1592A),
+              trackColor: colors.brand,
               onCompleted: _submit,
             ),
           ),
@@ -980,8 +988,8 @@ class _BookingSheetState extends State<BookingSheet> {
             icon: Icons.local_offer_outlined,
             message:
                 'Coupons and loyalty points can be applied once your fixer shares a bill.',
-            background: const Color(0x1AF1592A),
-            foreground: Colors.black87,
+            background: colors.surfaceTint,
+            foreground: colors.textPrimary,
           ),
         ],
       ),
@@ -1012,7 +1020,7 @@ class _BookingSheetState extends State<BookingSheet> {
                   child: Text(
                     state.errorText!,
                     style: GoogleFonts.urbanist(
-                      color: const Color(0xFFD32F2F),
+                      color: Theme.of(context).fx.danger,
                       fontSize: 12,
                     ),
                   ),
@@ -1068,7 +1076,7 @@ class _BookingSheetState extends State<BookingSheet> {
                     Icons.my_location_rounded,
                     color: _locating
                         ? Theme.of(context).colorScheme.outline
-                        : const Color(0xFFF1592A),
+                        : Theme.of(context).fx.brand,
                   ),
                   onPressed: _locating ? null : _useCurrentLocation,
                 ),
@@ -1139,6 +1147,7 @@ class _BookingSheetState extends State<BookingSheet> {
         backgroundColor: Colors.transparent,
         barrierColor: Colors.black54,
         builder: (ctx) {
+          final colors = Theme.of(ctx).fx;
           final queryCtrl = TextEditingController();
           final searchFocus = FocusNode();
           final fieldKey = GlobalKey();
@@ -1177,7 +1186,7 @@ class _BookingSheetState extends State<BookingSheet> {
                     child: SizedBox(
                       height: initialH.clamp(320.0, maxH),
                       child: Material(
-                        color: Colors.white,
+                        color: colors.surface,
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(28),
                         ),
@@ -1229,7 +1238,7 @@ class _BookingSheetState extends State<BookingSheet> {
                                         width: 44,
                                         height: 4,
                                         decoration: BoxDecoration(
-                                          color: Colors.grey.shade300,
+                                          color: colors.border,
                                           borderRadius: BorderRadius.circular(
                                             2,
                                           ),
@@ -1250,12 +1259,14 @@ class _BookingSheetState extends State<BookingSheet> {
                                                 style: GoogleFonts.urbanist(
                                                   fontWeight: FontWeight.w700,
                                                   fontSize: 20,
+                                                  color: colors.textPrimary,
                                                 ),
                                               ),
                                             ),
                                             IconButton(
-                                              icon: const Icon(
+                                              icon: Icon(
                                                 Icons.close_rounded,
+                                                color: colors.textSecondary,
                                               ),
                                               onPressed: () =>
                                                   Navigator.of(ctx).pop(),
@@ -1278,19 +1289,20 @@ class _BookingSheetState extends State<BookingSheet> {
                                             onChanged: (_) => setSt(() {}),
                                             decoration: InputDecoration(
                                               filled: true,
-                                              fillColor: Colors.grey.shade100,
+                                              fillColor: colors.surfaceSubtle,
                                               hintText: 'Search services',
-                                              hintStyle: const TextStyle(
+                                              hintStyle: TextStyle(
                                                 fontSize: 15,
+                                                color: colors.textMuted,
                                               ),
                                               contentPadding:
                                                   const EdgeInsets.symmetric(
                                                     horizontal: 16,
                                                     vertical: 14,
                                                   ),
-                                              prefixIcon: const Icon(
+                                              prefixIcon: Icon(
                                                 Icons.search_rounded,
-                                                color: Colors.black54,
+                                                color: colors.textMuted,
                                               ),
                                               border: OutlineInputBorder(
                                                 borderRadius:
@@ -1305,8 +1317,8 @@ class _BookingSheetState extends State<BookingSheet> {
                                               focusedBorder: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(16),
-                                                borderSide: const BorderSide(
-                                                  color: Color(0xFFF1592A),
+                                                borderSide: BorderSide(
+                                                  color: colors.brand,
                                                   width: 1.2,
                                                 ),
                                               ),
@@ -1315,7 +1327,7 @@ class _BookingSheetState extends State<BookingSheet> {
                                         ),
                                       ),
                                       const SizedBox(height: 10),
-                                      const Divider(height: 1),
+                                      Divider(height: 1, color: colors.border),
                                       Expanded(
                                         child: loading
                                             ? const Center(
@@ -1332,8 +1344,8 @@ class _BookingSheetState extends State<BookingSheet> {
                                                         'Services are still syncing. Please try again shortly.',
                                                         style:
                                                             GoogleFonts.urbanist(
-                                                              color: Colors
-                                                                  .black54,
+                                                              color: colors
+                                                                  .textSecondary,
                                                             ),
                                                         textAlign:
                                                             TextAlign.center,
@@ -1373,8 +1385,8 @@ class _BookingSheetState extends State<BookingSheet> {
                                                             _activeServiceIds
                                                                 .contains(id);
                                                         assert(() {
-                                                          final lowered =
-                                                              name.toLowerCase();
+                                                          final lowered = name
+                                                              .toLowerCase();
                                                           if (lowered.contains(
                                                             'general pest control',
                                                           )) {
@@ -1385,22 +1397,21 @@ class _BookingSheetState extends State<BookingSheet> {
                                                           return true;
                                                         }());
                                                         return ListTile(
-                                                          leading: const Icon(
+                                                          leading: Icon(
                                                             Icons
                                                                 .handyman_outlined,
-                                                            color: Color(
-                                                              0xFFF1592A,
-                                                            ),
+                                                            color: colors.brand,
                                                           ),
                                                           title: Text(
                                                             name,
-                                                            style:
-                                                                GoogleFonts.urbanist(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
-                                                                  fontSize: 16,
-                                                                ),
+                                                            style: GoogleFonts.urbanist(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              fontSize: 16,
+                                                              color: colors
+                                                                  .textPrimary,
+                                                            ),
                                                           ),
                                                           subtitle:
                                                               desc.isNotEmpty
@@ -1411,44 +1422,47 @@ class _BookingSheetState extends State<BookingSheet> {
                                                                       TextOverflow
                                                                           .ellipsis,
                                                                   style: TextStyle(
-                                                                    color: Colors
-                                                                        .black54,
+                                                                    color: colors
+                                                                        .textSecondary,
                                                                   ),
                                                                 )
                                                               : null,
-                                                      trailing: hasFixer
-                                                          ? const Icon(
-                                                              Icons
-                                                                  .check_circle_rounded,
-                                                              color:
-                                                                  Colors.green,
-                                                              size: 18,
-                                                            )
-                                                          : const Icon(
-                                                              Icons
-                                                                  .error_outline_rounded,
-                                                              color: Colors
-                                                                  .redAccent,
-                                                              size: 18,
-                                                            ),
-                                                      enabled: hasFixer,
-                                                      onTap: hasFixer
-                                                          ? () {
-                                                              Navigator.of(ctx)
-                                                                  .pop({
-                                                                'id': id,
-                                                                'name': name,
-                                                              });
-                                                            }
-                                                          : () {
-                                                              _showSnack(
-                                                                message:
-                                                                    'We don’t have an available fixer for "$name" at the moment.',
-                                                                success: false,
-                                                              );
-                                                            },
-                                                    );
-                                                  },
+                                                          trailing: hasFixer
+                                                              ? Icon(
+                                                                  Icons
+                                                                      .check_circle_rounded,
+                                                                  color: colors
+                                                                      .success,
+                                                                  size: 18,
+                                                                )
+                                                              : Icon(
+                                                                  Icons
+                                                                      .error_outline_rounded,
+                                                                  color: colors
+                                                                      .danger,
+                                                                  size: 18,
+                                                                ),
+                                                          enabled: hasFixer,
+                                                          onTap: hasFixer
+                                                              ? () {
+                                                                  Navigator.of(
+                                                                    ctx,
+                                                                  ).pop({
+                                                                    'id': id,
+                                                                    'name':
+                                                                        name,
+                                                                  });
+                                                                }
+                                                              : () {
+                                                                  _showSnack(
+                                                                    message:
+                                                                        'We don’t have an available fixer for "$name" at the moment.',
+                                                                    success:
+                                                                        false,
+                                                                  );
+                                                                },
+                                                        );
+                                                      },
                                                     )),
                                       ),
                                     ],
@@ -1488,8 +1502,10 @@ class _BookingSheetState extends State<BookingSheet> {
   }
 
   Future<void> _pickSavedLocation() async {
+    final colors = Theme.of(context).fx;
     final selected = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
+      backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1506,7 +1522,7 @@ class _BookingSheetState extends State<BookingSheet> {
                   width: 44,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: colors.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1517,6 +1533,7 @@ class _BookingSheetState extends State<BookingSheet> {
                 style: GoogleFonts.urbanist(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -1525,7 +1542,8 @@ class _BookingSheetState extends State<BookingSheet> {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: _savedLocations.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, __) =>
+                      Divider(height: 1, color: colors.border),
                   itemBuilder: (ctx, i) {
                     final m = _savedLocations[i];
                     final line =
@@ -1537,17 +1555,20 @@ class _BookingSheetState extends State<BookingSheet> {
                       city,
                     ].where((e) => e.isNotEmpty).join(', ');
                     return ListTile(
-                      leading: const Icon(
-                        Icons.place_outlined,
-                        color: Color(0xFFF1592A),
-                      ),
+                      leading: Icon(Icons.place_outlined, color: colors.brand),
                       title: Text(
                         line,
                         style: GoogleFonts.urbanist(
                           fontWeight: FontWeight.w600,
+                          color: colors.textPrimary,
                         ),
                       ),
-                      subtitle: city.isNotEmpty ? Text(city) : null,
+                      subtitle: city.isNotEmpty
+                          ? Text(
+                              city,
+                              style: TextStyle(color: colors.textSecondary),
+                            )
+                          : null,
                       onTap: () => Navigator.of(ctx).pop({
                         'label': detail,
                         'latitude': m['latitude'],
@@ -1795,8 +1816,8 @@ class _BookingSheetState extends State<BookingSheet> {
         content: Text(message),
         duration: duration,
         backgroundColor: success
-            ? const Color(0xFF4CAF50)
-            : const Color(0xFFD32F2F),
+            ? Theme.of(context).fx.success
+            : Theme.of(context).fx.danger,
         behavior: SnackBarBehavior.floating,
       ),
     );
