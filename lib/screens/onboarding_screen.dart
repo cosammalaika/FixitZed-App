@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/services/app_analytics.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -74,14 +75,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.fx;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light, // Android: white icons
-        statusBarBrightness: Brightness.dark, // iOS: white icons
-      ),
+      value: AppTheme.systemOverlayStyle(context),
       child: Scaffold(
-        backgroundColor: Color(0xFF212121),
+        backgroundColor: colors.page,
         body: PageView.builder(
           controller: _controller,
           itemCount: onboardingData.length,
@@ -98,11 +97,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   children: [
                     ShaderMask(
                       shaderCallback: (Rect bounds) {
-                        return const LinearGradient(
+                        return LinearGradient(
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
-                          colors: [Colors.transparent, Color(0xFF212121)],
-                          stops: [0.1, 0.9], // small fade near bottom
+                          colors: [Colors.transparent, colors.page],
+                          stops: const [0.1, 0.9],
                         ).createShader(bounds);
                       },
                       blendMode: BlendMode.dstIn,
@@ -153,7 +152,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               style: TextStyle(
                                 fontSize: 26,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFFFFFFFF),
+                                color: colors.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 14),
@@ -162,7 +161,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 16,
-                                color: Color(0xFFFFFFFF),
+                                color: colors.textSecondary,
                               ),
                             ),
                           ],
@@ -186,8 +185,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   height: 8,
                                   decoration: BoxDecoration(
                                     color: currentPage == dotIndex
-                                        ? const Color(0xFFF1592A)
-                                        : const Color(0xFFDEDEDE),
+                                        ? colors.brand
+                                        : colors.border,
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                 ),
@@ -199,8 +198,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               child: ElevatedButton(
                                 onPressed: nextPage,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFF1592A),
-                                  foregroundColor: Color(0xFFFFFFFF),
+                                  backgroundColor: colors.brand,
+                                  foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 14,
                                   ),

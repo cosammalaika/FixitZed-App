@@ -65,6 +65,13 @@ class _SignInScreenState extends State<SignInScreen> {
 
   // Biometrics removed
 
+  void _goHome() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    unawaited(
+      Navigator.of(context).pushNamedAndRemoveUntil('/home', (_) => false),
+    );
+  }
+
   Future<void> _submit() async {
     setState(() => _submitted = true);
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -237,6 +244,29 @@ class _SignInScreenState extends State<SignInScreen> {
                 children: [
                   Row(
                     children: [
+                      TextButton.icon(
+                        onPressed: _loading ? null : _goHome,
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: Colors.white.withValues(alpha: 0.16),
+                          disabledForegroundColor: Colors.white.withValues(
+                            alpha: 0.48,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          shape: const StadiumBorder(),
+                        ),
+                        icon: const Icon(Icons.home_rounded, size: 16),
+                        label: Text(
+                          'Back to home',
+                          style: GoogleFonts.urbanist(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
                       const Spacer(),
                       Image.asset(
                         'assets/images/logo.png',
@@ -246,35 +276,6 @@ class _SignInScreenState extends State<SignInScreen> {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xl),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                      vertical: AppSpacing.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.person_rounded,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text(
-                          'Welcome back',
-                          style: GoogleFonts.urbanist(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
                   Text(
                     'Sign in to request trusted services',
                     style: GoogleFonts.urbanist(

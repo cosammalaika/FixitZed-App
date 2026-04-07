@@ -11,6 +11,7 @@ import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/state/dashboard_controller.dart';
 import 'package:fixitzed_app/state/profile_controller.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
+import 'package:fixitzed_app/state/services_controller.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 import 'package:fixitzed_app/utils/app_snack.dart';
@@ -39,6 +40,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _tabIndex = 0;
   bool _dashboardListenerAttached = false;
   ServicesRepository? _servicesRepo;
+  ServicesController? _servicesController;
   final FixerAvailabilityResolver _availabilityResolver =
       FixerAvailabilityResolver();
   Map<String, FixerAvailability> _quickPickAvailability =
@@ -66,6 +68,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _stopServiceSync();
+    _ref = null;
     super.dispose();
   }
 
@@ -79,10 +82,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           _quickPickAvailability = const <String, FixerAvailability>{};
         });
       }
-      final r = _ref;
-      if (r != null) {
-        r.read(servicesControllerProvider).startForegroundSync();
-      }
+      _servicesController?.startForegroundSync();
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
@@ -102,17 +102,16 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _ensureServicesRepo(WidgetRef ref) {
     if (_servicesRepo != null) return;
     _servicesRepo = ref.read(servicesRepositoryProvider);
+    final servicesController = ref.read(servicesControllerProvider);
+    _servicesController = servicesController;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(servicesControllerProvider).startForegroundSync();
+      servicesController.startForegroundSync();
     });
   }
 
   void _stopServiceSync() {
-    final r = _ref;
-    if (r != null) {
-      r.read(servicesControllerProvider).stopSync();
-    }
+    _servicesController?.stopSync();
   }
 
   String _safeJson(dynamic value) {
@@ -893,11 +892,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         _ensureServicesRepo(ref);
         return AnnotatedRegion<SystemUiOverlayStyle>(
-          value:
-              (Theme.of(context).brightness == Brightness.dark
-                      ? SystemUiOverlayStyle.light
-                      : SystemUiOverlayStyle.dark)
-                  .copyWith(statusBarColor: Colors.transparent),
+          value: AppTheme.systemOverlayStyle(context),
           child: Scaffold(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             bottomNavigationBar: _bottomNav(),

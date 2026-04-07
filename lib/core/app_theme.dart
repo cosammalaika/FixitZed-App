@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 @immutable
@@ -161,26 +162,26 @@ class AppTheme {
   static const _lightTokens = AppThemeColors(
     brand: brand,
     brandAccent: brandAccent,
-    page: Color(0xFFFEFAF7),
-    surface: Colors.white,
-    surfaceRaised: Colors.white,
-    surfaceSubtle: Color(0xFFF3F5F7),
-    surfaceTint: Color(0xFFFFF2EA),
-    border: Color(0xFFE4DCD6),
+    page: Color(0xFFF7EFEA),
+    surface: Color(0xFFFBF6F1),
+    surfaceRaised: Color(0xFFFFF9F4),
+    surfaceSubtle: Color(0xFFE9DDD5),
+    surfaceTint: Color(0xFFFFDDCC),
+    border: Color(0xFFD2C1B6),
     textPrimary: Color(0xFF332319),
     textSecondary: Color(0xFF675B54),
     textMuted: Color(0xFF8A7B73),
     success: Color(0xFF2E7D32),
-    successContainer: Color(0xFFEAF6EC),
+    successContainer: Color(0xFFDDF0E3),
     warning: Color(0xFFE67E22),
-    warningContainer: Color(0xFFFFF4E5),
+    warningContainer: Color(0xFFFFDEB8),
     info: Color(0xFF1976D2),
-    infoContainer: Color(0xFFEAF2FF),
+    infoContainer: Color(0xFFDCEBFF),
     danger: Color(0xFFD32F2F),
-    dangerContainer: Color(0xFFFFECEC),
-    skeletonBase: Color(0xFFE3E6EC),
-    skeletonHighlight: Color(0xFFF2F4F8),
-    shadow: Color(0x1A000000),
+    dangerContainer: Color(0xFFFFDADB),
+    skeletonBase: Color(0xFFD8CCC4),
+    skeletonHighlight: Color(0xFFECE4DE),
+    shadow: Color(0x16000000),
   );
 
   static const _darkTokens = AppThemeColors(
@@ -224,12 +225,32 @@ class AppTheme {
     mode.value = dark ? ThemeMode.dark : ThemeMode.light;
   }
 
+  static SystemUiOverlayStyle systemOverlayStyle(
+    BuildContext context, {
+    Color? statusBarColor,
+    Color? navigationBarColor,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return (isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+        .copyWith(
+          statusBarColor: statusBarColor ?? Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+          systemNavigationBarColor:
+              navigationBarColor ?? theme.scaffoldBackgroundColor,
+          systemNavigationBarIconBrightness: isDark
+              ? Brightness.light
+              : Brightness.dark,
+        );
+  }
+
   static ThemeData light() {
     const tokens = _lightTokens;
     const accent = brandAccent;
     final background = tokens.page;
     final surface = tokens.surface;
-    const fill = Color.fromRGBO(255, 255, 255, 0.95);
+    final fill = tokens.surfaceRaised;
 
     final scheme =
         ColorScheme.fromSeed(
@@ -244,6 +265,7 @@ class AppTheme {
           outlineVariant: tokens.border,
           error: tokens.danger,
           onSurface: tokens.textPrimary,
+          onSurfaceVariant: tokens.textSecondary,
         );
 
     final base = ThemeData(
@@ -294,11 +316,11 @@ class AppTheme {
         fillColor: fill,
         isDense: false,
         labelStyle: base.textTheme.bodyMedium?.copyWith(
-          color: Colors.black87,
+          color: tokens.textPrimary,
           fontWeight: FontWeight.w400,
         ),
         hintStyle: base.textTheme.bodyMedium?.copyWith(
-          color: Colors.black54,
+          color: tokens.textMuted,
           fontWeight: FontWeight.w400,
         ),
         contentPadding: const EdgeInsets.symmetric(
@@ -307,17 +329,11 @@ class AppTheme {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: Colors.black.withValues(alpha: 0.14),
-            width: 1.1,
-          ),
+          borderSide: BorderSide(color: tokens.border, width: 1.1),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: Colors.black.withValues(alpha: 0.14),
-            width: 1.1,
-          ),
+          borderSide: BorderSide(color: tokens.border, width: 1.1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -386,7 +402,7 @@ class AppTheme {
           color: tokens.brand,
           fontWeight: FontWeight.w700,
         ),
-        side: BorderSide(color: tokens.border.withValues(alpha: 0.8)),
+        side: BorderSide(color: tokens.border),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         type: BottomNavigationBarType.fixed,

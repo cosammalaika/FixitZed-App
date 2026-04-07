@@ -1,11 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 
-class DashboardGreeting extends StatelessWidget {
+class DashboardGreeting extends StatefulWidget {
   final String name;
   final String location;
   final String? avatarUrl;
@@ -22,8 +21,23 @@ class DashboardGreeting extends StatelessWidget {
   });
 
   @override
+  State<DashboardGreeting> createState() => _DashboardGreetingState();
+}
+
+class _DashboardGreetingState extends State<DashboardGreeting> {
+  String? _failedAvatarUrl;
+
+  @override
+  void didUpdateWidget(covariant DashboardGreeting oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.avatarUrl != widget.avatarUrl) {
+      _failedAvatarUrl = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final avatar = (avatarUrl ?? '').trim();
+    final avatar = (widget.avatarUrl ?? '').trim();
     final hasAvatar = avatar.isNotEmpty && avatar.toLowerCase() != 'null';
     final colors = Theme.of(context).fx;
     return Row(
@@ -39,11 +53,11 @@ class DashboardGreeting extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hi, ${name.isEmpty ? 'there' : name}',
+                'Hi, ${widget.name.isEmpty ? 'there' : widget.name}',
                 style: GoogleFonts.urbanist(fontSize: 16),
               ),
               Text(
-                location.isEmpty ? 'Welcome' : location,
+                widget.location.isEmpty ? 'Welcome' : widget.location,
                 style: GoogleFonts.urbanist(
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
@@ -55,7 +69,7 @@ class DashboardGreeting extends StatelessWidget {
         Stack(
           children: [
             GestureDetector(
-              onTap: onNotificationsTap,
+              onTap: widget.onNotificationsTap,
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -76,7 +90,7 @@ class DashboardGreeting extends StatelessWidget {
                 ),
               ),
             ),
-            if (hasUnread)
+            if (widget.hasUnread)
               Positioned(
                 right: 6,
                 top: 6,
@@ -98,7 +112,7 @@ class DashboardGreeting extends StatelessWidget {
 
   Widget _buildAvatarImage(String avatar, bool hasAvatar) {
     const size = 48.0;
-    if (!hasAvatar) {
+    if (!hasAvatar || avatar == _failedAvatarUrl) {
       return Image.asset(
         'assets/images/logo-sm.png',
         width: size,
@@ -111,7 +125,6 @@ class DashboardGreeting extends StatelessWidget {
       return Image.asset(avatar, width: size, height: size, fit: BoxFit.cover);
     }
 
-    _debugAvatarLog('[Avatar] LOAD ATTEMPT url=$avatar');
     return Image.network(
       avatar,
       width: size,
@@ -119,7 +132,6 @@ class DashboardGreeting extends StatelessWidget {
       fit: BoxFit.cover,
       loadingBuilder: (_, child, progress) {
         if (progress == null) {
-          _debugAvatarLog('[Avatar] LOADED SUCCESS url=$avatar');
           return child;
         }
         return const SizedBox(
@@ -129,9 +141,10 @@ class DashboardGreeting extends StatelessWidget {
         );
       },
       errorBuilder: (_, error, __) {
-        _debugAvatarLog(
-          '[Avatar] LOAD FAILED url=$avatar error=${_describeImageError(error)}',
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _failedAvatarUrl == avatar) return;
+          setState(() => _failedAvatarUrl = avatar);
+        });
         return Image.asset(
           'assets/images/logo-sm.png',
           width: size,
@@ -140,18 +153,6 @@ class DashboardGreeting extends StatelessWidget {
         );
       },
     );
-  }
-
-  void _debugAvatarLog(String message) {
-    if (!kDebugMode) return;
-    debugPrint('[DashboardGreeting.avatar] $message');
-  }
-
-  String _describeImageError(Object error) {
-    if (error is NetworkImageLoadException) {
-      return 'NetworkImageLoadException(statusCode=${error.statusCode}, uri=${error.uri})';
-    }
-    return error.toString();
   }
 }
 

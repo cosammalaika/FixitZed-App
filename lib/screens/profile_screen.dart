@@ -607,15 +607,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      leading: Navigator.of(context).canPop()
-          ? IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: colors.textPrimary,
-              ),
-              onPressed: () => Navigator.of(context).pop(),
-            )
-          : null,
+      automaticallyImplyLeading: false,
       centerTitle: true,
       title: Text(
         'Profile',
@@ -1082,8 +1074,8 @@ class _ProfileAvatar extends StatefulWidget {
 }
 
 class _ProfileAvatarState extends State<_ProfileAvatar> {
-  String _lastLoggedNetworkUrl = '';
   String _lastLoadedNetworkUrl = '';
+  String _failedNetworkUrl = '';
 
   @override
   void didUpdateWidget(covariant _ProfileAvatar oldWidget) {
@@ -1092,6 +1084,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
     final oldUrl = oldWidget.url?.trim() ?? '';
     if (oldUrl != newUrl) {
       _lastLoadedNetworkUrl = '';
+      _failedNetworkUrl = '';
     }
   }
 
@@ -1112,8 +1105,12 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
     final localPath = widget.localFilePath?.trim() ?? '';
     final hasLocalPreview = localPath.isNotEmpty;
     final networkLoadedForCurrentUrl = _lastLoadedNetworkUrl == url;
+    final networkFailedForCurrentUrl = _failedNetworkUrl == url;
     final shouldKeepPreview =
-        hasLocalPreview && (!validUrl || !networkLoadedForCurrentUrl);
+        hasLocalPreview &&
+        (!validUrl ||
+            !networkLoadedForCurrentUrl ||
+            networkFailedForCurrentUrl);
 
     final localPreview = ClipOval(
       child: Image.file(
@@ -1126,8 +1123,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
     );
 
     Widget child = placeholder;
-    if (validUrl) {
-      _logNetworkUrlIfChanged(url);
+    if (validUrl && !networkFailedForCurrentUrl) {
       final networkImage = ClipOval(
         child: Image.network(
           url,
@@ -1136,7 +1132,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
           fit: BoxFit.cover,
           loadingBuilder: (_, networkChild, progress) {
             if (progress == null) {
-              _logNetworkLoadSuccess(url);
+              _markNetworkLoadSuccess(url);
               _notifyLoaded(url);
               return networkChild;
             }
@@ -1149,9 +1145,10 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
             );
           },
           errorBuilder: (_, error, __) {
-            _debugAvatarError(
-              'LOAD FAILED url=$url error=${_describeImageError(error)}',
-            );
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted || _failedNetworkUrl == url) return;
+              setState(() => _failedNetworkUrl = url);
+            });
             return placeholder;
           },
         ),
@@ -1165,12 +1162,17 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
       } else {
         child = networkImage;
       }
+    } else if (validUrl && hasLocalPreview) {
+      child = localPreview;
     } else if (hasLocalPreview) {
       child = localPreview;
     }
 
     return GestureDetector(
-      onTap: () => _showOptions(context, hasImage: validUrl),
+      onTap: () => _showOptions(
+        context,
+        hasImage: validUrl && !networkFailedForCurrentUrl,
+      ),
       child: CircleAvatar(
         radius: widget.radius,
         backgroundColor: Theme.of(context).fx.surfaceRaised,
@@ -1264,7 +1266,6 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
 
   void _defaultPreview(BuildContext context) {
     final url = widget.url?.trim() ?? '';
-    _debugAvatarLog('default preview url="$url"');
     showDialog<void>(
       context: context,
       builder: (ctx) => Dialog(
@@ -1280,13 +1281,11 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
                     fit: BoxFit.cover,
                     loadingBuilder: (_, child, progress) {
                       if (progress == null) {
-                        _debugAvatarLog('[Avatar] LOADED SUCCESS url=$url');
                         return child;
                       }
                       return const Center(child: CircularProgressIndicator());
                     },
                     errorBuilder: (_, error, __) {
-                      _debugAvatarError('default preview load failed: $error');
                       return Image.asset(
                         'assets/images/logo-sm.png',
                         fit: BoxFit.cover,
@@ -1299,18 +1298,9 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
     );
   }
 
-  void _logNetworkUrlIfChanged(String url) {
-    if (!kDebugMode) return;
-    if (url == _lastLoggedNetworkUrl) return;
-    _lastLoggedNetworkUrl = url;
-    debugPrint('[Avatar] LOAD ATTEMPT url=$url');
-  }
-
-  void _logNetworkLoadSuccess(String url) {
-    if (!kDebugMode) return;
+  void _markNetworkLoadSuccess(String url) {
     if (_lastLoadedNetworkUrl == url) return;
     _lastLoadedNetworkUrl = url;
-    debugPrint('[Avatar] LOADED SUCCESS url=$url');
   }
 
   void _notifyLoaded(String url) {
@@ -1319,23 +1309,6 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
       if (!mounted) return;
       widget.onNetworkImageLoaded?.call(url);
     });
-  }
-
-  void _debugAvatarError(String message) {
-    if (!kDebugMode) return;
-    debugPrint('[Avatar] $message');
-  }
-
-  void _debugAvatarLog(String message) {
-    if (!kDebugMode) return;
-    debugPrint('[Avatar] $message');
-  }
-
-  String _describeImageError(Object error) {
-    if (error is NetworkImageLoadException) {
-      return 'NetworkImageLoadException(statusCode=${error.statusCode}, uri=${error.uri})';
-    }
-    return error.toString();
   }
 }
 

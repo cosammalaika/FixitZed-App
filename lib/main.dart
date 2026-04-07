@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/screens/splash_screen.dart';
 import 'package:fixitzed_app/screens/onboarding_screen.dart';
@@ -144,7 +145,12 @@ class MyApp extends ConsumerWidget {
           },
           builder: (context, child) {
             if (child == null) return const SizedBox.shrink();
-            return SessionRedirector(child: ConnectivityOverlay(child: child));
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: AppTheme.systemOverlayStyle(context),
+              child: SessionRedirector(
+                child: ConnectivityOverlay(child: child),
+              ),
+            );
           },
         );
       },
