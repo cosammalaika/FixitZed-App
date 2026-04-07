@@ -9,17 +9,33 @@ void main() {
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(
-          body: ConnectivityBanner(visible: true),
-        ),
+        home: Scaffold(body: ConnectivityBanner(visible: true)),
       ),
     );
     await tester.pumpAndSettle();
 
     expect(
-      find.text("You're offline. Changes will sync automatically."),
+      find.text("You're offline. We'll reconnect automatically."),
       findsOneWidget,
     );
-    expect(find.byIcon(Icons.wifi_off_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.wifi_off_rounded), findsNothing);
+  });
+
+  testWidgets('Connectivity banner shows restored copy when restored', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ConnectivityBanner(
+            visible: true,
+            status: ConnectivityBannerStatus.restored,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Internet restored'), findsOneWidget);
   });
 }

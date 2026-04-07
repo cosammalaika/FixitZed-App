@@ -1,58 +1,57 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+import 'package:fixitzed_app/core/app_theme.dart';
+
+enum ConnectivityBannerStatus { offline, restored }
 
 class ConnectivityBanner extends StatelessWidget {
-  const ConnectivityBanner({super.key, required this.visible});
+  const ConnectivityBanner({
+    super.key,
+    required this.visible,
+    this.status = ConnectivityBannerStatus.offline,
+  });
 
   final bool visible;
+  final ConnectivityBannerStatus status;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.fx;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final background = switch (status) {
+      ConnectivityBannerStatus.offline => colors.brand,
+      ConnectivityBannerStatus.restored => colors.success,
+    };
+    final textColor = background.computeLuminance() > 0.45
+        ? Colors.black.withValues(alpha: 0.86)
+        : Colors.white;
+    final message = switch (status) {
+      ConnectivityBannerStatus.offline =>
+        'You\'re offline. We\'ll reconnect automatically.',
+      ConnectivityBannerStatus.restored => 'Internet restored',
+    };
+
     return IgnorePointer(
       ignoring: !visible,
       child: AnimatedSlide(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
-        offset: visible ? Offset.zero : const Offset(0, -1),
+        offset: visible ? Offset.zero : const Offset(0, 1),
         child: AnimatedOpacity(
           duration: const Duration(milliseconds: 250),
           opacity: visible ? 1 : 0,
-          child: SafeArea(
-            bottom: false,
+          child: Material(
+            color: background,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF101828),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.wifi_off_rounded, color: Colors.white),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'You\'re offline. Changes will sync automatically.',
-                        style: GoogleFonts.urbanist(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+              padding: EdgeInsets.fromLTRB(20, 10, 20, 10 + bottomPadding),
+              child: Text(
+                message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: textColor,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
                 ),
               ),
             ),
