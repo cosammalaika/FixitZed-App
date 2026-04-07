@@ -65,6 +65,7 @@ class ConnectivityController extends StateNotifier<ConnectivityStatus> {
   void _handleConnectivityChanged(List<ConnectivityResult> results) {
     _setStatus(results);
     _resyncTimer?.cancel();
+    if (_isOnline(results)) return;
     _resyncTimer = Timer(_reconnectResyncDelay, _refreshStatus);
   }
 
@@ -83,6 +84,13 @@ class ConnectivityController extends StateNotifier<ConnectivityStatus> {
     if (state.isOnline == online && state.result == primary) return;
 
     state = ConnectivityStatus(isOnline: online, result: primary);
+  }
+
+  bool _isOnline(List<ConnectivityResult> results) {
+    final normalized = results.isEmpty
+        ? const [ConnectivityResult.none]
+        : results;
+    return normalized.any((result) => result != ConnectivityResult.none);
   }
 
   @override

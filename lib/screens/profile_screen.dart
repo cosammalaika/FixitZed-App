@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/painting.dart' show NetworkImageLoadException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -11,8 +10,10 @@ import 'package:fixitzed_app/screens/camera/take_photo_screen.dart';
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/services/profile_photo_service.dart';
 import 'package:fixitzed_app/services/report_service.dart';
+import 'package:fixitzed_app/state/auth_controller.dart';
 import 'package:fixitzed_app/state/dashboard_controller.dart';
 import 'package:fixitzed_app/state/profile_controller.dart';
+import 'package:fixitzed_app/widgets/auth_required.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -112,7 +113,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await AuthService().logout();
     if (!mounted) return;
     unawaited(
-      Navigator.of(context).pushNamedAndRemoveUntil('/auth', (r) => false),
+      Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false),
     );
   }
 
@@ -154,7 +155,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 44,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: scheme.outline.withValues(alpha: isDark ? 0.35 : 0.2),
+                      color: scheme.outline.withValues(
+                        alpha: isDark ? 0.35 : 0.2,
+                      ),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
@@ -173,11 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ],
                     ),
-                    child: Icon(
-                      Icons.logout_rounded,
-                      color: brand,
-                      size: 30,
-                    ),
+                    child: Icon(Icons.logout_rounded, color: brand, size: 30),
                   ),
                   const SizedBox(height: 18),
                   Text(
@@ -206,9 +205,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: OutlinedButton(
                           onPressed: () => Navigator.of(ctx).pop(false),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: scheme.onSurface.withValues(alpha: 0.78),
+                            foregroundColor: scheme.onSurface.withValues(
+                              alpha: 0.78,
+                            ),
                             side: BorderSide(
-                              color: scheme.outline.withValues(alpha: isDark ? 0.3 : 0.2),
+                              color: scheme.outline.withValues(
+                                alpha: isDark ? 0.3 : 0.2,
+                              ),
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -346,8 +349,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted && avatarConfirmed) {
         final refreshedAvatarUrl = _currentPersistedAvatarUrl();
         setState(() {
-          _pendingNetworkAvatarUrl =
-              refreshedAvatarUrl.isEmpty ? null : refreshedAvatarUrl;
+          _pendingNetworkAvatarUrl = refreshedAvatarUrl.isEmpty
+              ? null
+              : refreshedAvatarUrl;
         });
         _logAvatarFlow(
           'waiting for network avatar load before clearing preview '
@@ -360,14 +364,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Profile photo upload succeeded, but profile sync is still pending.'),
+            content: Text(
+              'Profile photo upload succeeded, but profile sync is still pending.',
+            ),
           ),
         );
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile photo updated.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile photo updated.')));
       return;
     }
 
@@ -406,7 +412,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final normalizedAvatar = avatar.toLowerCase() == 'null' ? '' : avatar;
       final hasAvatar = normalizedAvatar.isNotEmpty;
       final isAbsolute = _isAbsoluteHttpUrl(normalizedAvatar);
-      final changed = previousAvatarUrl.isEmpty || normalizedAvatar != previousAvatarUrl;
+      final changed =
+          previousAvatarUrl.isEmpty || normalizedAvatar != previousAvatarUrl;
 
       _logAvatarFlow(
         'confirm attempt=$attempt hasAvatar=$hasAvatar isAbsolute=$isAbsolute changed=$changed '
@@ -453,7 +460,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (_optimisticAvatarPath == null) return;
     if (pending.isEmpty) {
-      _logAvatarFlow('ignoring network load because no pending avatar url is set yet');
+      _logAvatarFlow(
+        'ignoring network load because no pending avatar url is set yet',
+      );
       return;
     }
     if (pending.isNotEmpty && pending != normalized) {
@@ -495,8 +504,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 return const Center(child: CircularProgressIndicator());
               },
               errorBuilder: (_, error, __) {
-                _logAvatarFlow('view photo load failed url="$trimmed" error=$error');
-                return Image.asset('assets/images/logo-sm.png', fit: BoxFit.cover);
+                _logAvatarFlow(
+                  'view photo load failed url="$trimmed" error=$error',
+                );
+                return Image.asset(
+                  'assets/images/logo-sm.png',
+                  fit: BoxFit.cover,
+                );
               },
             ),
           ),
@@ -510,31 +524,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Consumer(
       builder: (context, ref, _) {
         _ref = ref;
+        final authState = ref.watch(authControllerProvider);
+        if (authState.isInitializing) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFF9F4F1),
+            appBar: _profileAppBar(),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (!authState.isAuthenticated) {
+          return _buildGuestProfile(ref);
+        }
+
         final profileAsync = ref.watch(profileControllerProvider);
 
         return Scaffold(
           backgroundColor: const Color(0xFFF9F4F1),
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            leading: Navigator.of(context).canPop()
-                ? IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: Colors.black,
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                  )
-                : null,
-            centerTitle: true,
-            title: Text(
-              'Profile',
-              style: GoogleFonts.urbanist(
-                color: const Color(0xFF2C2C2C),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
+          appBar: _profileAppBar(),
           body: profileAsync.when(
             loading: () {
               final previous = profileAsync.value;
@@ -590,6 +596,159 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       },
+    );
+  }
+
+  PreferredSizeWidget _profileAppBar() {
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      leading: Navigator.of(context).canPop()
+          ? IconButton(
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.black,
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            )
+          : null,
+      centerTitle: true,
+      title: Text(
+        'Profile',
+        style: GoogleFonts.urbanist(
+          color: const Color(0xFF2C2C2C),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestProfile(WidgetRef ref) {
+    const brand = Color(0xFFF1592A);
+
+    Future<void> authenticate() async {
+      final ok = await ensureAuthenticated(
+        context,
+        title: 'Sign in to manage your profile',
+        message:
+            'Browse services freely as a guest. Sign in when you want to manage bookings, account settings and deletion.',
+        actionLabel: 'Manage profile',
+      );
+      if (!ok || !mounted) return;
+      await ref.read(profileControllerProvider.notifier).refresh();
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9F4F1),
+      appBar: _profileAppBar(),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: brand.withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.person_outline_rounded,
+                        color: brand,
+                        size: 34,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Browse FixItZed as a guest',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.urbanist(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF2C2C2C),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Sign in to request services, track bookings, manage your account and delete your account in-app.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.urbanist(
+                        color: const Color(0xFF6A6A6A),
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: authenticate,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: brand,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Sign in or create account'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).pushNamedAndRemoveUntil('/home', (route) => false),
+                      child: const Text('Continue browsing'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    _menuItem(
+                      Icons.help_outline_rounded,
+                      'FAQs',
+                      onTap: () =>
+                          Navigator.pushNamed(context, '/profile/faqs'),
+                    ),
+                    _menuItem(
+                      Icons.info_rounded,
+                      'About FixitZed',
+                      showDivider: false,
+                      onTap: () => Navigator.pushNamed(context, '/about'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -939,7 +1098,8 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
     final localPath = widget.localFilePath?.trim() ?? '';
     final hasLocalPreview = localPath.isNotEmpty;
     final networkLoadedForCurrentUrl = _lastLoadedNetworkUrl == url;
-    final shouldKeepPreview = hasLocalPreview && (!validUrl || !networkLoadedForCurrentUrl);
+    final shouldKeepPreview =
+        hasLocalPreview && (!validUrl || !networkLoadedForCurrentUrl);
 
     final localPreview = ClipOval(
       child: Image.file(
@@ -969,11 +1129,15 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
             return SizedBox(
               width: innerRadius * 2,
               height: innerRadius * 2,
-              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              child: const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             );
           },
           errorBuilder: (_, error, __) {
-            _debugAvatarError('LOAD FAILED url=$url error=${_describeImageError(error)}');
+            _debugAvatarError(
+              'LOAD FAILED url=$url error=${_describeImageError(error)}',
+            );
             return placeholder;
           },
         ),
@@ -982,10 +1146,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> {
       if (shouldKeepPreview) {
         child = Stack(
           alignment: Alignment.center,
-          children: [
-            networkImage,
-            localPreview,
-          ],
+          children: [networkImage, localPreview],
         );
       } else {
         child = networkImage;

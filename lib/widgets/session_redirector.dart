@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:fixitzed_app/state/app_sync.dart';
 import 'package:flutter/material.dart';
 
-
 class SessionRedirector extends StatefulWidget {
   const SessionRedirector({super.key, required this.child});
 
@@ -40,8 +39,8 @@ class _SessionRedirectorState extends State<SessionRedirector> {
       final navigator = Navigator.of(context);
       final route = ModalRoute.of(context);
       final currentName = route?.settings.name ?? '';
-      if (currentName == '/auth') return;
-      navigator.pushNamedAndRemoveUntil('/auth', (route) => false);
+      if (currentName == '/home' || currentName == '/auth') return;
+      navigator.pushNamedAndRemoveUntil('/home', (route) => false);
     });
   }
 

@@ -21,6 +21,11 @@ class FavoritesService {
     await prefs.setStringList(_key, ids.toList());
   }
 
+  static Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
+  }
+
   static Future<void> toggle(String id) async {
     final set = await _load();
     if (set.contains(id)) {

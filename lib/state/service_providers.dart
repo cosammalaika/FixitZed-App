@@ -12,6 +12,7 @@ import 'package:fixitzed_app/repositories/favorites_repository.dart';
 import 'package:fixitzed_app/repositories/notifications_repository.dart';
 import 'package:fixitzed_app/repositories/profile_repository.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
+import 'package:fixitzed_app/state/app_sync.dart';
 import 'package:fixitzed_app/state/services_controller.dart';
 
 final homeServiceProvider = Provider<HomeService>((ref) => HomeService());
@@ -25,9 +26,13 @@ final paymentServiceProvider = Provider<PaymentService>(
   (ref) => PaymentService(),
 );
 
-final profileRepositoryProvider = Provider<ProfileRepository>(
-  (ref) => ProfileRepository(ref.read(homeServiceProvider)),
-);
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  final repo = ProfileRepository(ref.read(homeServiceProvider));
+  ref.onAppSync(AppSyncTopic.auth, (event) async {
+    if (_isLogoutEvent(event)) await repo.clearCache();
+  });
+  return repo;
+});
 final categoriesRepositoryProvider = Provider<CategoriesRepository>(
   (ref) => CategoriesRepository(ref.read(homeServiceProvider)),
 );
@@ -38,17 +43,33 @@ final servicesControllerProvider = ChangeNotifierProvider<ServicesController>(
   (ref) => ServicesController(ref.read(servicesRepositoryProvider)),
 );
 final favoritesRepositoryProvider = ChangeNotifierProvider<FavoritesRepository>(
-  (ref) => FavoritesRepository(),
+  (ref) {
+    final repo = FavoritesRepository();
+    ref.onAppSync(AppSyncTopic.auth, (event) async {
+      if (_isLogoutEvent(event)) await repo.clearCache();
+    });
+    return repo;
+  },
 );
-final notificationsRepositoryProvider = Provider<NotificationsRepository>(
-  (ref) => NotificationsRepository(ref.read(notificationServiceProvider)),
-);
-final bookingsRepositoryProvider = Provider<BookingsRepository>(
-  (ref) => BookingsRepository(
+final notificationsRepositoryProvider = Provider<NotificationsRepository>((
+  ref,
+) {
+  final repo = NotificationsRepository(ref.read(notificationServiceProvider));
+  ref.onAppSync(AppSyncTopic.auth, (event) {
+    if (_isLogoutEvent(event)) repo.clearCache();
+  });
+  return repo;
+});
+final bookingsRepositoryProvider = Provider<BookingsRepository>((ref) {
+  final repo = BookingsRepository(
     ref.read(serviceRequestServiceProvider),
     ref.read(paymentServiceProvider),
-  ),
-);
+  );
+  ref.onAppSync(AppSyncTopic.auth, (event) {
+    if (_isLogoutEvent(event)) repo.clearCache();
+  });
+  return repo;
+});
 
 final preloadServiceProvider = Provider<PreloadService>(
   (ref) => PreloadService(
@@ -60,3 +81,9 @@ final preloadServiceProvider = Provider<PreloadService>(
     bookingsRepository: ref.read(bookingsRepositoryProvider),
   ),
 );
+
+bool _isLogoutEvent(AppSyncEvent event) {
+  final payload = event.payload;
+  if (payload is! Map) return false;
+  return payload['action']?.toString().trim().toLowerCase() == 'logout';
+}

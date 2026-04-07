@@ -13,6 +13,7 @@ import 'package:fixitzed_app/utils/service_utils.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
 import 'package:fixitzed_app/screens/widgets/service_list_tile.dart';
 import 'package:fixitzed_app/utils/app_snack.dart';
+import 'package:fixitzed_app/widgets/auth_required.dart';
 
 class ServicesListScreen extends StatefulWidget {
   const ServicesListScreen({super.key});
@@ -97,8 +98,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
           _categoryOptions = categories
               .whereType<Map>()
               .map<Map<String, dynamic>>(
-                (e) =>
-                    e.map((key, value) => MapEntry(key.toString(), value)),
+                (e) => e.map((key, value) => MapEntry(key.toString(), value)),
               )
               .toList();
         }
@@ -144,8 +144,12 @@ class _ServicesListScreenState extends State<ServicesListScreen>
         _loading = true;
       });
     }
-    final data = await _servicesRepository.getServices(forceRefresh: forceRefresh);
-    final fav = await _favoritesRepository.getFavoriteIds();
+    final data = await _servicesRepository.getServices(
+      forceRefresh: forceRefresh,
+    );
+    final fav = await isAuthenticated()
+        ? await _favoritesRepository.getFavoriteIds()
+        : <String>{};
     if (!mounted) return;
     final services = data
         .whereType<Map>()
@@ -214,10 +218,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
     return null;
   }
 
-  bool _isSameCategory(
-    Map<String, dynamic>? a,
-    Map<String, dynamic>? b,
-  ) {
+  bool _isSameCategory(Map<String, dynamic>? a, Map<String, dynamic>? b) {
     if (a == null || b == null) return false;
     final aId = _extractSubcategoryId(a);
     final bId = _extractSubcategoryId(b);
@@ -319,12 +320,12 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                       : serviceId(s, fallbackIndex: i);
                   final title = (s['name'] ?? s['title'] ?? 'Service')
                       .toString();
-                  final description =
-                      (s['description'] ?? s['summary'] ?? '')
-                          .toString()
-                          .trim();
+                  final description = (s['description'] ?? s['summary'] ?? '')
+                      .toString()
+                      .trim();
                   final category = serviceCategoryLabel(s);
-                  final subtitle = category ??
+                  final subtitle =
+                      category ??
                       (description.isEmpty
                           ? 'Tap to book quickly'
                           : description);
@@ -340,14 +341,14 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                         AppSnack.show(
                           'No fixers available for this service right now.',
                           actionLabel: 'Browse',
-                          onAction: () => AppSnack.scaffoldMessengerKey.currentState?.hideCurrentSnackBar(),
+                          onAction: () => AppSnack
+                              .scaffoldMessengerKey
+                              .currentState
+                              ?.hideCurrentSnackBar(),
                         );
                         return;
                       }
-                      await _openServiceWithAvailabilityGuard(
-                        s,
-                        id: id,
-                      );
+                      await _openServiceWithAvailabilityGuard(s, id: id);
                     },
                     child: Container(
                       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -423,7 +424,9 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    _AvailabilityPill(availability: availability),
+                                    _AvailabilityPill(
+                                      availability: availability,
+                                    ),
                                     IconButton(
                                       icon: Icon(
                                         liked
@@ -432,8 +435,19 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                                         color: liked ? Colors.red : Colors.grey,
                                       ),
                                       onPressed: () async {
+                                        final allowed = await ensureAuthenticated(
+                                          context,
+                                          title: 'Sign in to save favorites',
+                                          message:
+                                              'You can browse every service as a guest. Sign in to keep a personal favorites list.',
+                                          actionLabel: 'Save favorites',
+                                        );
+                                        if (!allowed || !mounted) return;
+
                                         final previous = Set<String>.from(_fav);
-                                        final optimistic = Set<String>.from(_fav);
+                                        final optimistic = Set<String>.from(
+                                          _fav,
+                                        );
                                         if (optimistic.contains(id)) {
                                           optimistic.remove(id);
                                         } else {
@@ -445,14 +459,20 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                                         try {
                                           await _favoritesRepository.toggle(id);
                                           if (!mounted) return;
-                                          setState(() => _fav = _favoritesRepository.ids);
+                                          setState(
+                                            () =>
+                                                _fav = _favoritesRepository.ids,
+                                          );
                                         } catch (_) {
                                           if (!mounted) return;
                                           setState(() => _fav = previous);
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             const SnackBar(
-                                              content:
-                                                  Text('Could not update favorites right now.'),
+                                              content: Text(
+                                                'Could not update favorites right now.',
+                                              ),
                                             ),
                                           );
                                         }
@@ -562,7 +582,8 @@ class _ServicesListScreenState extends State<ServicesListScreen>
         }
       }
       if (subcategory == null) continue;
-      final key = '${subcategory['id'] ?? ''}-${(subcategory['name'] ?? '').toString().toLowerCase()}';
+      final key =
+          '${subcategory['id'] ?? ''}-${(subcategory['name'] ?? '').toString().toLowerCase()}';
       if (seen.add(key)) {
         options.add(subcategory);
       }
@@ -581,29 +602,34 @@ class _ServicesListScreenState extends State<ServicesListScreen>
   String _serviceIdFromMap(Map<dynamic, dynamic> service) {
     final id = service['id'] ?? service['uuid'] ?? service['service_id'];
     if (id != null) {
-      final normalized = id is num ? id.toInt().toString() : id.toString().trim();
+      final normalized = id is num
+          ? id.toInt().toString()
+          : id.toString().trim();
       if (normalized.isNotEmpty) return normalized;
     }
-    final slug = (service['slug'] ?? service['service_slug'] ?? service['serviceCode'])
-        ?.toString()
-        .trim()
-        .toLowerCase();
+    final slug =
+        (service['slug'] ?? service['service_slug'] ?? service['serviceCode'])
+            ?.toString()
+            .trim()
+            .toLowerCase();
     if (slug != null && slug.isNotEmpty) return 'slug:$slug';
-    final name = (service['name'] ?? service['title'] ?? service['service_name'])
-        ?.toString()
-        .trim()
-        .toLowerCase();
+    final name =
+        (service['name'] ?? service['title'] ?? service['service_name'])
+            ?.toString()
+            .trim()
+            .toLowerCase();
     if (name != null && name.isNotEmpty) return 'name:$name';
     return '';
   }
 
   String _availabilityKey(List<Map<String, dynamic>> services) {
-    final ids = services
-        .map(_serviceIdFromMap)
-        .where((id) => id.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final ids =
+        services
+            .map(_serviceIdFromMap)
+            .where((id) => id.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
     return ids.join(',');
   }
 
@@ -722,8 +748,9 @@ class _ServicesListScreenState extends State<ServicesListScreen>
       resolved = ServiceAvailability.unavailable;
     }
     assert(() {
-      final name =
-          (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
+      final name = (service['name'] ?? service['title'] ?? '')
+          .toString()
+          .toLowerCase();
       if (id == '87' || name.contains('ac installation')) {
         debugPrint(
           'Services list rendered availability service_id=$id status=$resolved chooser_status=${chooserAvailability ?? FixerAvailability.unknown} raw=${_safeJson(service)}',
@@ -739,7 +766,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
     required String id,
   }) async {
     if (_serviceIdFromMap(service).isEmpty) {
-      await showBookingSheet(context, service: service);
+      await showServiceDetailsSheet(context, service: service);
       return;
     }
     final before = _availabilityByServiceId[id] ?? FixerAvailability.unknown;
@@ -765,8 +792,9 @@ class _ServicesListScreenState extends State<ServicesListScreen>
     });
 
     assert(() {
-      final name =
-          (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
+      final name = (service['name'] ?? service['title'] ?? '')
+          .toString()
+          .toLowerCase();
       if (id == '87' || name.contains('ac installation')) {
         debugPrint(
           'Services list tap guard service_id=$id before=$before after=$after eligible_fixers=$eligibleCount raw=${_safeJson(service)}',
@@ -779,7 +807,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
       AppSnack.show('No fixers available for this service right now.');
       return;
     }
-    await showBookingSheet(context, service: service);
+    await showServiceDetailsSheet(context, service: service);
   }
 
   Future<void> _openFilterSheet() async {
@@ -825,8 +853,10 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                       leading: const Icon(Icons.grid_view_rounded),
                       title: const Text('All subcategories'),
                       trailing: allSelected
-                          ? const Icon(Icons.check_rounded,
-                              color: Color(0xFFF1592A))
+                          ? const Icon(
+                              Icons.check_rounded,
+                              color: Color(0xFFF1592A),
+                            )
                           : null,
                       selected: allSelected,
                       selectedTileColor: const Color(0x1AF1592A),
@@ -850,8 +880,8 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                   )
                 else
                   ...options.map((cat) {
-                    final label =
-                        (cat['name'] ?? cat['title'] ?? 'Category').toString();
+                    final label = (cat['name'] ?? cat['title'] ?? 'Category')
+                        .toString();
                     final selected = _isSameCategory(_category, cat);
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),

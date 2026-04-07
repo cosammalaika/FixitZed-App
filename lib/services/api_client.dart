@@ -34,8 +34,8 @@ class ApiClient {
     final normalized = path.startsWith('http')
         ? path
         : path.startsWith('/')
-            ? '${baseUrl}${path}'
-            : '$baseUrl/$path';
+        ? '$baseUrl$path'
+        : '$baseUrl/$path';
     return Uri.parse(normalized).replace(queryParameters: query);
   }
 
@@ -108,6 +108,26 @@ class ApiClient {
         extra: headers,
       ),
       body: jsonBody ? jsonEncode(body) : body,
+    );
+    if (auth) await SessionGuard.evaluate(res);
+    return res;
+  }
+
+  Future<http.Response> delete(
+    String path, {
+    Object? body,
+    bool jsonBody = true,
+    bool auth = true,
+    Map<String, String>? headers,
+  }) async {
+    final res = await http.delete(
+      _uri(path),
+      headers: await _headers(
+        json: jsonBody,
+        includeAuth: auth,
+        extra: headers,
+      ),
+      body: body == null ? null : (jsonBody ? jsonEncode(body) : body),
     );
     if (auth) await SessionGuard.evaluate(res);
     return res;

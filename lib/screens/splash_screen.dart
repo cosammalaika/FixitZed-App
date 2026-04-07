@@ -66,11 +66,11 @@ class _SplashScreenState extends State<SplashScreen>
     if (!hasSeenOnboarding) {
       route = '/onboarding';
     } else if (token == null || token.isEmpty) {
-      route = '/auth';
+      route = '/home';
     } else {
       // Lightweight validation: ensure token still works.
-      final me = await home.fetchMe();
-      route = me != null ? '/home' : '/auth';
+      await home.fetchMe();
+      route = '/home';
     }
 
     if (!mounted) return;
@@ -140,8 +140,10 @@ class _SplashScreenState extends State<SplashScreen>
                         child: FadeTransition(
                           opacity: animation,
                           child: ScaleTransition(
-                            scale: Tween<double>(begin: 0.65, end: 1.05)
-                                .animate(animation),
+                            scale: Tween<double>(
+                              begin: 0.65,
+                              end: 1.05,
+                            ).animate(animation),
                             child: Container(
                               width: 10,
                               height: 10,

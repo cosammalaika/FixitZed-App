@@ -6,6 +6,7 @@ import 'package:fixitzed_app/repositories/favorites_repository.dart';
 import 'package:fixitzed_app/repositories/notifications_repository.dart';
 import 'package:fixitzed_app/repositories/profile_repository.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 
 /// PreloadService warms up high-traffic endpoints right after auth:
 /// - /api/me (profile)
@@ -22,12 +23,12 @@ class PreloadService {
     required FavoritesRepository favoritesRepository,
     required NotificationsRepository notificationsRepository,
     required BookingsRepository bookingsRepository,
-  })  : _profileRepository = profileRepository,
-        _categoriesRepository = categoriesRepository,
-        _servicesRepository = servicesRepository,
-        _favoritesRepository = favoritesRepository,
-        _notificationsRepository = notificationsRepository,
-        _bookingsRepository = bookingsRepository;
+  }) : _profileRepository = profileRepository,
+       _categoriesRepository = categoriesRepository,
+       _servicesRepository = servicesRepository,
+       _favoritesRepository = favoritesRepository,
+       _notificationsRepository = notificationsRepository,
+       _bookingsRepository = bookingsRepository;
 
   final ProfileRepository _profileRepository;
   final CategoriesRepository _categoriesRepository;
@@ -37,15 +38,26 @@ class PreloadService {
   final BookingsRepository _bookingsRepository;
 
   Future<void> preloadAll() async {
+    final token = await TokenStorage.instance.getToken();
+    final authenticated = token != null && token.isNotEmpty;
     final tasks = <Future<void>>[
-      _profileRepository.getProfile().then((_) {}, onError: (_) {}),
       _categoriesRepository.getCategories().then((_) {}, onError: (_) {}),
       _categoriesRepository.getSubcategories().then((_) {}, onError: (_) {}),
       _servicesRepository.getServices().then((_) {}, onError: (_) {}),
-      _favoritesRepository.getFavoriteIds().then((_) {}, onError: (_) {}),
-      _notificationsRepository.getNotifications().then((_) {}, onError: (_) {}),
-      _warmBookings(),
     ];
+
+    if (authenticated) {
+      tasks.addAll([
+        _profileRepository.getProfile().then((_) {}, onError: (_) {}),
+        _favoritesRepository.getFavoriteIds().then((_) {}, onError: (_) {}),
+        _notificationsRepository.getNotifications().then(
+          (_) {},
+          onError: (_) {},
+        ),
+        _warmBookings(),
+      ]);
+    }
+
     await Future.wait(tasks.map((f) => f.catchError((_) {})));
   }
 

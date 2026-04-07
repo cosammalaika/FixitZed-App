@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fixitzed_app/core/api.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
 
@@ -134,6 +135,8 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     final profileRepo = ref.read(profileRepositoryProvider);
     final servicesRepo = ref.read(servicesRepositoryProvider);
     final notificationsRepo = ref.read(notificationsRepositoryProvider);
+    final token = await TokenStorage.instance.getToken();
+    final isAuthenticated = token != null && token.isNotEmpty;
 
     Map<String, dynamic>? me;
     var services = <dynamic>[];
@@ -144,15 +147,19 @@ class DashboardController extends AsyncNotifier<DashboardState> {
     try {
       final forceProfileRefresh = _forceProfileRefreshNext;
       _forceProfileRefreshNext = false;
-      me = await profileRepo.getProfile(forceRefresh: forceProfileRefresh);
-      final userMap = _extractUserMap(me);
-      inactive = _isInactive(userMap);
-      if (!inactive) {
-        final servicesFuture = servicesRepo.getServices();
-        final notificationsFuture = notificationsRepo.getNotifications();
+      if (isAuthenticated) {
+        me = await profileRepo.getProfile(forceRefresh: forceProfileRefresh);
+        final userMap = _extractUserMap(me);
+        inactive = _isInactive(userMap);
+      } else {
+        await profileRepo.clearCache();
+      }
 
-        services = await servicesFuture;
-        notifications = await notificationsFuture;
+      if (!inactive) {
+        services = await servicesRepo.getServices();
+        if (isAuthenticated) {
+          notifications = await notificationsRepo.getNotifications();
+        }
       }
     } catch (err) {
       error = err.toString();

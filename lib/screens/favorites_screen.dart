@@ -6,8 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fixitzed_app/repositories/favorites_repository.dart';
 import 'package:fixitzed_app/repositories/services_repository.dart';
+import 'package:fixitzed_app/state/auth_controller.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
+import 'package:fixitzed_app/widgets/auth_required.dart';
 
 class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
@@ -64,133 +66,175 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
+    final authState = ref.watch(authControllerProvider);
+
+    if (authState.isInitializing) {
+      return Scaffold(
+        appBar: _appBar(theme),
         backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
-        title: Text(
-          'Favorites',
-          style: GoogleFonts.urbanist(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        centerTitle: true,
-      ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!authState.isAuthenticated) {
+      return _GuestFavoritesView(
+        onAuthenticate: () async {
+          final ok = await ensureAuthenticated(
+            context,
+            title: 'Sign in to save favorites',
+            message:
+                'You can browse all services as a guest. Sign in to save services and come back to them later.',
+            actionLabel: 'Save favorites',
+          );
+          if (ok) {
+            await _load();
+          }
+        },
+      );
+    }
+
+    return Scaffold(
+      appBar: _appBar(theme),
       backgroundColor: theme.scaffoldBackgroundColor,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : (_favoriteServices.isEmpty
-              ? _emptyState(context)
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    itemCount: _favoriteServices.length,
-                    itemBuilder: (ctx, i) {
-                      final s = _favoriteServices[i];
-                      final id = serviceId(s, fallbackIndex: i);
-                      final title = (s['name'] ?? s['title'] ?? 'Service').toString();
-                      final description =
-                          (s['description'] ?? s['summary'] ?? '')
-                              .toString()
-                              .trim();
-                      final category = serviceCategoryLabel(s);
-                      final subtitle = category ??
-                          (description.isEmpty
-                              ? 'Tap to book quickly'
-                              : description);
-                      final img = (s['image'] ?? s['image_url'] ?? '').toString();
-                      final liked = _favIds.contains(id);
-                      return GestureDetector(
-                        onTap: () => showBookingSheet(context, service: s),
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF3F5F7),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: img.isNotEmpty
-                                    ? Image(
-                                        image: img.startsWith('http')
-                                            ? NetworkImage(img) as ImageProvider
-                                            : AssetImage(img),
-                                        width: 56,
-                                        height: 56,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Container(
-                                        width: 56,
-                                        height: 56,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: const Icon(
-                                          Icons.handyman_rounded,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            title,
-                                            style: GoogleFonts.urbanist(
-                                              fontWeight: FontWeight.w700,
+                ? _emptyState(context)
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      itemCount: _favoriteServices.length,
+                      itemBuilder: (ctx, i) {
+                        final s = _favoriteServices[i];
+                        final id = serviceId(s, fallbackIndex: i);
+                        final title = (s['name'] ?? s['title'] ?? 'Service')
+                            .toString();
+                        final description =
+                            (s['description'] ?? s['summary'] ?? '')
+                                .toString()
+                                .trim();
+                        final category = serviceCategoryLabel(s);
+                        final subtitle =
+                            category ??
+                            (description.isEmpty
+                                ? 'Tap to book quickly'
+                                : description);
+                        final img = (s['image'] ?? s['image_url'] ?? '')
+                            .toString();
+                        final liked = _favIds.contains(id);
+                        return GestureDetector(
+                          onTap: () =>
+                              showServiceDetailsSheet(context, service: s),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF3F5F7),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: img.isNotEmpty
+                                      ? Image(
+                                          image: img.startsWith('http')
+                                              ? NetworkImage(img)
+                                                    as ImageProvider
+                                              : AssetImage(img),
+                                          width: 56,
+                                          height: 56,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Container(
+                                          width: 56,
+                                          height: 56,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              12,
                                             ),
                                           ),
-                                        ),
-                                        IconButton(
-                                          icon: Icon(
-                                            liked
-                                                ? Icons.favorite
-                                                : Icons.favorite_border,
-                                            color: liked ? Colors.red : Colors.grey,
+                                          child: const Icon(
+                                            Icons.handyman_rounded,
+                                            color: Colors.grey,
                                           ),
-                                          onPressed: () async {
-                                            final repo =
-                                                ref.read(favoritesRepositoryProvider);
-                                            await repo.toggle(id);
-                                            await _load();
-                                          },
                                         ),
-                                      ],
-                                    ),
-                                    if (subtitle.isNotEmpty)
-                                      Text(
-                                        subtitle,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.urbanist(
-                                          color: Colors.black54,
-                                        ),
-                                      ),
-                                  ],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              title,
+                                              style: GoogleFonts.urbanist(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              liked
+                                                  ? Icons.favorite
+                                                  : Icons.favorite_border,
+                                              color: liked
+                                                  ? Colors.red
+                                                  : Colors.grey,
+                                            ),
+                                            onPressed: () async {
+                                              final repo = ref.read(
+                                                favoritesRepositoryProvider,
+                                              );
+                                              await repo.toggle(id);
+                                              await _load();
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                      if (subtitle.isNotEmpty)
+                                        Text(
+                                          subtitle,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.urbanist(
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                )),
+                        );
+                      },
+                    ),
+                  )),
+    );
+  }
+
+  PreferredSizeWidget _appBar(ThemeData theme) {
+    return AppBar(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      elevation: 0,
+      iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
+      title: Text(
+        'Favorites',
+        style: GoogleFonts.urbanist(
+          color: theme.colorScheme.onSurface,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      centerTitle: true,
     );
   }
 
@@ -201,7 +245,11 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.favorite_border_rounded, size: 64, color: Colors.grey),
+            const Icon(
+              Icons.favorite_border_rounded,
+              size: 64,
+              color: Colors.grey,
+            ),
             const SizedBox(height: 12),
             Text(
               'No favorites yet',
@@ -217,6 +265,93 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
               style: GoogleFonts.urbanist(color: Colors.black54),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GuestFavoritesView extends StatelessWidget {
+  const _GuestFavoritesView({required this.onAuthenticate});
+
+  final VoidCallback onAuthenticate;
+
+  @override
+  Widget build(BuildContext context) {
+    const brand = Color(0xFFF1592A);
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
+        title: Text(
+          'Favorites',
+          style: GoogleFonts.urbanist(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: brand.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.favorite_border_rounded,
+                  color: brand,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Save services after signing in',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.urbanist(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Explore services freely as a guest. Create an account when you want a personal favorites list.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.urbanist(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: onAuthenticate,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: brand,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Sign in or create account'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

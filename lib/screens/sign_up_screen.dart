@@ -13,7 +13,9 @@ import 'package:fixitzed_app/widgets/app_text_field.dart';
 import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({super.key});
+  const SignUpScreen({super.key, this.returnOnSuccess = false});
+
+  final bool returnOnSuccess;
 
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
@@ -226,7 +228,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
         await prefs.remove('remember_identifier');
         await prefs.remove('remember_email');
 
-        unawaited(Navigator.pushReplacementNamed(context, '/home'));
+        if (widget.returnOnSuccess) {
+          Navigator.of(context).pop(true);
+        } else {
+          unawaited(Navigator.pushReplacementNamed(context, '/home'));
+        }
       } else {
         if (result.fieldErrors.isNotEmpty) {
           setState(() {

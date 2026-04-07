@@ -1,5 +1,6 @@
 import 'package:fixitzed_app/services/payment_service.dart';
 import 'package:fixitzed_app/services/service_request_service.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 
 /// Cache for booking lists and their payments.
 class BookingsRepository {
@@ -27,6 +28,12 @@ class BookingsRepository {
   Future<List<Map<String, dynamic>>> getRequests({
     bool forceRefresh = false,
   }) async {
+    final token = await TokenStorage.instance.getToken();
+    if (token == null || token.isEmpty) {
+      clearCache();
+      return <Map<String, dynamic>>[];
+    }
+
     if (!forceRefresh && _cache != null && !_stale(_lastFetch, _ttl)) {
       return List<Map<String, dynamic>>.from(_cache!);
     }
@@ -38,13 +45,21 @@ class BookingsRepository {
         return List<Map<String, dynamic>>.from(_cache!);
       }
     } catch (_) {}
-    return _cache == null ? <Map<String, dynamic>>[] : List<Map<String, dynamic>>.from(_cache!);
+    return _cache == null
+        ? <Map<String, dynamic>>[]
+        : List<Map<String, dynamic>>.from(_cache!);
   }
 
   Future<Map<String, dynamic>?> getPayment(
     int requestId, {
     bool forceRefresh = false,
   }) async {
+    final token = await TokenStorage.instance.getToken();
+    if (token == null || token.isEmpty) {
+      clearCache();
+      return null;
+    }
+
     final cached = _paymentsCache[requestId];
     final fetchedAt = _paymentFetchedAt[requestId];
     if (!forceRefresh && cached != null && !_stale(fetchedAt, _paymentTtl)) {
@@ -59,5 +74,12 @@ class BookingsRepository {
       }
     } catch (_) {}
     return cached == null ? null : Map<String, dynamic>.from(cached);
+  }
+
+  void clearCache() {
+    _cache = null;
+    _lastFetch = null;
+    _paymentsCache.clear();
+    _paymentFetchedAt.clear();
   }
 }

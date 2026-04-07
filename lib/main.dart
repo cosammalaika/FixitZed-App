@@ -28,6 +28,7 @@ import 'package:fixitzed_app/services/fcm_service.dart';
 import 'package:fixitzed_app/common/connectivity/connectivity_overlay.dart';
 import 'package:fixitzed_app/widgets/session_redirector.dart';
 import 'package:fixitzed_app/utils/app_snack.dart';
+import 'package:fixitzed_app/widgets/auth_required.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -71,22 +72,76 @@ class MyApp extends ConsumerWidget {
             '/auth': (context) => const SignInScreen(),
             '/signup': (context) => const SignUpScreen(),
             '/home': (context) => const DashboardScreen(),
-            '/notifications': (context) => const NotificationsScreen(),
+            '/notifications': (context) => const AuthRequiredPage(
+              title: 'Sign in to view notifications',
+              message:
+                  'Your alerts are tied to your account, bookings and payments.',
+              actionLabel: 'View notifications',
+              child: NotificationsScreen(),
+            ),
             '/services': (context) => const ServicesListScreen(),
             '/fixers': (context) => const FixersListScreen(),
-            '/profile/edit': (context) => const EditProfileScreen(),
-            '/profile/addresses': (context) => const ManageAddressScreen(),
-            '/profile/payments': (context) => const PaymentMethodsScreen(),
-            '/profile/bookings': (context) => const MyBookingScreen(),
-            '/profile/booking-detail': (context) =>
-                const NotificationBookingDetailScreen(),
-            '/profile/settings': (context) => const SettingsScreen(),
-            '/profile/invite': (context) => const InviteFriendScreen(),
+            '/profile/edit': (context) => const AuthRequiredPage(
+              title: 'Sign in to edit your profile',
+              message: 'Profile changes are saved to your FixItZed account.',
+              actionLabel: 'Edit profile',
+              child: EditProfileScreen(),
+            ),
+            '/profile/addresses': (context) => const AuthRequiredPage(
+              title: 'Sign in to manage addresses',
+              message: 'Saved addresses are private to your FixItZed account.',
+              actionLabel: 'Manage addresses',
+              child: ManageAddressScreen(),
+            ),
+            '/profile/payments': (context) => const AuthRequiredPage(
+              title: 'Sign in to manage payments',
+              message: 'Payment methods are private to your FixItZed account.',
+              actionLabel: 'Manage payments',
+              child: PaymentMethodsScreen(),
+            ),
+            '/profile/bookings': (context) => const AuthRequiredPage(
+              title: 'Sign in to view bookings',
+              message: 'Booking history is only available after you sign in.',
+              actionLabel: 'View bookings',
+              child: MyBookingScreen(),
+            ),
+            '/profile/booking-detail': (context) => const AuthRequiredPage(
+              title: 'Sign in to view booking details',
+              message: 'Booking details are private to your FixItZed account.',
+              actionLabel: 'View booking details',
+              child: NotificationBookingDetailScreen(),
+            ),
+            '/profile/settings': (context) => const AuthRequiredPage(
+              title: 'Sign in to manage account settings',
+              message:
+                  'Account settings, security and deletion tools are available after sign in.',
+              actionLabel: 'Manage settings',
+              child: SettingsScreen(),
+            ),
+            '/profile/invite': (context) => const AuthRequiredPage(
+              title: 'Sign in to invite friends',
+              message:
+                  'Your invite link is generated from your FixItZed account.',
+              actionLabel: 'Invite friends',
+              child: InviteFriendScreen(),
+            ),
             '/profile/help': (context) => const HelpCenterScreen(),
             '/profile/faqs': (context) => const FaqsScreen(),
-            '/profile/password': (context) => const ChangePasswordScreen(),
+            '/profile/password': (context) => const AuthRequiredPage(
+              title: 'Sign in to change your password',
+              message:
+                  'Password changes require access to your FixItZed account.',
+              actionLabel: 'Change password',
+              child: ChangePasswordScreen(),
+            ),
             '/about': (context) => const AboutScreen(),
-            '/fixer/apply': (context) => const BecomeFixerScreen(),
+            '/fixer/apply': (context) => const AuthRequiredPage(
+              title: 'Sign in to apply as a Fixer',
+              message:
+                  'Applications are linked to your FixItZed account for review.',
+              actionLabel: 'Apply as a Fixer',
+              child: BecomeFixerScreen(),
+            ),
             '/account_blocked': (context) => const AccountBlockedScreen(),
           },
           builder: (context, child) {

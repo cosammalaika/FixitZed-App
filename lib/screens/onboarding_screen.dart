@@ -69,7 +69,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await prefs.setBool('onboarding_seen', true);
     AppAnalytics.instance.logEvent('onboarding_completed');
     if (!mounted) return;
-    unawaited(Navigator.of(context).pushReplacementNamed('/auth'));
+    unawaited(Navigator.of(context).pushReplacementNamed('/home'));
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fixitzed_app/services/home_service.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Lightweight cache around the user profile (/api/me).
@@ -17,9 +18,8 @@ class ProfileRepository {
   bool _hydratedFromStorage = false;
   Future<void>? _hydrateFuture;
 
-  Map<String, dynamic>? get cached => _cache == null
-      ? null
-      : Map<String, dynamic>.from(_cache!);
+  Map<String, dynamic>? get cached =>
+      _cache == null ? null : Map<String, dynamic>.from(_cache!);
 
   bool _isStale() {
     final fetchedAt = _lastFetch;
@@ -28,6 +28,12 @@ class ProfileRepository {
   }
 
   Future<Map<String, dynamic>?> getProfile({bool forceRefresh = false}) async {
+    final token = await TokenStorage.instance.getToken();
+    if (token == null || token.isEmpty) {
+      await clearCache();
+      return null;
+    }
+
     await _ensureHydrated();
 
     if (!forceRefresh && _cache != null && !_isStale()) {

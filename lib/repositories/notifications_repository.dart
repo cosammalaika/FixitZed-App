@@ -1,4 +1,5 @@
 import 'package:fixitzed_app/services/notification_service.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 
 /// Cache for notifications page 1.
 class NotificationsRepository {
@@ -22,6 +23,12 @@ class NotificationsRepository {
   Future<List<Map<String, dynamic>>> getNotifications({
     bool forceRefresh = false,
   }) async {
+    final token = await TokenStorage.instance.getToken();
+    if (token == null || token.isEmpty) {
+      clearCache();
+      return <Map<String, dynamic>>[];
+    }
+
     if (!forceRefresh && _cache != null && !_isStale()) {
       return List<Map<String, dynamic>>.from(_cache!);
     }
@@ -33,6 +40,13 @@ class NotificationsRepository {
         return List<Map<String, dynamic>>.from(_cache!);
       }
     } catch (_) {}
-    return _cache == null ? <Map<String, dynamic>>[] : List<Map<String, dynamic>>.from(_cache!);
+    return _cache == null
+        ? <Map<String, dynamic>>[]
+        : List<Map<String, dynamic>>.from(_cache!);
+  }
+
+  void clearCache() {
+    _cache = null;
+    _lastFetch = null;
   }
 }

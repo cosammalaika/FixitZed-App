@@ -4,10 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fixitzed_app/core/booking_status.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
+import 'package:fixitzed_app/state/auth_controller.dart';
 import 'package:fixitzed_app/state/my_bookings_controller.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/screens/payment_sheet.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
+import 'package:fixitzed_app/widgets/auth_required.dart';
 
 import 'package:fixitzed_app/screens/profile/booking_detail_screen.dart';
 
@@ -17,22 +19,37 @@ class MyBookingScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final authState = ref.watch(authControllerProvider);
+
+    if (authState.isInitializing) {
+      return Scaffold(
+        appBar: _appBar(theme),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!authState.isAuthenticated) {
+      return _GuestBookingsView(
+        onAuthenticate: () async {
+          final ok = await ensureAuthenticated(
+            context,
+            title: 'Sign in to view bookings',
+            message:
+                'Booking history is private to your account. You can keep browsing services as a guest.',
+            actionLabel: 'View bookings',
+          );
+          if (ok) {
+            await ref.read(myBookingsControllerProvider.notifier).refresh();
+          }
+        },
+      );
+    }
+
     final bookingsAsync = ref.watch(myBookingsControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
-        title: Text(
-          'My Bookings',
-          style: GoogleFonts.urbanist(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        centerTitle: true,
-      ),
+      appBar: _appBar(theme),
       backgroundColor: theme.scaffoldBackgroundColor,
       body: bookingsAsync.when(
         loading: () => const BookingListSkeleton(),
@@ -267,6 +284,22 @@ class MyBookingScreen extends ConsumerWidget {
     );
   }
 
+  PreferredSizeWidget _appBar(ThemeData theme) {
+    return AppBar(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      elevation: 0,
+      iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
+      title: Text(
+        'My Bookings',
+        style: GoogleFonts.urbanist(
+          color: theme.colorScheme.onSurface,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      centerTitle: true,
+    );
+  }
+
   Color _statusBg(BookingStatus status) {
     switch (status) {
       case BookingStatus.accepted:
@@ -322,5 +355,92 @@ class MyBookingScreen extends ConsumerWidget {
     }
     final direct = fromMap(fixer);
     return direct.isNotEmpty ? direct : 'Pending assignment';
+  }
+}
+
+class _GuestBookingsView extends StatelessWidget {
+  const _GuestBookingsView({required this.onAuthenticate});
+
+  final VoidCallback onAuthenticate;
+
+  @override
+  Widget build(BuildContext context) {
+    const brand = Color(0xFFF1592A);
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
+        title: Text(
+          'My Bookings',
+          style: GoogleFonts.urbanist(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: brand.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.event_note_outlined,
+                  color: brand,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Sign in to track bookings',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.urbanist(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You can browse services without an account. Sign in when you are ready to request service and track every booking.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.urbanist(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: onAuthenticate,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: brand,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Sign in or create account'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

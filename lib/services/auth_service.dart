@@ -98,7 +98,8 @@ class AvatarUploadDebugSnapshot {
       fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
       requestUrl: requestUrl ?? this.requestUrl,
       uploadStatusCode: uploadStatusCode ?? this.uploadStatusCode,
-      uploadResponseSnippet: uploadResponseSnippet ?? this.uploadResponseSnippet,
+      uploadResponseSnippet:
+          uploadResponseSnippet ?? this.uploadResponseSnippet,
       uploadResponseHeadersSnippet:
           uploadResponseHeadersSnippet ?? this.uploadResponseHeadersSnippet,
       meStatusCode: meStatusCode ?? this.meStatusCode,
@@ -130,11 +131,7 @@ class AuthService {
     Map<String, dynamic> body, {
     String? token,
   }) {
-    return ApiClient.instance.post(
-      path,
-      body: body,
-      auth: token != null,
-    );
+    return ApiClient.instance.post(path, body: body, auth: token != null);
   }
 
   Future<http.Response> _patchJson(
@@ -142,11 +139,7 @@ class AuthService {
     Map<String, dynamic> body, {
     String? token,
   }) {
-    return ApiClient.instance.patch(
-      path,
-      body: body,
-      auth: token != null,
-    );
+    return ApiClient.instance.patch(path, body: body, auth: token != null);
   }
 
   Future<http.Response> _putJson(
@@ -154,11 +147,7 @@ class AuthService {
     Map<String, dynamic> body, {
     String? token,
   }) {
-    return ApiClient.instance.put(
-      path,
-      body: body,
-      auth: token != null,
-    );
+    return ApiClient.instance.put(path, body: body, auth: token != null);
   }
 
   Future<void> _saveToken(String token) {
@@ -203,6 +192,10 @@ class AuthService {
           final msg = _extractMessage(data);
           _sync.emit(
             AppSyncTopic.profile,
+            payload: const <String, dynamic>{'action': 'login'},
+          );
+          _sync.emit(
+            AppSyncTopic.auth,
             payload: const <String, dynamic>{'action': 'login'},
           );
           _sync.emit(
@@ -294,6 +287,10 @@ class AuthService {
           payload: const <String, dynamic>{'action': 'register'},
         );
         _sync.emit(
+          AppSyncTopic.auth,
+          payload: const <String, dynamic>{'action': 'register'},
+        );
+        _sync.emit(
           AppSyncTopic.dashboard,
           payload: const <String, dynamic>{'source': 'auth'},
         );
@@ -323,6 +320,42 @@ class AuthService {
 
   Future<void> handleSessionExpired({String reason = 'sessionExpired'}) {
     return SessionManager.instance.ensureForcedLogout(reason: reason);
+  }
+
+  Future<AuthResult> deleteAccount() async {
+    try {
+      final token = await _getToken();
+      if (token == null || token.isEmpty) {
+        return const AuthResult(success: false, message: 'Not signed in.');
+      }
+
+      try {
+        await FcmService.instance.unregisterTokenForCurrentUser();
+      } catch (_) {
+        // Best effort only; backend account deletion clears device tokens too.
+      }
+
+      final res = await ApiClient.instance.delete(
+        'me',
+        body: const {},
+        auth: true,
+      );
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final data = _tryDecodeJsonMap(res.body);
+        await SessionManager.instance.finalizeLogout(reason: 'accountDeleted');
+        return AuthResult(
+          success: true,
+          message: _extractMessage(data) ?? 'Your account has been deleted.',
+        );
+      }
+
+      return _mapError(res);
+    } catch (_) {
+      return const AuthResult(
+        success: false,
+        message: 'Unable to delete your account. Please try again.',
+      );
+    }
   }
 
   Future<AuthResult> forgotPassword(String identifier) async {
@@ -496,7 +529,10 @@ class AuthService {
         ..headers['Authorization'] = 'Bearer $token'
         ..fields['_method'] = 'PATCH';
 
-      final filePart = await http.MultipartFile.fromPath('profile_photo', trimmed);
+      final filePart = await http.MultipartFile.fromPath(
+        'profile_photo',
+        trimmed,
+      );
       _setAvatarUploadDebug(
         (current) => current.copyWith(
           fileSizeBytes: filePart.length,
@@ -518,7 +554,10 @@ class AuthService {
       _setAvatarUploadDebug(
         (current) => current.copyWith(
           uploadStatusCode: response.statusCode,
-          uploadResponseHeadersSnippet: _headersSnippet(response.headers, max: 300),
+          uploadResponseHeadersSnippet: _headersSnippet(
+            response.headers,
+            max: 300,
+          ),
           uploadResponseSnippet: _logSnippet(response.body, max: 200),
           updatedAt: DateTime.now(),
           clearError: true,
@@ -534,7 +573,10 @@ class AuthService {
       if (ok) {
         final meRes = await http.get(
           _uri('me'),
-          headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
         );
         meBody = _tryDecodeJsonMap(meRes.body);
         _logProfilePhoto('GET /me after upload headers=${meRes.headers}');
@@ -544,13 +586,20 @@ class AuthService {
         _logProfilePhotoResponseFields('GET /me after upload', meBody);
         _logProfilePhotoResolvedAvatar('GET /me after upload', meBody);
         final meOk = meRes.statusCode >= 200 && meRes.statusCode < 300;
-        hasAvatarPayload = hasAvatarPayload || (meOk && _responseHasAvatarPayload(meBody));
+        hasAvatarPayload =
+            hasAvatarPayload || (meOk && _responseHasAvatarPayload(meBody));
         _setAvatarUploadDebug(
           (current) => current.copyWith(
             meStatusCode: meRes.statusCode,
             meResponseSnippet: _logSnippet(meRes.body, max: 200),
-            meProfilePhotoPath: _payloadField(meBody, ['profile_photo_path', 'profilePhotoPath']),
-            meProfilePhotoUrl: _payloadField(meBody, ['profile_photo_url', 'profilePhotoUrl']),
+            meProfilePhotoPath: _payloadField(meBody, [
+              'profile_photo_path',
+              'profilePhotoPath',
+            ]),
+            meProfilePhotoUrl: _payloadField(meBody, [
+              'profile_photo_url',
+              'profilePhotoUrl',
+            ]),
             meAvatarUrl: _payloadField(meBody, ['avatar_url', 'avatarUrl']),
             meResolvedAvatarUrl: _resolvedAvatarFromPayload(meBody),
             meAvatarVersionToken: _avatarVersionTokenFromPayload(meBody),
@@ -578,10 +627,8 @@ class AuthService {
     } catch (e, st) {
       _logProfilePhoto('upload error: $e');
       _setAvatarUploadDebug(
-        (current) => current.copyWith(
-          error: e.toString(),
-          updatedAt: DateTime.now(),
-        ),
+        (current) =>
+            current.copyWith(error: e.toString(), updatedAt: DateTime.now()),
       );
       if (kDebugMode) {
         debugPrint(st.toString());
@@ -591,7 +638,8 @@ class AuthService {
   }
 
   void _setAvatarUploadDebug(
-    AvatarUploadDebugSnapshot Function(AvatarUploadDebugSnapshot current) updater,
+    AvatarUploadDebugSnapshot Function(AvatarUploadDebugSnapshot current)
+    updater,
   ) {
     if (!kDebugMode) return;
     avatarUploadDebug.value = updater(avatarUploadDebug.value);
@@ -685,9 +733,7 @@ class AuthService {
   }
 
   String _headersSnippet(Map<String, String> headers, {int max = 500}) {
-    final text = headers.entries
-        .map((e) => '${e.key}: ${e.value}')
-        .join(', ');
+    final text = headers.entries.map((e) => '${e.key}: ${e.value}').join(', ');
     return _logSnippet(text, max: max);
   }
 
@@ -733,7 +779,10 @@ class AuthService {
     return body;
   }
 
-  void _logProfilePhotoResponseFields(String label, Map<String, dynamic>? body) {
+  void _logProfilePhotoResponseFields(
+    String label,
+    Map<String, dynamic>? body,
+  ) {
     if (!kDebugMode) return;
     if (body == null) {
       debugPrint('[AuthService.updateProfilePhoto] $label fields: <non-json>');
@@ -759,7 +808,10 @@ class AuthService {
     );
   }
 
-  void _logProfilePhotoResolvedAvatar(String label, Map<String, dynamic>? body) {
+  void _logProfilePhotoResolvedAvatar(
+    String label,
+    Map<String, dynamic>? body,
+  ) {
     if (!kDebugMode) return;
     final resolved = _resolvedAvatarFromPayload(body);
     final version = _avatarVersionTokenFromPayload(body);

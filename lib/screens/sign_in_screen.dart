@@ -9,14 +9,15 @@ import 'package:flutter/services.dart';
 import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/screens/sign_up_screen.dart';
 import 'package:fixitzed_app/screens/auth/forgot_password_sheet.dart';
-import 'package:fixitzed_app/services/preload_service.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/core/app_spacing.dart';
 import 'package:fixitzed_app/widgets/app_text_field.dart';
 import 'package:fixitzed_app/widgets/keyboard_safe_form.dart';
 
 class SignInScreen extends StatefulWidget {
-  const SignInScreen({super.key});
+  const SignInScreen({super.key, this.returnOnSuccess = false});
+
+  final bool returnOnSuccess;
 
   @override
   State<SignInScreen> createState() => _SignInScreenState();
@@ -92,7 +93,11 @@ class _SignInScreenState extends State<SignInScreen> {
         final container = ProviderScope.containerOf(context, listen: false);
         unawaited(container.read(preloadServiceProvider).preloadAll());
         if (!mounted) return;
-        unawaited(Navigator.of(context).pushReplacementNamed('/home'));
+        if (widget.returnOnSuccess) {
+          Navigator.of(context).pop(true);
+        } else {
+          unawaited(Navigator.of(context).pushReplacementNamed('/home'));
+        }
       } else if (result.message == 'inactive') {
         await AuthService().logout();
         if (!mounted) return;
@@ -383,8 +388,8 @@ class _SignInScreenState extends State<SignInScreen> {
                                 onChanged: _loading
                                     ? null
                                     : (val) => setState(
-                                          () => _rememberMe = val ?? false,
-                                        ),
+                                        () => _rememberMe = val ?? false,
+                                      ),
                               ),
                               Text(
                                 'Remember Me',
@@ -392,7 +397,9 @@ class _SignInScreenState extends State<SignInScreen> {
                               ),
                               const Spacer(),
                               TextButton(
-                                onPressed: _loading ? null : _showForgotPassword,
+                                onPressed: _loading
+                                    ? null
+                                    : _showForgotPassword,
                                 child: Text(
                                   'Forgot password?',
                                   style: GoogleFonts.urbanist(
@@ -446,11 +453,13 @@ class _SignInScreenState extends State<SignInScreen> {
                                 onPressed: _loading
                                     ? null
                                     : () => Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const SignUpScreen(),
+                                        MaterialPageRoute(
+                                          builder: (_) => SignUpScreen(
+                                            returnOnSuccess:
+                                                widget.returnOnSuccess,
                                           ),
                                         ),
+                                      ),
                                 child: Text(
                                   'Create one',
                                   style: GoogleFonts.urbanist(

@@ -84,6 +84,32 @@ void main() {
       expect(controller.state.isOnline, isTrue);
       expect(controller.state.result, ConnectivityResult.wifi);
     });
+
+    testWidgets('does not revert a restored online state with a stale resync', (
+      WidgetTester tester,
+    ) async {
+      final client = FakeConnectivityClient([ConnectivityResult.none]);
+      final controller = ConnectivityController(
+        client,
+        reconnectResyncDelay: const Duration(milliseconds: 10),
+      );
+
+      addTearDown(() async {
+        controller.dispose();
+        await client.dispose();
+      });
+
+      await tester.pump();
+      expect(controller.state.isOnline, isFalse);
+
+      client.setCurrentResults([ConnectivityResult.none]);
+      client.emit([ConnectivityResult.wifi]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 11));
+
+      expect(controller.state.isOnline, isTrue);
+      expect(controller.state.result, ConnectivityResult.wifi);
+    });
   });
 }
 

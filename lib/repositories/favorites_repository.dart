@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:fixitzed_app/repositories/services_repository.dart';
 import 'package:fixitzed_app/services/favorites_service.dart';
+import 'package:fixitzed_app/services/token_storage.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 
 /// Local favorites cache backed by SharedPreferences.
@@ -14,6 +15,14 @@ class FavoritesRepository extends ChangeNotifier {
   Set<String> get ids => Set.unmodifiable(_ids);
 
   Future<Set<String>> _ensureLoaded() async {
+    final token = await TokenStorage.instance.getToken();
+    if (token == null || token.isEmpty) {
+      _ids = {};
+      _loaded = true;
+      await FavoritesService.clear();
+      return _ids;
+    }
+
     if (_loaded) return _ids;
     final stored = await FavoritesService.loadSet();
     _ids = stored;
@@ -63,6 +72,13 @@ class FavoritesRepository extends ChangeNotifier {
   Future<void> refreshFromStorage() async {
     final latest = await FavoritesService.loadSet();
     _ids = latest;
+    _loaded = true;
+    notifyListeners();
+  }
+
+  Future<void> clearCache() async {
+    await FavoritesService.clear();
+    _ids = {};
     _loaded = true;
     notifyListeners();
   }

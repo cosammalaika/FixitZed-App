@@ -19,7 +19,9 @@ import 'package:fixitzed_app/screens/payment_sheet.dart';
 import 'package:fixitzed_app/screens/profile/my_booking_screen.dart';
 import 'package:fixitzed_app/screens/profile_screen.dart';
 import 'package:fixitzed_app/services/chooser_availability_service.dart';
+import 'package:fixitzed_app/services/auth_service.dart';
 import 'package:fixitzed_app/widgets/skeletons.dart';
+import 'package:fixitzed_app/widgets/auth_required.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -284,7 +286,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   ) async {
     final id = _serviceId(service);
     if (id.isEmpty) {
-      await _openBookingSheet(service: service);
+      await showServiceDetailsSheet(context, service: service);
       return;
     }
     final before = _quickPickAvailability[id] ?? FixerAvailability.unknown;
@@ -325,29 +327,37 @@ class _DashboardScreenState extends State<DashboardScreen>
       _showUnavailableSnackBar();
       return;
     }
-    await _openBookingSheet(service: service);
+    await showServiceDetailsSheet(context, service: service);
   }
 
-  Widget _greeting(DashboardState state, {ProfileState? profile}) =>
-      DashboardGreeting(
-        name: (profile?.name ?? '').trim().isNotEmpty
-            ? profile!.name
-            : state.name,
-        location: (profile?.location ?? '').trim().isNotEmpty
-            ? profile!.location
-            : state.location,
-        avatarUrl: (profile?.avatarUrl ?? '').trim().isNotEmpty
-            ? profile!.avatarUrl
-            : state.avatarUrl,
-        hasUnread: state.hasUnread,
-        onNotificationsTap: () async {
-          await Navigator.of(context).pushNamed('/notifications');
-          if (!mounted) return;
-          final ref = _ref;
-          if (ref == null) return;
-          await ref.read(dashboardControllerProvider.notifier).refresh();
-        },
+  Widget _greeting(
+    DashboardState state, {
+    ProfileState? profile,
+  }) => DashboardGreeting(
+    name: (profile?.name ?? '').trim().isNotEmpty ? profile!.name : state.name,
+    location: (profile?.location ?? '').trim().isNotEmpty
+        ? profile!.location
+        : state.location,
+    avatarUrl: (profile?.avatarUrl ?? '').trim().isNotEmpty
+        ? profile!.avatarUrl
+        : state.avatarUrl,
+    hasUnread: state.hasUnread,
+    onNotificationsTap: () async {
+      final allowed = await ensureAuthenticated(
+        context,
+        title: 'Sign in to view notifications',
+        message:
+            'Notifications are tied to your bookings, payments and account activity.',
+        actionLabel: 'View notifications',
       );
+      if (!allowed || !mounted) return;
+      await Navigator.of(context).pushNamed('/notifications');
+      if (!mounted) return;
+      final ref = _ref;
+      if (ref == null) return;
+      await ref.read(dashboardControllerProvider.notifier).refresh();
+    },
+  );
 
   Widget _searchField(List<dynamic> categories) {
     final normalizedCategories = categories
@@ -740,14 +750,57 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _bottomNav() => DashboardBottomNav(
     currentIndex: _tabIndex,
-    onTap: (i) => setState(() => _tabIndex = i),
+    onTap: (i) async {
+      if (i == 0) {
+        setState(() => _tabIndex = i);
+        return;
+      }
+
+      final allowed = await ensureAuthenticated(
+        context,
+        title: _authTitleForTab(i),
+        message: _authMessageForTab(i),
+        actionLabel: _authActionForTab(i),
+      );
+      if (!allowed || !mounted) return;
+      setState(() => _tabIndex = i);
+    },
     onBookTap: () async {
       await _openBookingSheet();
     },
   );
 
+  String _authTitleForTab(int index) {
+    return switch (index) {
+      1 => 'Sign in to view bookings',
+      2 => 'Sign in to save favorites',
+      3 => 'Sign in to manage your account',
+      _ => 'Sign in required',
+    };
+  }
+
+  String _authMessageForTab(int index) {
+    return switch (index) {
+      1 => 'Your booking history is private and available after sign in.',
+      2 => 'Create an account to save services and find them later.',
+      3 =>
+        'Profile, settings and account deletion are available after sign in.',
+      _ => 'Sign in or create an account to continue.',
+    };
+  }
+
+  String _authActionForTab(int index) {
+    return switch (index) {
+      1 => 'View bookings',
+      2 => 'Save favorites',
+      3 => 'Manage account',
+      _ => 'Continue',
+    };
+  }
+
   Future<void> _checkPendingBills(WidgetRef ref) async {
     if (_billPromptShown || _checkingBills || !mounted) return;
+    if (!(await isAuthenticated())) return;
     _checkingBills = true;
     try {
       final requestService = ref.read(serviceRequestServiceProvider);
@@ -831,9 +884,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           return _InactiveAccountView(
             onContactSupport: () =>
                 Navigator.pushNamed(context, '/profile/help'),
-            onLogout: () => Navigator.of(
-              context,
-            ).pushNamedAndRemoveUntil('/auth', (route) => false),
+            onLogout: () async {
+              await AuthService().logout();
+              if (!mounted) return;
+              await Navigator.of(
+                context,
+              ).pushNamedAndRemoveUntil('/home', (route) => false);
+            },
           );
         }
 
