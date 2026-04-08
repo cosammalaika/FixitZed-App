@@ -58,6 +58,45 @@ String? serviceCategoryLabel(Map<dynamic, dynamic> service) {
   return null;
 }
 
+List<Map<String, dynamic>> deriveSubcategoryOptions(Iterable<dynamic> services) {
+  final seen = <String>{};
+  final options = <Map<String, dynamic>>[];
+
+  for (final rawService in services) {
+    final service = normalizeService(rawService);
+    if (service == null || service.isEmpty) continue;
+
+    Map<String, dynamic>? subcategory;
+    final rawSubcategory = service['subcategory'];
+    if (rawSubcategory is Map<String, dynamic>) {
+      subcategory = Map<String, dynamic>.from(rawSubcategory);
+    } else if (rawSubcategory is Map) {
+      subcategory = rawSubcategory.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    } else {
+      final id = service['subcategory_id'] ?? service['subcategoryId'];
+      final name = (service['subcategory_name'] ?? '').toString().trim();
+      if (id != null || name.isNotEmpty) {
+        subcategory = {
+          if (id != null) 'id': id,
+          'name': name.isNotEmpty ? name : 'Subcategory',
+        };
+      }
+    }
+
+    if (subcategory == null || subcategory.isEmpty) continue;
+
+    final key =
+        '${subcategory['id'] ?? ''}-${(subcategory['name'] ?? subcategory['title'] ?? '').toString().toLowerCase()}';
+    if (seen.add(key)) {
+      options.add(subcategory);
+    }
+  }
+
+  return options;
+}
+
 Future<void> showBookingSheet(BuildContext context, {dynamic service}) async {
   final allowed = await ensureAuthenticated(
     context,
@@ -126,7 +165,7 @@ Future<void> showServiceDetailsSheet(
                   width: 44,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: scheme.outlineVariant.withOpacity(0.65),
+                    color: scheme.outlineVariant.withValues(alpha: 0.65),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),

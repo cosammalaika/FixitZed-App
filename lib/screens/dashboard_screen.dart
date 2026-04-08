@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,12 +8,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/state/dashboard_controller.dart';
+import 'package:fixitzed_app/state/home_catalog_controller.dart';
 import 'package:fixitzed_app/state/profile_controller.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
-import 'package:fixitzed_app/state/services_controller.dart';
-import 'package:fixitzed_app/repositories/services_repository.dart';
 import 'package:fixitzed_app/utils/service_utils.dart';
 import 'package:fixitzed_app/utils/app_snack.dart';
+import 'package:fixitzed_app/utils/home_flow_log.dart';
 import 'package:fixitzed_app/screens/dashboard_widgets.dart';
 import 'package:fixitzed_app/screens/favorites_screen.dart';
 import 'package:fixitzed_app/screens/payment_sheet.dart';
@@ -39,10 +38,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _checkingBills = false;
   int _tabIndex = 0;
   bool _dashboardListenerAttached = false;
-  ServicesRepository? _servicesRepo;
-  ServicesController? _servicesController;
-  final FixerAvailabilityResolver _availabilityResolver =
-      FixerAvailabilityResolver();
+  FixerAvailabilityResolver? _availabilityResolver;
   Map<String, FixerAvailability> _quickPickAvailability =
       const <String, FixerAvailability>{};
   String _quickPickAvailabilityKey = '';
@@ -62,12 +58,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    HomeFlowLog.log('dashboard_screen', 'screen_entry');
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _stopServiceSync();
     _ref = null;
     super.dispose();
   }
@@ -75,18 +71,15 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _availabilityResolver.invalidateCache();
-      _quickPickAvailabilityKey = '';
-      if (mounted) {
-        setState(() {
-          _quickPickAvailability = const <String, FixerAvailability>{};
-        });
+      final ref = _ref;
+      if (ref == null) return;
+      unawaited(
+        ref.read(homeCatalogControllerProvider.notifier).handleAppResumed(),
+      );
+      final services = ref.read(homeCatalogControllerProvider).services.items;
+      if (services.isNotEmpty) {
+        _ensureQuickPickAvailability(services);
       }
-      _servicesController?.startForegroundSync();
-    } else if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.detached) {
-      _stopServiceSync();
     }
   }
 
@@ -99,19 +92,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _ensureServicesRepo(WidgetRef ref) {
-    if (_servicesRepo != null) return;
-    _servicesRepo = ref.read(servicesRepositoryProvider);
-    final servicesController = ref.read(servicesControllerProvider);
-    _servicesController = servicesController;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      servicesController.startForegroundSync();
-    });
-  }
-
-  void _stopServiceSync() {
-    _servicesController?.stopSync();
+  void _ensureAvailabilityResolver(WidgetRef ref) {
+    _availabilityResolver ??= ref.read(fixerAvailabilityResolverProvider);
   }
 
   String _safeJson(dynamic value) {
@@ -156,6 +138,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     List<dynamic> services, {
     bool forceRefresh = false,
   }) {
+    final resolver = _availabilityResolver;
+    if (resolver == null) return;
     final normalized = services
         .whereType<Map>()
         .map(_normalizeMap)
@@ -163,20 +147,15 @@ class _DashboardScreenState extends State<DashboardScreen>
         .toList();
     if (normalized.isEmpty) return;
     final key = _availabilityKey(normalized);
-    final hasUnresolved = normalized.any((service) {
-      final id = _serviceId(service);
-      if (id.isEmpty) return false;
-      final state = _quickPickAvailability[id] ?? FixerAvailability.unknown;
-      return state == FixerAvailability.unknown ||
-          state == FixerAvailability.checking;
-    });
+    final needsRefresh =
+        forceRefresh || normalized.any(resolver.needsRefreshForService);
     if (!forceRefresh &&
         key == _quickPickAvailabilityKey &&
-        (_resolvingQuickPickAvailability || !hasUnresolved)) {
+        (_resolvingQuickPickAvailability || !needsRefresh)) {
       return;
     }
     _quickPickAvailabilityKey = key;
-    final snapshot = _availabilityResolver.stateForServices(normalized);
+    final snapshot = resolver.stateForServices(normalized, allowStale: true);
     if (mounted) {
       setState(() {
         _quickPickAvailability = <String, FixerAvailability>{
@@ -220,9 +199,11 @@ class _DashboardScreenState extends State<DashboardScreen>
     required String key,
     bool forceRefresh = false,
   }) async {
+    final resolver = _availabilityResolver;
+    if (resolver == null) return;
     _resolvingQuickPickAvailability = true;
     try {
-      final availability = await _availabilityResolver.verifyServices(
+      final availability = await resolver.verifyServices(
         services,
         forceRefresh: forceRefresh,
         maxConcurrent: 4,
@@ -260,16 +241,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       }());
     } catch (error, stackTrace) {
       if (!mounted || key != _quickPickAvailabilityKey) return;
-      setState(() {
-        final merged = <String, FixerAvailability>{..._quickPickAvailability};
-        for (final service in services) {
-          final id = _serviceId(service);
-          if (id.isEmpty) continue;
-          merged[id] = FixerAvailability.none;
-        }
-        _quickPickAvailability = merged;
-        _quickPickAvailabilityKey = '';
-      });
       assert(() {
         debugPrint(
           'Dashboard quick-picks availability failed key=$key error=$error stack=$stackTrace',
@@ -290,18 +261,26 @@ class _DashboardScreenState extends State<DashboardScreen>
       return;
     }
     final before = _quickPickAvailability[id] ?? FixerAvailability.unknown;
-    if (before == FixerAvailability.none) {
+    final resolver = _availabilityResolver;
+    if (resolver == null) {
+      await showServiceDetailsSheet(context, service: service);
+      return;
+    }
+    final needsRefresh = resolver.needsRefreshForService(service);
+    if (before == FixerAvailability.none && !needsRefresh) {
       _showUnavailableSnackBar();
       return;
     }
 
-    final verifiedCount = await _availabilityResolver.fetchEligibleFixerCount(
+    final verifiedCount = await resolver.fetchEligibleFixerCount(
       service,
-      forceRefresh: true,
+      forceRefresh: needsRefresh,
       source: 'dashboard_tap_guard',
     );
     if (!mounted) return;
-    final after = verifiedCount > 0
+    final after = verifiedCount == null
+        ? FixerAvailability.unknown
+        : verifiedCount > 0
         ? FixerAvailability.available
         : FixerAvailability.none;
     setState(() {
@@ -323,11 +302,30 @@ class _DashboardScreenState extends State<DashboardScreen>
       return true;
     }());
 
-    if (verifiedCount <= 0) {
+    if (verifiedCount != null && verifiedCount <= 0) {
       _showUnavailableSnackBar();
       return;
     }
     await showServiceDetailsSheet(context, service: service);
+  }
+
+  int? _cachedAvailabilityCount(Map<String, dynamic> service) {
+    final resolver = _availabilityResolver;
+    if (resolver == null) return null;
+    return resolver.eligibleFixerCountForService(service, allowStale: true);
+  }
+
+  FixerAvailability _displayAvailabilityForService(Map<String, dynamic> service) {
+    final validatedCount = _cachedAvailabilityCount(service);
+    if (validatedCount != null) {
+      return validatedCount > 0
+          ? FixerAvailability.available
+          : FixerAvailability.none;
+    }
+
+    final id = _serviceId(service);
+    if (id.isEmpty) return FixerAvailability.unknown;
+    return _quickPickAvailability[id] ?? FixerAvailability.unknown;
   }
 
   Widget _greeting(
@@ -479,36 +477,54 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _refreshDashboard() async {
-    _availabilityResolver.invalidateCache();
     if (mounted) {
       setState(() {
-        _quickPickAvailability = const <String, FixerAvailability>{};
-        _quickPickAvailabilityKey = '';
+        _quickPickAvailability = <String, FixerAvailability>{
+          ..._quickPickAvailability,
+        };
       });
     }
     final ref = _ref;
     if (ref == null) return;
-    await ref.read(dashboardControllerProvider.notifier).refresh();
+    HomeFlowLog.log('dashboard_screen', 'manual_refresh');
+    await Future.wait<void>([
+      ref.read(dashboardControllerProvider.notifier).refresh(),
+      ref.read(homeCatalogControllerProvider.notifier).refresh(
+        reason: 'dashboard_pull_to_refresh',
+      ),
+    ]);
+    final refreshedServices = ref.read(homeCatalogControllerProvider).services.items;
+    if (refreshedServices.isNotEmpty) {
+      _ensureQuickPickAvailability(refreshedServices, forceRefresh: true);
+    }
   }
 
-  Widget _quickCategories(
-    List<dynamic> categories, {
-    required Future<void> Function() onRetry,
-    required bool isLoading,
-    required bool hasResolved,
-  }) {
+  Widget _quickCategories(HomeCollectionState categoriesState) {
     final colors = Theme.of(context).fx;
-    if (isLoading || (!hasResolved && categories.isEmpty)) {
+    final categories = categoriesState.items;
+    if (categoriesState.isInitialLoading) {
       return const PopularSubcategoriesSkeleton();
     }
     if (categories.isEmpty) {
-      if (kDebugMode) {
-        debugPrint('Dashboard: categories response empty, showing empty state');
+      if (categoriesState.isOfflineState) {
+        return const _OfflineState(
+          message: 'You are offline.',
+          detail: 'Popular categories will refresh automatically.',
+          compact: true,
+        );
+      }
+      if (categoriesState.isFailureState) {
+        return _ErrorState(
+          message: 'We could not refresh categories right now.',
+          detail: categoriesState.error?.userMessage,
+          onRetry: _refreshDashboard,
+          compact: true,
+        );
       }
       return _EmptyState(
         message: 'No categories available right now',
-        detail: 'We\'ll refresh in a moment.',
-        onRetry: onRetry,
+        detail: 'We will keep checking in the background.',
+        onRetry: _refreshDashboard,
         compact: true,
       );
     }
@@ -595,21 +611,31 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _serviceSpotlight(
-    List<dynamic> services, {
-    required Future<void> Function() onRetry,
-  }) {
+    HomeCollectionState servicesState,
+  ) {
     final colors = Theme.of(context).fx;
-    final cached = _servicesRepo?.getCachedServices() ?? const <dynamic>[];
-    final source = cached.isNotEmpty ? cached : services;
+    final source = servicesState.items;
     _scheduleQuickPickAvailability(source);
     if (source.isEmpty) {
-      if (kDebugMode) {
-        debugPrint('Dashboard: services response empty, showing empty state');
+      if (servicesState.isOfflineState) {
+        return const _OfflineState(
+          message: 'You are offline.',
+          detail: 'Quick picks will refresh automatically once you reconnect.',
+          compact: true,
+        );
+      }
+      if (servicesState.isFailureState) {
+        return _ErrorState(
+          message: 'We could not refresh services right now.',
+          detail: servicesState.error?.userMessage,
+          onRetry: _refreshDashboard,
+          compact: true,
+        );
       }
       return _EmptyState(
         message: 'No services available right now',
-        detail: 'Try again in a bit or refresh now.',
-        onRetry: onRetry,
+        detail: 'We will keep checking in the background.',
+        onRetry: _refreshDashboard,
         compact: true,
       );
     }
@@ -651,17 +677,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           final subtitle =
               category ?? (desc.isEmpty ? 'Tap to book quickly' : desc);
           final image = Api.resolveImageUrl(map['image'] ?? map['icon']);
-          final id = _serviceId(map);
-          final availability =
-              _quickPickAvailability[id] ?? FixerAvailability.unknown;
+          final availability = _displayAvailabilityForService(map);
+          final fixerCount = _cachedAvailabilityCount(map);
           return GestureDetector(
             onTap: () async {
               if (map.isEmpty) {
                 await _openBookingSheet();
                 return;
-              }
-              if (availability == FixerAvailability.checking) {
-                AppSnack.show('Checking fixer availability...');
               }
               await _openServiceWithAvailabilityGuard(map);
             },
@@ -724,8 +746,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _AvailabilityPill(availability: availability),
-                  const SizedBox(width: 8),
+                  _AvailabilityPill(
+                    availability: availability,
+                    fixerCount: fixerCount,
+                  ),
+                  if (availability != FixerAvailability.unknown &&
+                      availability != FixerAvailability.checking)
+                    const SizedBox(width: 8),
                   Icon(Icons.chevron_right_rounded, color: colors.textMuted),
                 ],
               ),
@@ -869,8 +896,12 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         final dashboardAsync = ref.watch(dashboardControllerProvider);
         final state = dashboardAsync.value ?? const DashboardState();
+        final catalogState = ref.watch(homeCatalogControllerProvider);
         final isInitialLoading =
-            dashboardAsync.isLoading && dashboardAsync.value == null;
+            dashboardAsync.isLoading &&
+            dashboardAsync.value == null &&
+            !catalogState.categories.hasData &&
+            !catalogState.services.hasData;
         final errorText =
             state.error ??
             dashboardAsync.whenOrNull(error: (err, _) => err.toString());
@@ -890,7 +921,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           );
         }
 
-        _ensureServicesRepo(ref);
+        _ensureAvailabilityResolver(ref);
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: AppTheme.systemOverlayStyle(context),
           child: Scaffold(
@@ -903,9 +934,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   _buildHomeTab(
                     state: state,
                     profile: profileState,
+                    catalog: catalogState,
                     isInitialLoading: isInitialLoading,
                     errorText: errorText,
-                    onRetry: _refreshDashboard,
                   ),
                   const MyBookingScreen(),
                   const FavoritesScreen(),
@@ -922,18 +953,20 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildHomeTab({
     required DashboardState state,
     required ProfileState? profile,
+    required HomeCatalogState catalog,
     required bool isInitialLoading,
     required String? errorText,
-    required Future<void> Function() onRetry,
   }) {
     if (isInitialLoading) {
       return const DashboardSkeleton();
     }
-    if (errorText != null) {
+    if (errorText != null &&
+        !catalog.categories.hasData &&
+        !catalog.services.hasData) {
       return _ErrorState(
         message: 'We couldn\'t load the dashboard right now.',
         detail: errorText,
-        onRetry: onRetry,
+        onRetry: _refreshDashboard,
       );
     }
     return SingleChildScrollView(
@@ -945,16 +978,11 @@ class _DashboardScreenState extends State<DashboardScreen>
           const SizedBox(height: 16),
           _bookingHero(),
           const SizedBox(height: 20),
-          _searchField(state.categories),
+          _searchField(catalog.categories.items),
           const SizedBox(height: 20),
-          _quickCategories(
-            state.categories,
-            onRetry: onRetry,
-            isLoading: state.areCategoriesLoading,
-            hasResolved: state.hasResolvedCategories,
-          ),
+          _quickCategories(catalog.categories),
           const SizedBox(height: 24),
-          _serviceSpotlight(state.services, onRetry: onRetry),
+          _serviceSpotlight(catalog.services),
         ],
       ),
     );
@@ -1043,6 +1071,64 @@ class _EmptyState extends _ErrorState {
     required super.onRetry,
     super.compact = true,
   });
+}
+
+class _OfflineState extends StatelessWidget {
+  const _OfflineState({
+    required this.message,
+    required this.detail,
+    this.compact = false,
+  });
+
+  final String message;
+  final String detail;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).fx;
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.wifi_off_rounded, size: 44, color: colors.textMuted),
+        const SizedBox(height: 14),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.urbanist(
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          detail,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.urbanist(color: colors.textSecondary),
+        ),
+      ],
+    );
+
+    if (compact) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.surfaceTint,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: colors.brand.withValues(alpha: 0.12)),
+        ),
+        child: content,
+      );
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: content,
+      ),
+    );
+  }
 }
 
 class _InactiveAccountView extends StatelessWidget {
@@ -1140,10 +1226,20 @@ class _InactiveAccountView extends StatelessWidget {
 
 class _AvailabilityPill extends StatelessWidget {
   final FixerAvailability availability;
-  const _AvailabilityPill({required this.availability});
+  final int? fixerCount;
+
+  const _AvailabilityPill({
+    required this.availability,
+    this.fixerCount,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (availability == FixerAvailability.unknown ||
+        availability == FixerAvailability.checking) {
+      return const SizedBox.shrink();
+    }
+
     final colors = Theme.of(context).fx;
     late final Color bg;
     late final Color text;
@@ -1163,17 +1259,8 @@ class _AvailabilityPill extends StatelessWidget {
         icon = Icons.warning_amber_rounded;
         break;
       case FixerAvailability.checking:
-        bg = colors.surfaceSubtle;
-        text = colors.textMuted;
-        label = 'Checking...';
-        icon = Icons.more_horiz_rounded;
-        break;
       case FixerAvailability.unknown:
-        bg = colors.surfaceSubtle;
-        text = colors.textMuted;
-        label = 'Checking...';
-        icon = Icons.more_horiz_rounded;
-        break;
+        return const SizedBox.shrink();
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),

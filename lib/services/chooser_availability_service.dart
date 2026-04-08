@@ -75,7 +75,8 @@ class FixerAvailabilityResolver {
   final HomeService _homeService;
   final Map<String, _AvailabilityCacheEntry> _cache =
       <String, _AvailabilityCacheEntry>{};
-  final Map<String, Future<int>> _inflightByService = <String, Future<int>>{};
+  final Map<String, Future<int?>> _inflightByService =
+      <String, Future<int?>>{};
 
   DateTime? _fixersFetchedAt;
   List<dynamic>? _fixersCache;
@@ -201,7 +202,10 @@ class FixerAvailabilityResolver {
     }
   }
 
-  FixerAvailability stateForService(Map<dynamic, dynamic> service) {
+  FixerAvailability stateForService(
+    Map<dynamic, dynamic> service, {
+    bool allowStale = false,
+  }) {
     final id = _extractServiceId(service);
     if (id == null || id.isEmpty) return FixerAvailability.unknown;
     final entry = _cache[id];
@@ -211,19 +215,46 @@ class FixerAvailabilityResolver {
     if (_inflightByService.containsKey(id)) {
       return FixerAvailability.checking;
     }
+    if (allowStale && entry != null) {
+      return entry.state;
+    }
     return FixerAvailability.unknown;
   }
 
   Map<String, FixerAvailability> stateForServices(
-    List<Map<String, dynamic>> services,
+    List<Map<String, dynamic>> services, {
+    bool allowStale = false,
+  }
   ) {
     final out = <String, FixerAvailability>{};
     for (final service in services) {
       final id = _extractServiceId(service);
       if (id == null || id.isEmpty) continue;
-      out[id] = stateForService(service);
+      out[id] = stateForService(service, allowStale: allowStale);
     }
     return out;
+  }
+
+  bool needsRefreshForService(Map<dynamic, dynamic> service) {
+    final id = _extractServiceId(service);
+    if (id == null || id.isEmpty) return false;
+    final entry = _cache[id];
+    if (entry == null) return true;
+    return !_hasFreshAvailability(entry);
+  }
+
+  int? eligibleFixerCountForService(
+    Map<dynamic, dynamic> service, {
+    bool allowStale = true,
+  }) {
+    final id = _extractServiceId(service);
+    if (id == null || id.isEmpty) return null;
+    final entry = _cache[id];
+    if (entry == null) return null;
+    if (allowStale || _hasFreshAvailability(entry)) {
+      return entry.eligibleFixerCount;
+    }
+    return null;
   }
 
   Future<Map<String, FixerAvailability>> verifyServices(
@@ -266,20 +297,13 @@ class FixerAvailabilityResolver {
               source: source,
             ).timeout(_verifyTimeout);
           } catch (error, stackTrace) {
-            if (id.isNotEmpty) {
-              _cache[id] = _AvailabilityCacheEntry(
-                state: FixerAvailability.none,
-                eligibleFixerCount: 0,
-                verifiedAt: DateTime.now(),
-              );
-            }
             assert(() {
               debugPrint(
                 'FixerAvailabilityResolver[$source] verify failed service_id=$id error=$error stack=$stackTrace',
               );
               return true;
             }());
-            return FixerAvailability.none;
+            return FixerAvailability.unknown;
           }
         }),
       );
@@ -306,6 +330,7 @@ class FixerAvailabilityResolver {
     final inflight = _inflightByService[id];
     if (!forceRefresh && inflight != null) {
       final count = await inflight;
+      if (count == null) return FixerAvailability.unknown;
       return count > 0 ? FixerAvailability.available : FixerAvailability.none;
     }
 
@@ -319,21 +344,29 @@ class FixerAvailabilityResolver {
     }
     try {
       final count = await future;
+      if (count == null) return FixerAvailability.unknown;
       return count > 0 ? FixerAvailability.available : FixerAvailability.none;
     } finally {
       if (!forceRefresh) {
-        _inflightByService.remove(id);
+        final discarded = _inflightByService.remove(id);
+        if (discarded != null) {
+          // The original future has already completed; this keeps the lint happy.
+        }
       }
     }
   }
 
-  Future<int> fetchEligibleFixerCount(
+  Future<int?> fetchEligibleFixerCount(
     Map<String, dynamic> service, {
     bool forceRefresh = false,
     String source = 'unknown',
   }) async {
     final id = _extractServiceId(service);
-    if (id == null || id.isEmpty) return 0;
+    if (id == null || id.isEmpty) return null;
+    final cached = _cache[id];
+    if (!forceRefresh && cached != null && _hasFreshAvailability(cached)) {
+      return cached.eligibleFixerCount;
+    }
     final startedAt = DateTime.now();
     List<dynamic> fixers;
     try {
@@ -341,13 +374,13 @@ class FixerAvailabilityResolver {
         forceRefresh: forceRefresh,
       ).timeout(_verifyTimeout);
     } catch (error, stackTrace) {
-      fixers = const <dynamic>[];
       assert(() {
         debugPrint(
           'FixerAvailabilityResolver[$source] load fixers failed service_id=$id error=$error stack=$stackTrace',
         );
         return true;
       }());
+      return cached?.eligibleFixerCount;
     }
     final pickerListLength = fixers.whereType<Map>().length;
     final eligibleCount = _eligibleFixerCount(service, fixers);

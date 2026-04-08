@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:fixitzed_app/core/api.dart';
 import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/services/token_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class HomeService {
@@ -11,6 +11,7 @@ class HomeService {
   static DateTime? _servicesCacheFetchedAt;
   static Future<List<dynamic>>? _servicesCacheFuture;
   static const Duration _servicesCacheTtl = Duration(minutes: 30);
+  static const Duration _requestTimeout = Duration(seconds: 15);
 
   Map<String, String> _headers({String? token}) => {
     'Accept': 'application/json',
@@ -69,16 +70,16 @@ class HomeService {
 
   Future<List<dynamic>> fetchCategories() async {
     try {
-      final res = await http.get(
-        _uri('categories', {'per_page': 100}),
-        headers: _headers(),
-      );
+      final res = await http
+          .get(_uri('categories', {'per_page': 100}), headers: _headers())
+          .timeout(_requestTimeout);
       await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = _extractList(data);
-        if (list.isNotEmpty) return list;
+        return list;
       }
+      throw Exception('categories_http_${res.statusCode}');
     } catch (_) {}
     // Fallback: derive categories from services to keep UI alive when endpoint is empty.
     try {
@@ -106,19 +107,15 @@ class HomeService {
     if (categoryId != null) {
       query['category_id'] = categoryId;
     }
-    try {
-      final res = await http.get(
-        _uri('subcategories', query),
-        headers: _headers(),
-      );
-      await SessionGuard.evaluate(res);
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final list = _extractList(data);
-        if (list.isNotEmpty) return list;
-      }
-    } catch (_) {}
-    return [];
+    final res = await http
+        .get(_uri('subcategories', query), headers: _headers())
+        .timeout(_requestTimeout);
+    await SessionGuard.evaluate(res);
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      return _extractList(data);
+    }
+    throw Exception('subcategories_http_${res.statusCode}');
   }
 
   int? _parseReadyFixersCount(dynamic value) {
@@ -233,10 +230,9 @@ class HomeService {
 
     Future<List<dynamic>> load() async {
       try {
-        final res = await http.get(
-          _uri('services', {'per_page': 50}),
-          headers: _headers(),
-        );
+        final res = await http
+            .get(_uri('services', {'per_page': 50}), headers: _headers())
+            .timeout(_requestTimeout);
         await SessionGuard.evaluate(res);
         final status = res.statusCode;
         final body = res.body;
@@ -305,41 +301,59 @@ class HomeService {
 
   Future<List<dynamic>> _fetchTopFixersRaw({int limit = 10}) async {
     try {
-      final res = await http.get(
-        _uri('fixers/top', {'limit': limit}),
-        headers: _headers(),
-      );
+      final res = await http
+          .get(_uri('fixers/top', {'limit': limit}), headers: _headers())
+          .timeout(_requestTimeout);
       await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = _extractList(data);
-        if (list.isNotEmpty) return list;
+        return list;
       }
     } catch (_) {}
     return [];
   }
 
   Future<List<dynamic>> _fetchAllFixersRaw() async {
-    try {
-      final res = await http.get(_uri('fixers'), headers: _headers());
+    Object? lastError;
+    var primarySucceededEmpty = false;
+
+    Future<List<dynamic>> request(Uri uri, String label) async {
+      final res = await http.get(uri, headers: _headers()).timeout(
+        _requestTimeout,
+      );
       await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final list = _extractList(data);
-        if (list.isNotEmpty) return list;
+        return _extractList(data);
       }
-      final res2 = await http.get(
+      throw Exception('${label}_http_${res.statusCode}');
+    }
+
+    try {
+      final primary = await request(_uri('fixers'), 'fixers');
+      if (primary.isNotEmpty) {
+        return primary;
+      }
+      primarySucceededEmpty = true;
+    } catch (error) {
+      lastError = error;
+    }
+
+    try {
+      final secondary = await request(
         _uri('users', {'role': 'fixer'}),
-        headers: _headers(),
+        'users_fixers',
       );
-      await SessionGuard.evaluate(res2);
-      if (res2.statusCode == 200) {
-        final data = jsonDecode(res2.body);
-        final list = _extractList(data);
-        if (list.isNotEmpty) return list;
+      return secondary;
+    } catch (error) {
+      if (primarySucceededEmpty) {
+        return [];
       }
-    } catch (_) {}
-    return [];
+      lastError = error;
+    }
+
+    throw lastError;
   }
 
   Map<String, dynamic>? _normalizeMap(dynamic value) {
@@ -530,8 +544,9 @@ class HomeService {
         if (id != null) return 'id:$id';
         final name = (m['name'] ?? m['full_name'] ?? m['display_name'])
             ?.toString();
-        if (name != null && name.isNotEmpty)
+        if (name != null && name.isNotEmpty) {
           return 'name:${name.toLowerCase()}';
+        }
         return null;
       }
 

@@ -1,75 +1,72 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:fixitzed_app/core/app_theme.dart';
-import 'package:fixitzed_app/repositories/categories_repository.dart';
-import 'package:fixitzed_app/repositories/services_repository.dart';
-import 'package:fixitzed_app/state/service_providers.dart';
-import 'package:fixitzed_app/repositories/favorites_repository.dart';
-import 'package:fixitzed_app/services/chooser_availability_service.dart';
-import 'package:fixitzed_app/utils/service_utils.dart';
-import 'package:fixitzed_app/widgets/skeletons.dart';
-import 'package:fixitzed_app/screens/widgets/service_list_tile.dart';
-import 'package:fixitzed_app/utils/app_snack.dart';
-import 'package:fixitzed_app/widgets/auth_required.dart';
 
-class ServicesListScreen extends StatefulWidget {
+import 'package:fixitzed_app/core/app_theme.dart';
+import 'package:fixitzed_app/repositories/favorites_repository.dart';
+import 'package:fixitzed_app/screens/widgets/service_list_tile.dart';
+import 'package:fixitzed_app/services/chooser_availability_service.dart';
+import 'package:fixitzed_app/state/home_catalog_controller.dart';
+import 'package:fixitzed_app/state/service_providers.dart';
+import 'package:fixitzed_app/utils/app_snack.dart';
+import 'package:fixitzed_app/utils/home_flow_log.dart';
+import 'package:fixitzed_app/utils/service_utils.dart';
+import 'package:fixitzed_app/widgets/auth_required.dart';
+import 'package:fixitzed_app/widgets/skeletons.dart';
+
+class ServicesListScreen extends ConsumerStatefulWidget {
   const ServicesListScreen({super.key});
 
   @override
-  State<ServicesListScreen> createState() => _ServicesListScreenState();
+  ConsumerState<ServicesListScreen> createState() => _ServicesListScreenState();
 }
 
-class _ServicesListScreenState extends State<ServicesListScreen>
+class _ServicesListScreenState extends ConsumerState<ServicesListScreen>
     with WidgetsBindingObserver {
-  late final ServicesRepository _servicesRepository;
-  late final CategoriesRepository _categoriesRepository;
   late final FavoritesRepository _favoritesRepository;
-  late final ProviderContainer _container;
+  late final FixerAvailabilityResolver _availabilityResolver;
   late final TextEditingController _searchCtrl;
-  bool _loading = true;
-  List<Map<String, dynamic>> _allServices = const <Map<String, dynamic>>[];
-  List<Map<String, dynamic>> _services = const <Map<String, dynamic>>[];
-  Set<String> _fav = {};
-  final FixerAvailabilityResolver _availabilityResolver =
-      FixerAvailabilityResolver();
+  late final VoidCallback _favListener;
+
+  Set<String> _fav = <String>{};
   Map<String, FixerAvailability> _availabilityByServiceId =
       const <String, FixerAvailability>{};
   String _availabilityCacheKey = '';
   bool _resolvingAvailability = false;
+  bool _availabilityFrameScheduled = false;
+  List<Map<String, dynamic>>? _pendingAvailabilityServices;
+  bool _pendingAvailabilityForceRefresh = false;
   Map<String, dynamic>? _category;
   String? _categoryName;
-  bool _initialized = false;
   String _searchTerm = '';
-  List<Map<String, dynamic>> _categoryOptions = const <Map<String, dynamic>>[];
-  late final VoidCallback _favListener;
+  bool _initialized = false;
+  List<Map<String, dynamic>> _categoryOptionsFromArgs =
+      const <Map<String, dynamic>>[];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _container = ProviderScope.containerOf(context, listen: false);
-    _servicesRepository = _container.read(servicesRepositoryProvider);
-    _categoriesRepository = _container.read(categoriesRepositoryProvider);
-    _favoritesRepository = _container.read(favoritesRepositoryProvider);
+    _favoritesRepository = ref.read(favoritesRepositoryProvider);
+    _availabilityResolver = ref.read(fixerAvailabilityResolverProvider);
     _searchCtrl = TextEditingController();
-    _categoryOptions = const <Map<String, dynamic>>[];
+    _fav = _favoritesRepository.ids;
     _favListener = () {
       if (!mounted) return;
-      setState(() {
-        _fav = _favoritesRepository.ids;
-      });
+      setState(() => _fav = _favoritesRepository.ids);
     };
     _favoritesRepository.addListener(_favListener);
+    HomeFlowLog.log('services_screen', 'screen_entry');
+    unawaited(_syncFavorites());
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_initialized) return;
+
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is Map) {
       if (args.containsKey('category') ||
@@ -77,11 +74,6 @@ class _ServicesListScreenState extends State<ServicesListScreen>
           args.containsKey('categories')) {
         final rawCategory = args['category'];
         if (rawCategory is Map) {
-          _category = Map<String, dynamic>.from(rawCategory);
-          _categoryName =
-              (_category!['name'] ?? _category!['title'] ?? 'Services')
-                  .toString();
-        } else if (rawCategory is Map<String, dynamic>) {
           _category = Map<String, dynamic>.from(rawCategory);
           _categoryName =
               (_category!['name'] ?? _category!['title'] ?? 'Services')
@@ -96,7 +88,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
 
         final categories = args['categories'];
         if (categories is List) {
-          _categoryOptions = categories
+          _categoryOptionsFromArgs = categories
               .whereType<Map>()
               .map<Map<String, dynamic>>(
                 (e) => e.map((key, value) => MapEntry(key.toString(), value)),
@@ -110,101 +102,44 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                 .toString();
       }
     }
+
     _categoryName ??= 'Services';
     _initialized = true;
-    _primeFromCache();
-    unawaited(_load());
+    unawaited(
+      ref.read(homeCatalogControllerProvider.notifier).ensureLoaded(
+        reason: 'services_screen_open',
+      ),
+    );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _searchCtrl.dispose();
     _favoritesRepository.removeListener(_favListener);
+    _searchCtrl.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _availabilityResolver.invalidateCache();
-      _availabilityCacheKey = '';
-      if (_allServices.isNotEmpty) {
-        _ensureChooserAvailability(_allServices, forceRefresh: true);
-      }
-    }
-  }
+    if (state != AppLifecycleState.resumed) return;
 
-  Future<void> _load({bool forceRefresh = false}) async {
-    if (forceRefresh) {
-      _availabilityResolver.invalidateCache();
-      _availabilityCacheKey = '';
-    }
-    if (mounted && _services.isEmpty) {
-      setState(() {
-        _loading = true;
-      });
-    }
-    final data = await _servicesRepository.getServices(
-      forceRefresh: forceRefresh,
+    unawaited(
+      ref.read(homeCatalogControllerProvider.notifier).handleAppResumed(),
     );
-    final fav = await isAuthenticated()
-        ? await _favoritesRepository.getFavoriteIds()
-        : <String>{};
-    if (!mounted) return;
-    final services = data
-        .whereType<Map>()
-        .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
-        .toList();
-
-    for (final service in services) {
-      final sub = service['subcategory'];
-      if (sub is Map) {
-        final subId = sub['id'];
-        final subName = sub['name'] ?? sub['title'];
-        service.putIfAbsent('subcategory_id', () => subId);
-        if (subName is String && subName.trim().isNotEmpty) {
-          service.putIfAbsent('subcategory_name', () => subName.trim());
-        }
-      }
+    final services = _normalizedServices(
+      ref.read(homeCatalogControllerProvider).services.items,
+    );
+    if (services.isNotEmpty) {
+      _ensureChooserAvailability(services);
     }
-
-    setState(() {
-      _allServices = services;
-      _fav = fav;
-      if (_categoryOptions.isEmpty) {
-        _categoryOptions = _deriveCategoryOptions(services);
-      }
-    });
-    _ensureChooserAvailability(services, forceRefresh: forceRefresh);
-    _applyFilters();
   }
 
-  void _primeFromCache() {
-    final cachedServices = _servicesRepository.cached ?? const <dynamic>[];
-    if (cachedServices.isNotEmpty) {
-      final services = cachedServices
-          .whereType<Map>()
-          .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
-          .toList();
-      _allServices = services;
-      _services = services;
-      if (_categoryOptions.isEmpty) {
-        _categoryOptions = _deriveCategoryOptions(services);
-      }
-      _ensureChooserAvailability(services);
-      _loading = false;
-    }
-    if (_categoryOptions.isEmpty) {
-      final cachedCategories =
-          _categoriesRepository.cachedSubcategories ?? const <dynamic>[];
-      _categoryOptions = cachedCategories
-          .whereType<Map>()
-          .map<Map<String, dynamic>>(
-            (e) => e.map((key, value) => MapEntry(key.toString(), value)),
-          )
-          .toList();
-    }
+  Future<void> _syncFavorites() async {
+    if (!await isAuthenticated()) return;
+    final fav = await _favoritesRepository.getFavoriteIds();
+    if (!mounted) return;
+    setState(() => _fav = fav);
   }
 
   int? _extractSubcategoryId(Map source) {
@@ -230,275 +165,31 @@ class _ServicesListScreenState extends State<ServicesListScreen>
     return aName == bName;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-        title: Text(
-          _categoryName ?? 'Services',
-          style: GoogleFonts.urbanist(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        centerTitle: true,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(68),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    textInputAction: TextInputAction.search,
-                    onChanged: (value) {
-                      _searchTerm = value.trim();
-                      _applyFilters();
-                    },
-                    onSubmitted: (_) => _applyFilters(),
-                    decoration: InputDecoration(
-                      hintText: 'Search services',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      suffixIcon: _searchTerm.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.close_rounded),
-                              tooltip: 'Clear search',
-                              onPressed: () {
-                                if (_searchTerm.isEmpty) return;
-                                _searchCtrl.clear();
-                                FocusScope.of(context).unfocus();
-                                setState(() {
-                                  _searchTerm = '';
-                                });
-                                _applyFilters();
-                              },
-                            ),
-                      filled: true,
-                      fillColor: Theme.of(context).cardColor,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _FilterButton(onTap: _openFilterSheet),
-              ],
-            ),
-          ),
-        ),
-      ),
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: RefreshIndicator(
-        onRefresh: () => _load(forceRefresh: true),
-        child: _loading
-            ? const ServicesListSkeleton()
-            : _services.isEmpty
-            ? _EmptyServicesState(
-                searchQuery: _searchTerm,
-                categoryLabel: _categoryName,
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                itemCount: _services.length,
-                itemBuilder: (ctx, i) {
-                  final s = _services[i];
-                  final canonicalId = _serviceIdFromMap(s);
-                  final id = canonicalId.isNotEmpty
-                      ? canonicalId
-                      : serviceId(s, fallbackIndex: i);
-                  final title = (s['name'] ?? s['title'] ?? 'Service')
-                      .toString();
-                  final description = (s['description'] ?? s['summary'] ?? '')
-                      .toString()
-                      .trim();
-                  final category = serviceCategoryLabel(s);
-                  final subtitle =
-                      category ??
-                      (description.isEmpty
-                          ? 'Tap to book quickly'
-                          : description);
-                  final img = (s['image'] ?? s['image_url'] ?? '').toString();
-                  final liked = _fav.contains(id);
-                  final availability = _availabilityForService(s, id);
-                  final colors = Theme.of(context).fx;
-                  return GestureDetector(
-                    onTap: () async {
-                      if (availability == ServiceAvailability.unknown) {
-                        AppSnack.show('Checking fixer availability...');
-                      }
-                      if (availability == ServiceAvailability.unavailable) {
-                        AppSnack.show(
-                          'No fixers available for this service right now.',
-                          actionLabel: 'Browse',
-                          onAction: () => AppSnack
-                              .scaffoldMessengerKey
-                              .currentState
-                              ?.hideCurrentSnackBar(),
-                        );
-                        return;
-                      }
-                      await _openServiceWithAvailabilityGuard(s, id: id);
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceSubtle,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: img.isNotEmpty
-                                ? Image(
-                                    image: img.startsWith('http')
-                                        ? NetworkImage(img) as ImageProvider
-                                        : AssetImage(img),
-                                    width: 56,
-                                    height: 56,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Container(
-                                    width: 56,
-                                    height: 56,
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: colors.surfaceRaised,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      Icons.handyman_rounded,
-                                      color: colors.textMuted,
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            title,
-                                            style: GoogleFonts.urbanist(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          if (subtitle.isNotEmpty)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                top: 4,
-                                                right: 8,
-                                              ),
-                                              child: Text(
-                                                subtitle,
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: GoogleFonts.urbanist(
-                                                  color: colors.textSecondary,
-                                                ),
-                                              ),
-                                            ),
-                                          const SizedBox(height: 8),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    _AvailabilityPill(
-                                      availability: availability,
-                                    ),
-                                    IconButton(
-                                      icon: Icon(
-                                        liked
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
-                                        color: liked
-                                            ? colors.danger
-                                            : colors.textMuted,
-                                      ),
-                                      onPressed: () async {
-                                        final allowed = await ensureAuthenticated(
-                                          context,
-                                          title: 'Sign in to save favorites',
-                                          message:
-                                              'You can browse every service as a guest. Sign in to keep a personal favorites list.',
-                                          actionLabel: 'Save favorites',
-                                        );
-                                        if (!allowed || !mounted) return;
+  List<Map<String, dynamic>> _normalizedServices(List<dynamic> rawServices) {
+    final services = rawServices
+        .whereType<Map>()
+        .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+        .toList();
 
-                                        final previous = Set<String>.from(_fav);
-                                        final optimistic = Set<String>.from(
-                                          _fav,
-                                        );
-                                        if (optimistic.contains(id)) {
-                                          optimistic.remove(id);
-                                        } else {
-                                          optimistic.add(id);
-                                        }
-                                        if (mounted) {
-                                          setState(() => _fav = optimistic);
-                                        }
-                                        try {
-                                          await _favoritesRepository.toggle(id);
-                                          if (!mounted) return;
-                                          setState(
-                                            () =>
-                                                _fav = _favoritesRepository.ids,
-                                          );
-                                        } catch (_) {
-                                          if (!mounted) return;
-                                          setState(() => _fav = previous);
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Could not update favorites right now.',
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-      ),
-    );
+    for (final service in services) {
+      final sub = service['subcategory'];
+      if (sub is Map) {
+        final subId = sub['id'];
+        final subName = sub['name'] ?? sub['title'];
+        service.putIfAbsent('subcategory_id', () => subId);
+        if (subName is String && subName.trim().isNotEmpty) {
+          service.putIfAbsent('subcategory_name', () => subName.trim());
+        }
+      }
+    }
+
+    return services;
   }
 
-  void _applyFilters() {
-    var filtered = List<Map<String, dynamic>>.from(_allServices);
+  List<Map<String, dynamic>> _filteredServices(
+    List<Map<String, dynamic>> services,
+  ) {
+    var filtered = List<Map<String, dynamic>>.from(services);
 
     if (_category != null) {
       final targetId = _extractSubcategoryId(_category!);
@@ -557,50 +248,28 @@ class _ServicesListScreenState extends State<ServicesListScreen>
       }).toList();
     }
 
-    setState(() {
-      _services = filtered;
-      _loading = false;
-    });
+    return filtered;
   }
 
-  List<Map<String, dynamic>> _deriveCategoryOptions(
+  List<Map<String, dynamic>> _resolvedCategoryOptions(
+    HomeCatalogState catalog,
     List<Map<String, dynamic>> services,
   ) {
-    final seen = <String>{};
-    final options = <Map<String, dynamic>>[];
-    for (final service in services) {
-      Map<String, dynamic>? subcategory;
-      final rawSubcategory = service['subcategory'];
-      if (rawSubcategory is Map) {
-        subcategory = rawSubcategory.map(
-          (key, value) => MapEntry(key.toString(), value),
-        );
-      } else {
-        final id = service['subcategory_id'] ?? service['subcategoryId'];
-        final name = (service['subcategory_name'] ?? '').toString();
-        if (id != null || name.isNotEmpty) {
-          subcategory = {
-            if (id != null) 'id': id,
-            'name': name.isNotEmpty ? name : 'Subcategory',
-          };
-        }
-      }
-      if (subcategory == null) continue;
-      final key =
-          '${subcategory['id'] ?? ''}-${(subcategory['name'] ?? '').toString().toLowerCase()}';
-      if (seen.add(key)) {
-        options.add(subcategory);
-      }
+    if (_categoryOptionsFromArgs.isNotEmpty) {
+      return List<Map<String, dynamic>>.from(_categoryOptionsFromArgs);
     }
-    return options;
-  }
 
-  String _safeJson(dynamic value) {
-    try {
-      return jsonEncode(value);
-    } catch (_) {
-      return value.toString();
+    final catalogOptions = catalog.categories.items
+        .whereType<Map>()
+        .map<Map<String, dynamic>>(
+          (e) => e.map((key, value) => MapEntry(key.toString(), value)),
+        )
+        .toList();
+    if (catalogOptions.isNotEmpty) {
+      return catalogOptions;
     }
+
+    return deriveSubcategoryOptions(services);
   }
 
   String _serviceIdFromMap(Map<dynamic, dynamic> service) {
@@ -642,21 +311,21 @@ class _ServicesListScreenState extends State<ServicesListScreen>
     bool forceRefresh = false,
   }) {
     if (services.isEmpty) return;
+
     final key = _availabilityKey(services);
-    final hasUnresolved = services.any((service) {
-      final id = _serviceIdFromMap(service);
-      if (id.isEmpty) return false;
-      final state = _availabilityByServiceId[id] ?? FixerAvailability.unknown;
-      return state == FixerAvailability.unknown ||
-          state == FixerAvailability.checking;
-    });
+    final needsRefresh =
+        forceRefresh || services.any(_availabilityResolver.needsRefreshForService);
     if (!forceRefresh &&
         key == _availabilityCacheKey &&
-        (_resolvingAvailability || !hasUnresolved)) {
+        (_resolvingAvailability || !needsRefresh)) {
       return;
     }
+
     _availabilityCacheKey = key;
-    final snapshot = _availabilityResolver.stateForServices(services);
+    final snapshot = _availabilityResolver.stateForServices(
+      services,
+      allowStale: true,
+    );
     if (mounted) {
       setState(() {
         _availabilityByServiceId = <String, FixerAvailability>{
@@ -665,6 +334,7 @@ class _ServicesListScreenState extends State<ServicesListScreen>
         };
       });
     }
+
     unawaited(
       _resolveChooserAvailability(
         services,
@@ -672,6 +342,27 @@ class _ServicesListScreenState extends State<ServicesListScreen>
         forceRefresh: forceRefresh,
       ),
     );
+  }
+
+  void _scheduleChooserAvailability(
+    List<Map<String, dynamic>> services, {
+    bool forceRefresh = false,
+  }) {
+    _pendingAvailabilityServices = services;
+    _pendingAvailabilityForceRefresh =
+        _pendingAvailabilityForceRefresh || forceRefresh;
+    if (_availabilityFrameScheduled) return;
+    _availabilityFrameScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _availabilityFrameScheduled = false;
+      if (!mounted) return;
+      final pending = _pendingAvailabilityServices;
+      final pendingForceRefresh = _pendingAvailabilityForceRefresh;
+      _pendingAvailabilityServices = null;
+      _pendingAvailabilityForceRefresh = false;
+      if (pending == null || pending.isEmpty) return;
+      _ensureChooserAvailability(pending, forceRefresh: pendingForceRefresh);
+    });
   }
 
   Future<void> _resolveChooserAvailability(
@@ -688,53 +379,13 @@ class _ServicesListScreenState extends State<ServicesListScreen>
         source: 'services_list',
       );
       if (!mounted || key != _availabilityCacheKey) return;
-      setState(() {
-        final merged = <String, FixerAvailability>{..._availabilityByServiceId};
-        availability.forEach((id, state) {
-          final current = merged[id];
-          if (!forceRefresh &&
-              current == FixerAvailability.none &&
-              state == FixerAvailability.available) {
-            return;
-          }
-          merged[id] = state;
-        });
-        _availabilityByServiceId = merged;
-      });
 
-      assert(() {
-        for (final service in services) {
-          final id = _serviceIdFromMap(service);
-          final name = (service['name'] ?? service['title'] ?? '')
-              .toString()
-              .toLowerCase();
-          if (id == '87' || name.contains('ac installation')) {
-            final result = availability[id] ?? FixerAvailability.unknown;
-            debugPrint(
-              'Services list availability service_id=$id result=$result raw=${_safeJson(service)}',
-            );
-          }
-        }
-        return true;
-      }());
-    } catch (error, stackTrace) {
-      if (!mounted || key != _availabilityCacheKey) return;
       setState(() {
-        final merged = <String, FixerAvailability>{..._availabilityByServiceId};
-        for (final service in services) {
-          final id = _serviceIdFromMap(service);
-          if (id.isEmpty) continue;
-          merged[id] = FixerAvailability.none;
-        }
-        _availabilityByServiceId = merged;
-        _availabilityCacheKey = '';
+        _availabilityByServiceId = <String, FixerAvailability>{
+          ..._availabilityByServiceId,
+          ...availability,
+        };
       });
-      assert(() {
-        debugPrint(
-          'Services list availability failed key=$key error=$error stack=$stackTrace',
-        );
-        return true;
-      }());
     } finally {
       _resolvingAvailability = false;
     }
@@ -744,25 +395,33 @@ class _ServicesListScreenState extends State<ServicesListScreen>
     Map<dynamic, dynamic> service,
     String id,
   ) {
-    final chooserAvailability = _availabilityByServiceId[id];
-    ServiceAvailability resolved = ServiceAvailability.unknown;
-    if (chooserAvailability == FixerAvailability.available) {
-      resolved = ServiceAvailability.available;
-    } else if (chooserAvailability == FixerAvailability.none) {
-      resolved = ServiceAvailability.unavailable;
+    final validatedCount = _availabilityResolver.eligibleFixerCountForService(
+      Map<String, dynamic>.from(service),
+      allowStale: true,
+    );
+    if (validatedCount != null) {
+      return validatedCount > 0
+          ? ServiceAvailability.available
+          : ServiceAvailability.unavailable;
     }
-    assert(() {
-      final name = (service['name'] ?? service['title'] ?? '')
-          .toString()
-          .toLowerCase();
-      if (id == '87' || name.contains('ac installation')) {
-        debugPrint(
-          'Services list rendered availability service_id=$id status=$resolved chooser_status=${chooserAvailability ?? FixerAvailability.unknown} raw=${_safeJson(service)}',
-        );
-      }
-      return true;
-    }());
-    return resolved;
+
+    final chooserAvailability =
+        _availabilityByServiceId[id] ??
+        _availabilityResolver.stateForService(service, allowStale: true);
+    if (chooserAvailability == FixerAvailability.available) {
+      return ServiceAvailability.available;
+    }
+    if (chooserAvailability == FixerAvailability.none) {
+      return ServiceAvailability.unavailable;
+    }
+    return ServiceAvailability.unknown;
+  }
+
+  int? _availabilityCountForService(Map<String, dynamic> service) {
+    return _availabilityResolver.eligibleFixerCountForService(
+      service,
+      allowStale: true,
+    );
   }
 
   Future<void> _openServiceWithAvailabilityGuard(
@@ -773,19 +432,24 @@ class _ServicesListScreenState extends State<ServicesListScreen>
       await showServiceDetailsSheet(context, service: service);
       return;
     }
+
     final before = _availabilityByServiceId[id] ?? FixerAvailability.unknown;
-    if (before == FixerAvailability.none) {
+    final needsRefresh = _availabilityResolver.needsRefreshForService(service);
+    if (before == FixerAvailability.none && !needsRefresh) {
       AppSnack.show('No fixers available for this service right now.');
       return;
     }
 
     final eligibleCount = await _availabilityResolver.fetchEligibleFixerCount(
       service,
-      forceRefresh: true,
+      forceRefresh: needsRefresh,
       source: 'services_list_tap_guard',
     );
     if (!mounted) return;
-    final after = eligibleCount > 0
+
+    final after = eligibleCount == null
+        ? FixerAvailability.unknown
+        : eligibleCount > 0
         ? FixerAvailability.available
         : FixerAvailability.none;
     setState(() {
@@ -795,29 +459,28 @@ class _ServicesListScreenState extends State<ServicesListScreen>
       };
     });
 
-    assert(() {
-      final name = (service['name'] ?? service['title'] ?? '')
-          .toString()
-          .toLowerCase();
-      if (id == '87' || name.contains('ac installation')) {
-        debugPrint(
-          'Services list tap guard service_id=$id before=$before after=$after eligible_fixers=$eligibleCount raw=${_safeJson(service)}',
-        );
-      }
-      return true;
-    }());
-
-    if (eligibleCount <= 0) {
+    if (eligibleCount != null && eligibleCount <= 0) {
       AppSnack.show('No fixers available for this service right now.');
       return;
     }
+
     await showServiceDetailsSheet(context, service: service);
   }
 
-  Future<void> _openFilterSheet() async {
-    final options = _categoryOptions.isNotEmpty
-        ? _categoryOptions
-        : _deriveCategoryOptions(_allServices);
+  Future<void> _manualRefresh() async {
+    HomeFlowLog.log('services_screen', 'manual_refresh');
+    await ref.read(homeCatalogControllerProvider.notifier).refresh(
+      reason: 'services_list_pull_to_refresh',
+    );
+    final refreshedServices = _normalizedServices(
+      ref.read(homeCatalogControllerProvider).services.items,
+    );
+    if (refreshedServices.isNotEmpty) {
+      _ensureChooserAvailability(refreshedServices, forceRefresh: true);
+    }
+  }
+
+  Future<void> _openFilterSheet(List<Map<String, dynamic>> options) async {
     final selection = await showModalBottomSheet<Map<String, dynamic>?>(
       context: context,
       backgroundColor: Theme.of(context).fx.surface,
@@ -929,37 +592,321 @@ class _ServicesListScreenState extends State<ServicesListScreen>
                 .toString();
       });
     }
-    _applyFilters();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final catalog = ref.watch(homeCatalogControllerProvider);
+    final services = _normalizedServices(catalog.services.items);
+    final filteredServices = _filteredServices(services);
+    final categoryOptions = _resolvedCategoryOptions(catalog, services);
+
+    if (services.isNotEmpty) {
+      _scheduleChooserAvailability(services);
+    }
+
+    final showInitialLoading =
+        catalog.services.isInitialLoading && services.isEmpty;
+    final showOffline = services.isEmpty && catalog.services.isOfflineState;
+    final showFailure = services.isEmpty && catalog.services.isFailureState;
+    final showBackendEmpty =
+        services.isEmpty &&
+        !showInitialLoading &&
+        !showOffline &&
+        !showFailure;
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+        title: Text(
+          _categoryName ?? 'Services',
+          style: GoogleFonts.urbanist(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(68),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    textInputAction: TextInputAction.search,
+                    onChanged: (value) {
+                      setState(() => _searchTerm = value.trim());
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search services',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _searchTerm.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              tooltip: 'Clear search',
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                FocusScope.of(context).unfocus();
+                                setState(() => _searchTerm = '');
+                              },
+                            ),
+                      filled: true,
+                      fillColor: Theme.of(context).cardColor,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _FilterButton(onTap: () => _openFilterSheet(categoryOptions)),
+              ],
+            ),
+          ),
+        ),
+      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: RefreshIndicator(
+        onRefresh: _manualRefresh,
+        child: showInitialLoading
+            ? const ServicesListSkeleton()
+            : showOffline
+            ? const _OfflineServicesState()
+            : showFailure
+            ? _FailureServicesState(
+                detail: catalog.services.error?.userMessage,
+                onRetry: _manualRefresh,
+              )
+            : showBackendEmpty
+            ? _EmptyServicesState(searchQuery: '', categoryLabel: _categoryName)
+            : filteredServices.isEmpty
+            ? _EmptyServicesState(
+                searchQuery: _searchTerm,
+                categoryLabel: _categoryName,
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                itemCount: filteredServices.length,
+                itemBuilder: (ctx, i) {
+                  final service = filteredServices[i];
+                  final canonicalId = _serviceIdFromMap(service);
+                  final id = canonicalId.isNotEmpty
+                      ? canonicalId
+                      : serviceId(service, fallbackIndex: i);
+                  final title = (service['name'] ?? service['title'] ?? 'Service')
+                      .toString();
+                  final description =
+                      (service['description'] ?? service['summary'] ?? '')
+                          .toString()
+                          .trim();
+                  final category = serviceCategoryLabel(service);
+                  final subtitle =
+                      category ??
+                      (description.isEmpty
+                          ? 'Tap to book quickly'
+                          : description);
+                  final img =
+                      (service['image'] ?? service['image_url'] ?? '').toString();
+                  final liked = _fav.contains(id);
+                  final availability = _availabilityForService(service, id);
+                  final availabilityCount =
+                      _availabilityCountForService(service);
+                  final colors = Theme.of(context).fx;
+
+                  return GestureDetector(
+                    onTap: () => _openServiceWithAvailabilityGuard(
+                      service,
+                      id: id,
+                    ),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceSubtle,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: img.isNotEmpty
+                                ? Image(
+                                    image: img.startsWith('http')
+                                        ? NetworkImage(img) as ImageProvider
+                                        : AssetImage(img),
+                                    width: 56,
+                                    height: 56,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Container(
+                                    width: 56,
+                                    height: 56,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: colors.surfaceRaised,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      Icons.handyman_rounded,
+                                      color: colors.textMuted,
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            title,
+                                            style: GoogleFonts.urbanist(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          if (subtitle.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 4,
+                                                right: 8,
+                                              ),
+                                              child: Text(
+                                                subtitle,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: GoogleFonts.urbanist(
+                                                  color: colors.textSecondary,
+                                                ),
+                                              ),
+                                            ),
+                                          const SizedBox(height: 8),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _AvailabilityPill(
+                                      availability: availability,
+                                      fixerCount: availabilityCount,
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        liked
+                                            ? Icons.favorite
+                                            : Icons.favorite_border,
+                                        color: liked
+                                            ? colors.danger
+                                            : colors.textMuted,
+                                      ),
+                                      onPressed: () async {
+                                        final allowed = await ensureAuthenticated(
+                                          context,
+                                          title: 'Sign in to save favorites',
+                                          message:
+                                              'You can browse every service as a guest. Sign in to keep a personal favorites list.',
+                                          actionLabel: 'Save favorites',
+                                        );
+                                        if (!allowed || !mounted) return;
+
+                                        final previous = Set<String>.from(_fav);
+                                        final optimistic = Set<String>.from(_fav);
+                                        if (optimistic.contains(id)) {
+                                          optimistic.remove(id);
+                                        } else {
+                                          optimistic.add(id);
+                                        }
+                                        setState(() => _fav = optimistic);
+
+                                        try {
+                                          await _favoritesRepository.toggle(id);
+                                          if (!mounted) return;
+                                          setState(
+                                            () => _fav = _favoritesRepository.ids,
+                                          );
+                                        } catch (_) {
+                                          if (!mounted) return;
+                                          setState(() => _fav = previous);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Could not update favorites right now.',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
   }
 }
 
 class _AvailabilityPill extends StatelessWidget {
+  const _AvailabilityPill({
+    required this.availability,
+    this.fixerCount,
+  });
+
   final ServiceAvailability availability;
-  const _AvailabilityPill({required this.availability});
+  final int? fixerCount;
 
   @override
   Widget build(BuildContext context) {
+    if (availability == ServiceAvailability.unknown) {
+      return const SizedBox.shrink();
+    }
+
     final colors = Theme.of(context).fx;
-    Color bg;
-    Color text;
-    String label;
+    late final Color bg;
+    late final Color text;
+    late final String label;
+    late final IconData icon;
 
     switch (availability) {
       case ServiceAvailability.available:
         bg = colors.successContainer;
         text = colors.success;
-        label = 'Fixers available';
+        label = 'Available';
+        icon = Icons.check_circle_rounded;
         break;
       case ServiceAvailability.unavailable:
         bg = colors.warningContainer;
         text = colors.warning;
-        label = 'No fixers yet';
+        label = 'No fixers';
+        icon = Icons.warning_amber_rounded;
         break;
       case ServiceAvailability.unknown:
-      default:
-        bg = colors.surfaceSubtle;
-        text = colors.textMuted;
-        label = 'Checking...';
+        return const SizedBox.shrink();
     }
 
     return Container(
@@ -968,21 +915,29 @@ class _AvailabilityPill extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        label,
-        style: GoogleFonts.urbanist(
-          color: text,
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: text),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.urbanist(
+              color: text,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _FilterButton extends StatelessWidget {
-  final VoidCallback onTap;
   const _FilterButton({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1009,13 +964,110 @@ class _FilterButton extends StatelessWidget {
   }
 }
 
+class _OfflineServicesState extends StatelessWidget {
+  const _OfflineServicesState();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        const SizedBox(height: 160),
+        Center(
+          child: Column(
+            children: [
+              const Icon(
+                Icons.wifi_off_rounded,
+                size: 56,
+                color: Color(0xFFC6CBD1),
+              ),
+              const SizedBox(height: 18),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'You are offline. Services will refresh automatically once your connection is back.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.urbanist(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FailureServicesState extends StatelessWidget {
+  const _FailureServicesState({
+    required this.detail,
+    required this.onRetry,
+  });
+
+  final String? detail;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        const SizedBox(height: 140),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 56,
+                  color: Color(0xFFC6CBD1),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'We could not load services right now.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.urbanist(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+                if (detail != null && detail!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    detail!,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.urbanist(
+                      color: Theme.of(context).fx.textSecondary,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                ElevatedButton.icon(
+                  onPressed: () => onRetry(),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Try again'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _EmptyServicesState extends StatelessWidget {
-  final String searchQuery;
-  final String? categoryLabel;
   const _EmptyServicesState({
     required this.searchQuery,
     required this.categoryLabel,
   });
+
+  final String searchQuery;
+  final String? categoryLabel;
 
   @override
   Widget build(BuildContext context) {

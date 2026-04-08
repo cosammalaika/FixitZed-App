@@ -6,6 +6,7 @@ import 'package:fixitzed_app/services/notification_service.dart';
 import 'package:fixitzed_app/services/service_request_service.dart';
 import 'package:fixitzed_app/services/payment_service.dart';
 import 'package:fixitzed_app/services/preload_service.dart';
+import 'package:fixitzed_app/services/chooser_availability_service.dart';
 import 'package:fixitzed_app/repositories/bookings_repository.dart';
 import 'package:fixitzed_app/repositories/categories_repository.dart';
 import 'package:fixitzed_app/repositories/favorites_repository.dart';
@@ -41,6 +42,9 @@ final servicesRepositoryProvider = Provider<ServicesRepository>(
 );
 final servicesControllerProvider = ChangeNotifierProvider<ServicesController>(
   (ref) => ServicesController(ref.read(servicesRepositoryProvider)),
+);
+final fixerAvailabilityResolverProvider = Provider<FixerAvailabilityResolver>(
+  (ref) => FixerAvailabilityResolver(homeService: ref.read(homeServiceProvider)),
 );
 final favoritesRepositoryProvider = ChangeNotifierProvider<FavoritesRepository>(
   (ref) {

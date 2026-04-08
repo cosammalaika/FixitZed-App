@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:fixitzed_app/core/app_theme.dart';
 import 'package:fixitzed_app/services/app_analytics.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -75,12 +74,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.fx;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: AppTheme.systemOverlayStyle(context),
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
       child: Scaffold(
-        backgroundColor: colors.page,
+        backgroundColor: Colors.grey.shade900,
         body: PageView.builder(
           controller: _controller,
           itemCount: onboardingData.length,
@@ -95,42 +96,57 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 // Top image + fade + logo
                 Stack(
                   children: [
-                    ShaderMask(
-                      shaderCallback: (Rect bounds) {
-                        return LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [Colors.transparent, colors.page],
-                          stops: const [0.1, 0.9],
-                        ).createShader(bounds);
+                    Builder(
+                      builder: (context) {
+                        final mq = MediaQuery.of(context);
+                        final targetWidthPx =
+                            (mq.size.width * mq.devicePixelRatio).round();
+                        return Image(
+                          image: ResizeImage(
+                            AssetImage(item['image']!),
+                            width: targetWidthPx,
+                          ),
+                          height: mq.size.height * 0.55,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          filterQuality: FilterQuality.low,
+                          gaplessPlayback: true,
+                        );
                       },
-                      blendMode: BlendMode.dstIn,
-                      child: Builder(
-                        builder: (context) {
-                          final mq = MediaQuery.of(context);
-                          final targetWidthPx =
-                              (mq.size.width * mq.devicePixelRatio).round();
-                          return Image(
-                            image: ResizeImage(
-                              AssetImage(item['image']!),
-                              width: targetWidthPx,
-                            ),
-                            height: mq.size.height * 0.55,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            filterQuality: FilterQuality.low,
-                            gaplessPlayback: true,
-                          );
-                        },
+                    ),
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.black.withValues(alpha: 0.6),
+                              Colors.black.withValues(alpha: 0.3),
+                              Colors.transparent,
+                            ],
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                          ),
+                        ),
                       ),
                     ),
                     Positioned(
                       top: 20, // move down from status bar
                       right: 20,
-                      child: Image.asset(
-                        'assets/images/logo.png', // ✅ your logo here
-                        height: 180,
-                        fit: BoxFit.contain,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              blurRadius: 24,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          height: 180,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                   ],
@@ -149,10 +165,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             Text(
                               item['title']!,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 26,
                                 fontWeight: FontWeight.bold,
-                                color: colors.textPrimary,
+                                color: Colors.white,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black54,
+                                    blurRadius: 18,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 14),
@@ -161,7 +184,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 16,
-                                color: colors.textSecondary,
+                                color: Colors.white.withValues(alpha: 0.82),
+                                height: 1.45,
                               ),
                             ),
                           ],
@@ -185,8 +209,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   height: 8,
                                   decoration: BoxDecoration(
                                     color: currentPage == dotIndex
-                                        ? colors.brand
-                                        : colors.border,
+                                        ? Colors.deepOrange.shade400
+                                        : Colors.white.withValues(alpha: 0.24),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                 ),
@@ -198,7 +222,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               child: ElevatedButton(
                                 onPressed: nextPage,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: colors.brand,
+                                  backgroundColor: Colors.deepOrange.shade400,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 14,
