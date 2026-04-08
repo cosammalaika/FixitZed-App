@@ -26,20 +26,52 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
   FavoritesRepository? _favoritesRepository;
   ServicesRepository? _servicesRepository;
   late final VoidCallback _favListener;
+  Future<void>? _loadFuture;
 
   @override
   void initState() {
     super.initState();
-    _favListener = () => _load();
+    _favoritesRepository = ref.read(favoritesRepositoryProvider);
+    _servicesRepository = ref.read(servicesRepositoryProvider);
+    _favListener = () {
+      unawaited(_load(silent: true));
+    };
+    _favoritesRepository?.addListener(_favListener);
+    unawaited(_load());
   }
 
-  Future<void> _load() async {
-    _favoritesRepository ??= ref.read(favoritesRepositoryProvider);
-    _servicesRepository ??= ref.read(servicesRepositoryProvider);
+  Future<void> _load({bool silent = false, bool forceRefresh = false}) async {
+    final existing = _loadFuture;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+
+    final future = _performLoad(silent: silent, forceRefresh: forceRefresh);
+    _loadFuture = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_loadFuture, future)) {
+        _loadFuture = null;
+      }
+    }
+  }
+
+  Future<void> _performLoad({
+    required bool silent,
+    required bool forceRefresh,
+  }) async {
     final favRepo = _favoritesRepository!;
     final servicesRepo = _servicesRepository!;
-    if (mounted) setState(() => _loading = true);
-    final favList = await favRepo.getFavoriteServices(servicesRepo);
+    final shouldShowLoader = !silent && _favoriteServices.isEmpty;
+    if (shouldShowLoader && mounted) {
+      setState(() => _loading = true);
+    }
+    final favList = await favRepo.getFavoriteServices(
+      servicesRepo,
+      forceRefresh: forceRefresh,
+    );
     final favIds = await favRepo.getFavoriteIds();
     if (!mounted) return;
     setState(() {
@@ -47,15 +79,6 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
       _favoriteServices = favList;
       _loading = false;
     });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _favoritesRepository ??= ref.read(favoritesRepositoryProvider);
-    _favoritesRepository?.removeListener(_favListener);
-    _favoritesRepository?.addListener(_favListener);
-    unawaited(_load());
   }
 
   @override
@@ -102,7 +125,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
           : (_favoriteServices.isEmpty
                 ? _emptyState(context)
                 : RefreshIndicator(
-                    onRefresh: _load,
+                    onRefresh: () => _load(forceRefresh: true),
                     child: ListView.builder(
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -197,7 +220,6 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                                                 favoritesRepositoryProvider,
                                               );
                                               await repo.toggle(id);
-                                              await _load();
                                             },
                                           ),
                                         ],

@@ -60,16 +60,66 @@ class ProfileState {
 
 class ProfileController extends AsyncNotifier<ProfileState> {
   bool _syncRegistered = false;
+  Future<void>? _refreshInFlight;
+  DateTime? _lastRefreshAt;
+  static const Duration _minRefreshGap = Duration(seconds: 10);
 
   @override
   FutureOr<ProfileState> build() {
     _registerSync();
-    return _fetch();
+    final cached = _cachedState();
+    if (cached != null) {
+      unawaited(_refresh(force: false));
+      return cached;
+    }
+    return _fetch(forceRefresh: false);
   }
 
   Future<void> refresh() async {
-    state = const AsyncValue<ProfileState>.loading().copyWithPrevious(state);
-    state = await AsyncValue.guard(() => _fetch(forceRefresh: true));
+    await _refresh(force: true);
+  }
+
+  Future<void> _refresh({required bool force}) async {
+    final existing = _refreshInFlight;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+
+    if (!force &&
+        _lastRefreshAt != null &&
+        DateTime.now().difference(_lastRefreshAt!) < _minRefreshGap) {
+      return;
+    }
+
+    final future = _runRefresh(force: force);
+    _refreshInFlight = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_refreshInFlight, future)) {
+        _refreshInFlight = null;
+      }
+    }
+  }
+
+  Future<void> _runRefresh({required bool force}) async {
+    final previous = state.asData?.value ?? _cachedState();
+    if (previous == null) {
+      state = const AsyncValue<ProfileState>.loading();
+    }
+
+    try {
+      final next = await _fetch(forceRefresh: force);
+      _lastRefreshAt = DateTime.now();
+      state = AsyncValue<ProfileState>.data(next);
+    } catch (error, stackTrace) {
+      if (previous != null) {
+        state = AsyncValue<ProfileState>.data(previous);
+        return;
+      }
+      state = AsyncValue<ProfileState>.error(error, stackTrace);
+    }
   }
 
   Future<ProfileState> _fetch({bool forceRefresh = false}) async {
@@ -87,14 +137,44 @@ class ProfileController extends AsyncNotifier<ProfileState> {
       rawProfilePhotoUrl: _normalizeNullableString(
         raw['profile_photo_url'] ?? raw['profilePhotoUrl'],
       ),
-      rawAvatarUrl: _normalizeNullableString(raw['avatar_url'] ?? raw['avatarUrl']),
-      avatarVersionToken: _normalizeNullableString(_resolveAvatarVersionToken(raw)),
+      rawAvatarUrl: _normalizeNullableString(
+        raw['avatar_url'] ?? raw['avatarUrl'],
+      ),
+      avatarVersionToken: _normalizeNullableString(
+        _resolveAvatarVersionToken(raw),
+      ),
       isFixer: _resolveIsFixer(raw),
       location: _resolveLocation(raw),
       phone: _resolvePhone(raw),
     );
     _logAvatarDebugFields(state);
     return state;
+  }
+
+  ProfileState? _cachedState() {
+    final cached = ref.read(profileRepositoryProvider).cached;
+    if (cached == null) return null;
+    final raw = _extractUserMap(cached);
+    return ProfileState(
+      name: _resolveName(raw),
+      email: (raw['email'] ?? '').toString(),
+      avatarUrl: _resolveAvatar(raw),
+      rawProfilePhotoPath: _normalizeNullableString(
+        raw['profile_photo_path'] ?? raw['profilePhotoPath'],
+      ),
+      rawProfilePhotoUrl: _normalizeNullableString(
+        raw['profile_photo_url'] ?? raw['profilePhotoUrl'],
+      ),
+      rawAvatarUrl: _normalizeNullableString(
+        raw['avatar_url'] ?? raw['avatarUrl'],
+      ),
+      avatarVersionToken: _normalizeNullableString(
+        _resolveAvatarVersionToken(raw),
+      ),
+      isFixer: _resolveIsFixer(raw),
+      location: _resolveLocation(raw),
+      phone: _resolvePhone(raw),
+    );
   }
 
   Map<String, dynamic> _extractUserMap(Map<String, dynamic>? me) {
@@ -121,15 +201,15 @@ class ProfileController extends AsyncNotifier<ProfileState> {
   }
 
   String _resolveLocation(Map<String, dynamic> raw) {
-    final address =
-        (raw['address'] ?? raw['location'] ?? '').toString().trim();
+    final address = (raw['address'] ?? raw['location'] ?? '').toString().trim();
     if (address.isNotEmpty) return address;
 
     final province = (raw['province'] ?? raw['province_name'] ?? '')
         .toString()
         .trim();
-    final district =
-        (raw['district'] ?? raw['district_name'] ?? '').toString().trim();
+    final district = (raw['district'] ?? raw['district_name'] ?? '')
+        .toString()
+        .trim();
     final parts = [province, district].where((s) => s.isNotEmpty).toList();
     return parts.isEmpty ? '' : parts.join(', ');
   }
@@ -246,6 +326,6 @@ class ProfileController extends AsyncNotifier<ProfileState> {
 }
 
 final profileControllerProvider =
-    AsyncNotifierProvider.autoDispose<ProfileController, ProfileState>(
+    AsyncNotifierProvider<ProfileController, ProfileState>(
       ProfileController.new,
     );

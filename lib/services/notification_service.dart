@@ -12,10 +12,18 @@ import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class NotificationFetchResult {
+  const NotificationFetchResult({required this.items, required this.success});
+
+  final List<Map<String, dynamic>> items;
+  final bool success;
+}
+
 class NotificationService {
   NotificationService({AppSync? sync}) : _sync = sync ?? AppSync.instance;
 
   final AppSync _sync;
+  static const Duration _requestTimeout = Duration(seconds: 12);
 
   Map<String, String> _headers(String token) => {
     'Accept': 'application/json',
@@ -30,13 +38,22 @@ class NotificationService {
   }
 
   Future<List<Map<String, dynamic>>> fetch({int page = 1}) async {
+    final result = await fetchResult(page: page);
+    return result.items;
+  }
+
+  Future<NotificationFetchResult> fetchResult({int page = 1}) async {
     try {
       final token = await _token();
-      if (token == null || token.isEmpty) return [];
-      final res = await http.get(
-        _uri('notifications?page=$page'),
-        headers: _headers(token),
-      );
+      if (token == null || token.isEmpty) {
+        return const NotificationFetchResult(
+          items: <Map<String, dynamic>>[],
+          success: true,
+        );
+      }
+      final res = await http
+          .get(_uri('notifications?page=$page'), headers: _headers(token))
+          .timeout(_requestTimeout);
       await SessionGuard.evaluate(res);
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
@@ -67,10 +84,13 @@ class NotificationService {
         if (page == 1 && list.isNotEmpty) {
           unawaited(_pushLocalAlerts(list));
         }
-        return list;
+        return NotificationFetchResult(items: list, success: true);
       }
     } catch (_) {}
-    return [];
+    return const NotificationFetchResult(
+      items: <Map<String, dynamic>>[],
+      success: false,
+    );
   }
 
   Future<bool> markRead(int id) async {

@@ -53,10 +53,13 @@ class FavoritesRepository extends ChangeNotifier {
     bool forceRefresh = false,
   }) async {
     await _ensureLoaded();
+    final favIds = _ids;
+    if (favIds.isEmpty) {
+      return const <Map<String, dynamic>>[];
+    }
     final services = await servicesRepository.getServices(
       forceRefresh: forceRefresh,
     );
-    final favIds = _ids;
     final result = <Map<String, dynamic>>[];
     for (var i = 0; i < services.length; i++) {
       final s = services[i];

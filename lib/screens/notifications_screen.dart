@@ -1,32 +1,43 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fixitzed_app/screens/widgets/notification_details_sheet.dart';
 import 'package:fixitzed_app/services/notification_service.dart';
 import 'package:fixitzed_app/core/date_utils.dart';
 import 'package:fixitzed_app/core/app_theme.dart';
+import 'package:fixitzed_app/state/service_providers.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
 
-class NotificationsScreen extends StatefulWidget {
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
-  final _svc = NotificationService();
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  late final NotificationService _svc;
   bool _loading = true;
+  bool _hardFailure = false;
   List<Map<String, dynamic>> _items = const [];
   StreamSubscription<AppSyncEvent>? _syncSub;
   final Set<int> _deleting = <int>{};
   final Set<String> _pendingRemovalKeys = <String>{};
+  Future<void>? _loadFuture;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _svc = ref.read(notificationServiceProvider);
+    final cached = ref.read(notificationsRepositoryProvider).cached;
+    if (cached != null) {
+      _items = cached;
+      _loading = false;
+    }
+    unawaited(_load());
     _syncSub = AppSync.instance
         .on(AppSyncTopic.notifications)
         .listen((_) => _load(silent: true));
@@ -38,17 +49,41 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     super.dispose();
   }
 
-  Future<void> _load({bool silent = false}) async {
-    if (!silent) {
+  Future<void> _load({bool silent = false, bool forceRefresh = false}) async {
+    final existing = _loadFuture;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+
+    final future = _performLoad(silent: silent, forceRefresh: forceRefresh);
+    _loadFuture = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_loadFuture, future)) {
+        _loadFuture = null;
+      }
+    }
+  }
+
+  Future<void> _performLoad({
+    required bool silent,
+    required bool forceRefresh,
+  }) async {
+    final shouldShowLoader = !silent && _items.isEmpty;
+    if (shouldShowLoader && mounted) {
       setState(() => _loading = true);
     }
-    final list = await _svc.fetch();
+    final result = await ref
+        .read(notificationsRepositoryProvider)
+        .loadNotifications(forceRefresh: forceRefresh);
     if (!mounted) return;
     setState(() {
-      _items = list;
-      if (!silent) {
-        _loading = false;
-      }
+      _items = result.items;
+      _hardFailure =
+          !result.success && !result.usedCacheFallback && result.items.isEmpty;
+      _loading = false;
     });
   }
 
@@ -374,8 +409,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
+          : _hardFailure
+          ? RefreshIndicator(
+              onRefresh: () => _load(forceRefresh: true),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 120, 24, 24),
+                children: [
+                  Icon(
+                    Icons.wifi_off_rounded,
+                    size: 64,
+                    color: colors.textMuted,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Couldn\'t load notifications',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.urbanist(
+                      fontWeight: FontWeight.w700,
+                      color: colors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Pull down to try again once your connection is stable.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.urbanist(color: colors.textSecondary),
+                  ),
+                ],
+              ),
+            )
           : RefreshIndicator(
-              onRefresh: _load,
+              onRefresh: () => _load(forceRefresh: true),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
@@ -397,7 +462,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               : () async {
                                   final ok = await _svc.markAllRead();
                                   if (ok) {
-                                    await _load();
+                                    await _load(
+                                      silent: true,
+                                      forceRefresh: true,
+                                    );
                                   }
                                 },
                           child: Text(

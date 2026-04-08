@@ -29,10 +29,11 @@ class _SessionRedirectorState extends State<SessionRedirector> {
 
   void _handleEvent(AppSyncEvent event) {
     final payload = event.payload;
-    if (payload is Map) {
-      final reason = payload['reason']?.toString() ?? '';
-      if (reason == 'manual') return;
-    }
+    if (payload is! Map) return;
+
+    final action = payload['action']?.toString().trim().toLowerCase();
+    final reason = payload['reason']?.toString().trim().toLowerCase() ?? '';
+    if (action != 'logout' || reason == 'manual') return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

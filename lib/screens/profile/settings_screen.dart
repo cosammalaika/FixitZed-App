@@ -40,21 +40,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    var pushPref = prefs.getBool(_kPush) ?? true;
-    var emailPref = prefs.getBool(_kEmail) ?? true;
-    final remote = await _notificationService.fetch();
-    if (remote.isNotEmpty) {
-      pushPref = remote['push'] ?? pushPref;
-      emailPref = remote['email'] ?? emailPref;
-      await prefs.setBool(_kPush, pushPref);
-      await prefs.setBool(_kEmail, emailPref);
-    }
+    final pushPref = prefs.getBool(_kPush) ?? true;
+    final emailPref = prefs.getBool(_kEmail) ?? true;
+    final darkPref = prefs.getBool(_kDark) ?? false;
+    final languagePref = prefs.getString(_kLanguage) ?? 'English';
+    if (!mounted) return;
     setState(() {
       pushOn = pushPref;
       emailOn = emailPref;
-      darkOn = prefs.getBool(_kDark) ?? false;
-      language = prefs.getString(_kLanguage) ?? 'English';
+      darkOn = darkPref;
+      language = languagePref;
       _loading = false;
+    });
+
+    final remote = await _notificationService.fetch();
+    if (!mounted || remote.isEmpty) return;
+
+    final resolvedPush = pushOn == pushPref
+        ? (remote['push'] ?? pushOn)
+        : pushOn;
+    final resolvedEmail = emailOn == emailPref
+        ? (remote['email'] ?? emailOn)
+        : emailOn;
+    await prefs.setBool(_kPush, resolvedPush);
+    await prefs.setBool(_kEmail, resolvedEmail);
+    if (!mounted) return;
+    setState(() {
+      pushOn = resolvedPush;
+      emailOn = resolvedEmail;
     });
   }
 
@@ -349,7 +362,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: resolvedIconColor.withOpacity(0.12),
+                color: resolvedIconColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: resolvedIconColor),
@@ -464,7 +477,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             width: 70,
                             height: 70,
                             decoration: BoxDecoration(
-                              color: destructive.withOpacity(0.12),
+                              color: destructive.withValues(alpha: 0.12),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -499,10 +512,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: destructive.withOpacity(0.08),
+                            color: destructive.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: destructive.withOpacity(0.18),
+                              color: destructive.withValues(alpha: 0.18),
                             ),
                           ),
                           child: Row(
@@ -567,8 +580,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: destructive,
                               foregroundColor: Colors.white,
-                              disabledBackgroundColor: destructive.withOpacity(
-                                0.28,
+                              disabledBackgroundColor: destructive.withValues(
+                                alpha: 0.28,
                               ),
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -611,7 +624,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final gradient = LinearGradient(
       colors: isDark
-          ? [brand.withOpacity(0.95), accent.withOpacity(0.85)]
+          ? [brand.withValues(alpha: 0.95), accent.withValues(alpha: 0.85)]
           : const [brand, accent],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -638,7 +651,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.22),
+              color: Colors.white.withValues(alpha: 0.22),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.settings_rounded, color: Colors.white),
@@ -660,7 +673,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Text(
                   'Control notifications, theme and language.',
                   style: GoogleFonts.urbanist(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                 ),
               ],

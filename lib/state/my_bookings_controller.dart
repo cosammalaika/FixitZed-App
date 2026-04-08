@@ -17,50 +17,84 @@ class MyBookingsState {
 
 class MyBookingsController extends AsyncNotifier<MyBookingsState> {
   bool _syncRegistered = false;
+  Future<void>? _refreshInFlight;
+  DateTime? _lastRefreshAt;
+  static const Duration _minRefreshGap = Duration(seconds: 10);
 
   @override
   FutureOr<MyBookingsState> build() {
     _registerSync();
     final cached = _initialFromCache();
-    unawaited(_refresh(fromCache: cached));
+    if (cached.requests.isEmpty) {
+      return _fetch(forceRefresh: false);
+    }
+    unawaited(_refresh());
     return cached;
   }
 
   Future<void> refresh() async {
-    state = const AsyncValue<MyBookingsState>.loading().copyWithPrevious(state);
-    state = await AsyncValue.guard(_fetch);
+    await _refresh(force: true);
   }
 
-  Future<void> _refresh({MyBookingsState? fromCache}) async {
-    if (fromCache != null) {
-      state = AsyncValue<MyBookingsState>.data(fromCache)
-          .copyWithPrevious(state);
+  Future<void> _refresh({bool force = false}) async {
+    final existing = _refreshInFlight;
+    if (existing != null) {
+      await existing;
+      return;
     }
-    state = await AsyncValue.guard(_fetch);
+
+    if (!force &&
+        _lastRefreshAt != null &&
+        DateTime.now().difference(_lastRefreshAt!) < _minRefreshGap) {
+      return;
+    }
+
+    final future = _runRefresh(force: force);
+    _refreshInFlight = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_refreshInFlight, future)) {
+        _refreshInFlight = null;
+      }
+    }
   }
 
-  Future<MyBookingsState> _fetch() async {
+  Future<void> _runRefresh({required bool force}) async {
+    final previous = state.asData?.value ?? _initialFromCache();
+    if (previous.requests.isEmpty) {
+      state = const AsyncValue<MyBookingsState>.loading();
+    }
+
+    try {
+      final next = await _fetch(forceRefresh: force);
+      _lastRefreshAt = DateTime.now();
+      state = AsyncValue<MyBookingsState>.data(next);
+    } catch (error, stackTrace) {
+      if (previous.requests.isNotEmpty) {
+        state = AsyncValue<MyBookingsState>.data(previous);
+        return;
+      }
+      state = AsyncValue<MyBookingsState>.error(error, stackTrace);
+    }
+  }
+
+  Future<MyBookingsState> _fetch({bool forceRefresh = true}) async {
     final bookingsRepo = ref.read(bookingsRepositoryProvider);
 
-    final requests = await bookingsRepo.getRequests(forceRefresh: true);
+    final requests = await bookingsRepo.getRequests(forceRefresh: forceRefresh);
     final normalizedRequests = requests
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
 
-    final payments = <int, Map<String, dynamic>>{};
-    for (final r in normalizedRequests) {
-      final id = (r['id'] as num?)?.toInt();
-      if (id == null) continue;
-      try {
-        final payment = await bookingsRepo.getPayment(id);
-        if (payment != null) {
-          payments[id] = Map<String, dynamic>.from(payment);
-        }
-      } catch (_) {
-        // ignore failures for individual payments
-      }
-    }
+    final ids = normalizedRequests
+        .map((request) => (request['id'] as num?)?.toInt())
+        .whereType<int>();
+    final payments = await bookingsRepo.getPaymentsForRequests(
+      ids,
+      forceRefresh: forceRefresh,
+    );
 
     return MyBookingsState(requests: normalizedRequests, payments: payments);
   }
@@ -84,6 +118,6 @@ class MyBookingsController extends AsyncNotifier<MyBookingsState> {
 }
 
 final myBookingsControllerProvider =
-    AsyncNotifierProvider.autoDispose<MyBookingsController, MyBookingsState>(
+    AsyncNotifierProvider<MyBookingsController, MyBookingsState>(
       MyBookingsController.new,
     );

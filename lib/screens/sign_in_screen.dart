@@ -54,6 +54,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _loadRememberedIdentifier() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     final remembered =
         prefs.getString('remember_identifier') ??
         prefs.getString('remember_email');
