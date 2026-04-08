@@ -81,85 +81,64 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: Colors.grey.shade900,
+        backgroundColor: const Color(0xFF212121),
         body: PageView.builder(
           controller: _controller,
           itemCount: onboardingData.length,
-          onPageChanged: (index) {
-            setState(() => currentPage = index);
-          },
+          onPageChanged: (index) => setState(() => currentPage = index),
           itemBuilder: (context, index) {
             final item = onboardingData[index];
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top image + fade + logo
                 Stack(
                   children: [
-                    Builder(
-                      builder: (context) {
-                        final mq = MediaQuery.of(context);
-                        final targetWidthPx =
-                            (mq.size.width * mq.devicePixelRatio).round();
-                        return Image(
-                          image: ResizeImage(
-                            AssetImage(item['image']!),
-                            width: targetWidthPx,
-                          ),
-                          height: mq.size.height * 0.55,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          filterQuality: FilterQuality.low,
-                          gaplessPlayback: true,
-                        );
+                    ShaderMask(
+                      shaderCallback: (Rect bounds) {
+                        return const LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [Colors.transparent, Color(0xFF212121)],
+                          stops: [0.1, 0.9],
+                        ).createShader(bounds);
                       },
-                    ),
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.black.withValues(alpha: 0.6),
-                              Colors.black.withValues(alpha: 0.3),
-                              Colors.transparent,
-                            ],
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                          ),
-                        ),
+                      blendMode: BlendMode.dstIn,
+                      child: Builder(
+                        builder: (context) {
+                          final mq = MediaQuery.of(context);
+                          final targetWidthPx =
+                              (mq.size.width * mq.devicePixelRatio).round();
+                          return Image(
+                            image: ResizeImage(
+                              AssetImage(item['image']!),
+                              width: targetWidthPx,
+                            ),
+                            height: mq.size.height * 0.55,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.low,
+                            gaplessPlayback: true,
+                          );
+                        },
                       ),
                     ),
                     Positioned(
-                      top: 20, // move down from status bar
+                      top: 80,
                       right: 20,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.35),
-                              blurRadius: 24,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          height: 180,
-                          fit: BoxFit.contain,
-                        ),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        height: 50,
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ],
                 ),
-
-                // Text + Controls
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       children: [
                         const Spacer(flex: 1),
-
                         Column(
                           children: [
                             Text(
@@ -169,31 +148,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 fontSize: 26,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black54,
-                                    blurRadius: 18,
-                                    offset: Offset(0, 4),
-                                  ),
-                                ],
                               ),
                             ),
                             const SizedBox(height: 14),
                             Text(
                               item['body']!,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 16,
-                                color: Colors.white.withValues(alpha: 0.82),
-                                height: 1.45,
+                                color: Colors.white,
                               ),
                             ),
                           ],
                         ),
-
                         const Spacer(flex: 2),
-
-                        // Dots + Button
                         Column(
                           children: [
                             Row(
@@ -209,8 +177,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   height: 8,
                                   decoration: BoxDecoration(
                                     color: currentPage == dotIndex
-                                        ? Colors.deepOrange.shade400
-                                        : Colors.white.withValues(alpha: 0.24),
+                                        ? const Color(0xFFF1592A)
+                                        : const Color(0xFFDEDEDE),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                 ),
@@ -222,7 +190,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               child: ElevatedButton(
                                 onPressed: nextPage,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.deepOrange.shade400,
+                                  backgroundColor: const Color(0xFFF1592A),
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 14,
