@@ -25,7 +25,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   List<Map<String, dynamic>> _items = const [];
   StreamSubscription<AppSyncEvent>? _syncSub;
   final Set<int> _deleting = <int>{};
-  final Set<String> _pendingRemovalKeys = <String>{};
   Future<void>? _loadFuture;
 
   @override
@@ -104,7 +103,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return identical(a, b);
   }
 
-  Widget _dismissBackground({required bool leading}) {
+  Widget _dismissBackground({required bool leading, required bool loading}) {
     final colors = Theme.of(context).fx;
     return Align(
       alignment: leading ? Alignment.centerLeft : Alignment.centerRight,
@@ -123,44 +122,57 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             ),
           ],
         ),
-        child: const Center(
-          child: Icon(
-            Icons.delete_outline_rounded,
-            color: Colors.white,
-            size: 30,
-          ),
+        child: Center(
+          child: loading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.white,
+                  size: 30,
+                ),
         ),
       ),
     );
   }
 
-  Future<bool> _confirmDelete(
-    Map<String, dynamic> notification,
-    String key,
-  ) async {
+  Future<bool> _confirmDelete(Map<String, dynamic> notification) async {
     final id = _notificationId(notification);
     if (id == null) {
-      _pendingRemovalKeys.add(key);
-      _removeNotification(notification, synced: false);
-      return true;
+      _showDeleteMessage(
+        'This notification cannot be deleted right now.',
+        success: false,
+      );
+      return false;
+    }
+    if (!_canDeleteNotification(notification)) {
+      _showDeleteMessage(
+        'Only personal notifications can be deleted from the server.',
+        success: false,
+      );
+      return false;
     }
     if (_deleting.contains(id)) return false;
     setState(() => _deleting.add(id));
-    final ok = await _svc.delete(id);
+    final result = await ref
+        .read(notificationsRepositoryProvider)
+        .deleteNotification(id);
     if (!mounted) return false;
     setState(() => _deleting.remove(id));
-    if (!ok) {
-      _pendingRemovalKeys.add(key);
-      _removeNotification(notification, synced: false);
-      return true;
+    if (!result.success) {
+      _showDeleteMessage(result.userMessage, success: false);
+      return false;
     }
     return true;
   }
 
-  void _removeNotification(
-    Map<String, dynamic> notification, {
-    bool synced = true,
-  }) {
+  void _removeNotification(Map<String, dynamic> notification) {
     if (!mounted) return;
     setState(() {
       _items = _items
@@ -170,37 +182,66 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          synced
-              ? 'Notification removed'
-              : 'Notification hidden locally. Could not sync with server.',
+          'Notification deleted',
           style: GoogleFonts.urbanist(color: Colors.white),
         ),
-        backgroundColor: synced
-            ? Theme.of(context).fx.success
-            : Theme.of(context).fx.warning,
+        backgroundColor: Theme.of(context).fx.success,
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  Widget _dismissibleTile(Map<String, dynamic> notification) {
-    final id = _notificationId(notification);
-    final key = id != null ? 'notif_$id' : 'notif_${notification.hashCode}';
-    return Dismissible(
-      key: ValueKey<String>(key),
-      direction: DismissDirection.endToStart,
-      background: _dismissBackground(leading: true),
-      secondaryBackground: _dismissBackground(leading: false),
-      confirmDismiss: (_) => _confirmDelete(notification, key),
-      onDismissed: (_) {
-        if (_pendingRemovalKeys.remove(key)) return;
-        _removeNotification(notification);
-      },
-      child: _tile(notification),
+  void _showDeleteMessage(String message, {required bool success}) {
+    if (!mounted) return;
+    final colors = Theme.of(context).fx;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.urbanist(color: Colors.white),
+        ),
+        backgroundColor: success ? colors.success : colors.danger,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
-  Widget _tile(Map<String, dynamic> n) {
+  bool _canDeleteNotification(Map<String, dynamic> notification) {
+    final id = _notificationId(notification);
+    if (id == null) return false;
+
+    final recipientType =
+        (notification['recipient_type'] ?? notification['recipientType'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+    return recipientType.isEmpty || recipientType == 'individual';
+  }
+
+  Widget _dismissibleTile(Map<String, dynamic> notification) {
+    final id = _notificationId(notification);
+    final isDeleting = id != null && _deleting.contains(id);
+    final canDelete = _canDeleteNotification(notification);
+    final key = id != null ? 'notif_$id' : 'notif_${notification.hashCode}';
+    return Dismissible(
+      key: ValueKey<String>(key),
+      direction: canDelete && !isDeleting
+          ? DismissDirection.endToStart
+          : DismissDirection.none,
+      background: _dismissBackground(leading: true, loading: isDeleting),
+      secondaryBackground: _dismissBackground(
+        leading: false,
+        loading: isDeleting,
+      ),
+      confirmDismiss: (_) => _confirmDelete(notification),
+      onDismissed: (_) {
+        _removeNotification(notification);
+      },
+      child: _tile(notification, isDeleting: isDeleting),
+    );
+  }
+
+  Widget _tile(Map<String, dynamic> n, {required bool isDeleting}) {
     final details = AppNotification.fromMap(n);
     final timeStr = formatAppTime(details.createdAt);
     final theme = Theme.of(context);
@@ -224,7 +265,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _handleTap(n),
+        onTap: isDeleting ? null : () => _handleTap(n),
         borderRadius: BorderRadius.circular(20),
         splashColor: colors.brand.withValues(alpha: 0.1),
         highlightColor: colors.brand.withValues(alpha: 0.04),
@@ -291,7 +332,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     ],
                   ),
                 ),
-                if (!details.isRead)
+                if (isDeleting)
+                  Container(
+                    width: 18,
+                    height: 18,
+                    margin: const EdgeInsets.only(left: 8, top: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      valueColor: AlwaysStoppedAnimation<Color>(colors.brand),
+                    ),
+                  )
+                else if (!details.isRead)
                   Container(
                     width: 8,
                     height: 8,

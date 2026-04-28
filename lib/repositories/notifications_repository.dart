@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fixitzed_app/services/notification_service.dart';
 import 'package:fixitzed_app/services/token_storage.dart';
+import 'package:fixitzed_app/state/app_sync.dart';
 
 class NotificationsLoadResult {
   const NotificationsLoadResult({
@@ -17,9 +18,11 @@ class NotificationsLoadResult {
 
 /// Cache for notifications page 1.
 class NotificationsRepository {
-  NotificationsRepository(this._api);
+  NotificationsRepository(this._api, {AppSync? sync})
+    : _sync = sync ?? AppSync.instance;
 
   final NotificationService _api;
+  final AppSync _sync;
 
   List<Map<String, dynamic>>? _cache;
   DateTime? _lastFetch;
@@ -118,8 +121,40 @@ class NotificationsRepository {
     );
   }
 
+  Future<NotificationDeleteResult> deleteNotification(int id) async {
+    final result = await _api.deleteNotification(id);
+    if (!result.success) return result;
+
+    final cache = _cache;
+    if (cache != null) {
+      _cache = cache
+          .where((item) => _notificationId(item) != id)
+          .map(Map<String, dynamic>.from)
+          .toList();
+    }
+    _lastFetch = DateTime.now();
+
+    _sync.emit(
+      AppSyncTopic.dashboard,
+      payload: const <String, dynamic>{'source': 'notifications'},
+    );
+
+    return result;
+  }
+
   void clearCache() {
     _cache = null;
     _lastFetch = null;
+  }
+
+  int? _notificationId(Map<String, dynamic> notification) {
+    final raw =
+        notification['id'] ??
+        notification['uuid'] ??
+        notification['notification_id'];
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
   }
 }
