@@ -3,15 +3,11 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
 import 'package:fixitzed_app/services/token_storage.dart';
 
 import 'package:fixitzed_app/core/api.dart';
-import 'package:fixitzed_app/core/date_utils.dart';
-import 'package:fixitzed_app/services/local_notification_service.dart';
 import 'package:fixitzed_app/services/session_guard.dart';
 import 'package:fixitzed_app/state/app_sync.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationFetchResult {
   const NotificationFetchResult({required this.items, required this.success});
@@ -93,9 +89,6 @@ class NotificationService {
                 )
                 .toList();
           }
-        }
-        if (page == 1 && list.isNotEmpty) {
-          unawaited(_pushLocalAlerts(list));
         }
         return NotificationFetchResult(items: list, success: true);
       }
@@ -229,73 +222,6 @@ class NotificationService {
             'Could not delete the notification right now. Please try again shortly.',
       );
     }
-  }
-
-  Future<void> _pushLocalAlerts(
-    List<Map<String, dynamic>> notifications,
-  ) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final seenRaw = prefs.getStringList('local_notif_seen') ?? const [];
-      final seen = seenRaw.toSet();
-      final newIds = <String>[];
-
-      for (final notif in notifications) {
-        final id = _extractId(notif);
-        if (id == null || seen.contains(id)) continue;
-        newIds.add(id);
-
-        final title = _resolveTitle(notif);
-        final body = _resolveBody(notif);
-        final createdAt = parseAppDate(
-          notif['created_at'] ??
-              notif['createdAt'] ??
-              notif['createdAtFormatted'],
-        );
-        final suffix = createdAt != null
-            ? ' • ${DateFormat('d MMM HH:mm').format(createdAt)}'
-            : '';
-
-        await LocalNotificationService.instance.showInstant(
-          id: id.hashCode,
-          title: title,
-          body: body.isNotEmpty ? '$body$suffix' : 'Tap to view details$suffix',
-          payload: 'remote_notification:$id',
-        );
-      }
-
-      if (newIds.isNotEmpty) {
-        seen.addAll(newIds);
-        await prefs.setStringList('local_notif_seen', seen.toList());
-      }
-    } catch (_) {
-      // Swallow errors to avoid breaking UI fetch.
-    }
-  }
-
-  String? _extractId(Map<String, dynamic> notif) {
-    final raw = notif['id'] ?? notif['uuid'] ?? notif['key'];
-    if (raw == null) return null;
-    final value = raw.toString().trim();
-    return value.isEmpty ? null : value;
-  }
-
-  String _resolveTitle(Map<String, dynamic> notif) {
-    final raw =
-        (notif['title'] ??
-                notif['subject'] ??
-                notif['heading'] ??
-                'Notification')
-            .toString()
-            .trim();
-    return raw.isEmpty ? 'Notification' : raw;
-  }
-
-  String _resolveBody(Map<String, dynamic> notif) {
-    final raw = (notif['message'] ?? notif['body'] ?? notif['content'] ?? '')
-        .toString()
-        .trim();
-    return raw;
   }
 
   String _deleteErrorMessage(int statusCode, String responseBody) {
