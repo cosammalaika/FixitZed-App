@@ -224,6 +224,9 @@ class AuthService {
           message: 'Login succeeded but no access token was returned.',
         );
       }
+      if (res.statusCode == 423) {
+        return const AuthResult(success: false, message: 'inactive');
+      }
       return _mapError(res);
     } catch (_) {
       return const AuthResult(

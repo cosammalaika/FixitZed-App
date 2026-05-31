@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fixitzed_app/services/home_service.dart';
 import 'package:fixitzed_app/services/notification_service.dart';
-import 'package:fixitzed_app/services/token_storage.dart';
+import 'package:fixitzed_app/services/session_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fixitzed_app/state/service_providers.dart';
 
@@ -60,16 +60,24 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('onboarding_seen') ?? false;
-    final token = await TokenStorage.instance.getToken();
+    final sessionState = await SessionManager.instance.probeStoredSession();
 
     String route;
     if (!hasSeenOnboarding) {
       route = '/onboarding';
-    } else if (token == null || token.isEmpty) {
+    } else if (sessionState == SessionValidationResult.missingToken) {
       route = '/home';
+    } else if (sessionState == SessionValidationResult.invalidToken) {
+      await SessionManager.instance.ensureForcedLogout(
+        reason: 'sessionExpired',
+      );
+      route = '/auth';
+    } else if (sessionState == SessionValidationResult.accountDisabled) {
+      await SessionManager.instance.ensureForcedLogout(
+        reason: 'accountDisabled',
+      );
+      route = '/account_blocked';
     } else {
-      // Lightweight validation: ensure token still works.
-      await home.fetchMe();
       route = '/home';
     }
 
